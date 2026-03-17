@@ -1,5 +1,6 @@
 "use client"
 
+import Image from 'next/image' // Next.js'in Optimize edilmiş Image bileşeni
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -87,14 +88,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <aside className="hidden lg:flex flex-col w-[300px] fixed h-screen p-5 z-50">
         <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] overflow-hidden">
           
-          <div className="flex h-20 items-center px-8 border-b border-white/40 bg-white/20">
-            <Link className="flex items-center gap-3 font-black tracking-tight" href="/dashboard">
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-2.5 rounded-xl shadow-lg shadow-blue-500/30">
-                <Package2 className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-xl bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600">
-                Buvisan ERP
-              </span>
+          <div className="flex items-center gap-3 p-5 border-b border-gray-100/50">
+            
+            {/* YENİ LOGO YAPISI - Resmi ana sayfaya linklemek için <Link> ile sarmalıyoruz */}
+            <Link href="/dashboard" className="flex items-center gap-3 flex-shrink-0">
+              
+              {/* next/image bileşeni */}
+              <Image 
+                src="/buvisan.png" // Public klasöründeki dosyanın yolu (klasör adını başına yazma)
+                alt="Buvisan ve ZM Logoları" // Resim yüklenemezse veya görme engelli kullanıcılar için açıklama
+                width={180} // Resmin kodda kaplayacağı genişlik (pikseller - layout'a göre ayarlanabilir)
+                height={60} // Resmin kodda kaplayacağı yükseklik (pikseller - layout'a göre ayarlanabilir)
+                priority // Bu resim sayfanın en üstünde olduğu için daha hızlı yüklenmesi için 'priority' veriyoruz
+                className="object-contain" // Resmin en boy oranını koruyarak div'e sığmasını sağlar
+              />
+
             </Link>
           </div>
 
