@@ -81,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       ]
     },
     {
-      title: "SATIŞ TAKİP (BAYİ)",
+      title: "SATIŞ TAKİP",
       items: [
         { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart },
         { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package },
