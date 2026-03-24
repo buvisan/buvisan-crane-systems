@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Trash2, Plus, Save, Loader2, AlertCircle, ShoppingBag, Rocket, ArrowRight } from "lucide-react"
+import { Trash2, Plus, Save, Loader2, AlertCircle, ShoppingBag, CheckCircle2, Search, X, PlusCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 type SaleItem = {
@@ -28,15 +28,50 @@ export function SalesOrderForm() {
     { product_id: "", quantity: 1, unit_price: 0, cost_price: 0 }
   ])
 
+  // 🚀 AKILLI ARAMA STATELERİ
+  const [customerSearch, setCustomerSearch] = useState("")
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
+  const [addingCustomer, setAddingCustomer] = useState(false)
+
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: custData } = await supabase.from("customers").select("*")
-      const { data: prodData } = await supabase.from("products").select("*")
-      if (custData) setCustomers(custData)
-      if (prodData) setProducts(prodData)
-    }
-    fetchData()
+    fetchCustomers()
+    fetchProducts()
   }, [])
+
+  const fetchCustomers = async () => {
+    const { data } = await supabase.from("customers").select("*").order('name', { ascending: true })
+    if (data) setCustomers(data)
+  }
+
+  const fetchProducts = async () => {
+    const { data } = await supabase.from("products").select("*")
+    if (data) setProducts(data)
+  }
+
+  // 🚀 YENİ FİRMA EKLEME FONKSİYONU
+  const handleAddNewCustomer = async () => {
+      if(!customerSearch.trim()) return;
+      setAddingCustomer(true);
+      
+      try {
+          const { data, error } = await supabase
+              .from('customers')
+              .insert([{ name: customerSearch.trim() }])
+              .select()
+              .single()
+
+          if (error) throw error;
+
+          await fetchCustomers();
+          setCustomerId(data.id.toString());
+          setIsCustomerDropdownOpen(false);
+          setCustomerSearch(""); 
+      } catch (error: any) {
+          alert("Firma eklenirken hata oluştu: " + error.message);
+      } finally {
+          setAddingCustomer(false);
+      }
+  }
 
   const addItem = () => setItems([...items, { product_id: "", quantity: 1, unit_price: 0, cost_price: 0 }])
   const removeItem = (index: number) => {
@@ -61,8 +96,7 @@ export function SalesOrderForm() {
   }
 
   const calculateTotal = () => items.reduce((total, item) => total + (item.quantity * item.unit_price), 0)
-  const calculateProfit = () => items.reduce((total, item) => total + ((item.unit_price - item.cost_price) * item.quantity), 0)
-
+  
   const handleSubmit = async () => {
     if (!customerId) { alert("Lütfen müşteri seçiniz!"); return; }
     
@@ -122,6 +156,8 @@ export function SalesOrderForm() {
     }
   }
 
+  const selectedCustomerName = customers.find(c => c.id.toString() === customerId.toString())?.name || ""
+
   return (
     <div className="space-y-8 max-w-[1200px] mx-auto pb-20 font-sans">
         
@@ -130,33 +166,84 @@ export function SalesOrderForm() {
             <div className="absolute top-0 right-0 -mr-10 -mt-10 w-64 h-64 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none"></div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-                <div className="space-y-3">
+                <div className="space-y-3 relative z-20">
                     <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         <ShoppingBag className="h-4 w-4 text-emerald-500" /> Müşteri Seçimi
                     </Label>
-                    <select 
-                        className="w-full h-16 rounded-2xl bg-white border border-slate-200 px-5 text-lg font-black text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
-                        value={customerId}
-                        onChange={(e) => setCustomerId(e.target.value)}
-                    >
-                        <option value="">Firma Seçiniz...</option>
-                        {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    
+                    {/* 🚀 AKILLI MÜŞTERİ SEÇİCİ */}
+                    {customerId ? (
+                        <div className="flex items-center justify-between h-16 rounded-2xl bg-emerald-50 border border-emerald-200 px-5 shadow-sm animate-in fade-in">
+                            <div className="flex items-center gap-3">
+                                <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                                <span className="font-black text-emerald-900 text-lg">{selectedCustomerName}</span>
+                            </div>
+                            <button type="button" onClick={() => { setCustomerId(""); setCustomerSearch(""); }} className="p-2 hover:bg-emerald-200 rounded-full text-emerald-500 transition-colors" title="Firmayı Değiştir">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                            <Input 
+                                placeholder="Listeden ara veya yeni firma adını yazın..." 
+                                value={customerSearch}
+                                onChange={(e) => {
+                                    setCustomerSearch(e.target.value);
+                                    setIsCustomerDropdownOpen(true);
+                                }}
+                                onFocus={() => setIsCustomerDropdownOpen(true)}
+                                onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
+                                className="pl-12 h-16 rounded-2xl bg-white border border-slate-200 focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 pr-5 shadow-sm text-base" 
+                            />
+                            
+                            {isCustomerDropdownOpen && (
+                                <div className="absolute w-full mt-2 bg-white rounded-2xl border border-slate-100 shadow-xl max-h-60 overflow-y-auto p-2 animate-in fade-in slide-in-from-top-2 z-50">
+                                    
+                                    {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
+                                        <button 
+                                            key={c.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setCustomerId(c.id.toString());
+                                                setIsCustomerDropdownOpen(false);
+                                            }}
+                                            className="w-full text-left px-4 py-3 rounded-xl text-base font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                                        >
+                                            {c.name}
+                                        </button>
+                                    ))}
+                                    
+                                    {customerSearch.trim() !== "" && !customers.some(c => c.name.toLowerCase() === customerSearch.trim().toLowerCase()) && (
+                                        <button
+                                            type="button"
+                                            onClick={handleAddNewCustomer}
+                                            disabled={addingCustomer}
+                                            className="w-full mt-1 flex items-center justify-between px-4 py-3 rounded-xl text-sm font-black text-emerald-700 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors"
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                {addingCustomer ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                                                "{customerSearch}" yeni firma olarak kaydet
+                                            </span>
+                                            <span className="text-[10px] uppercase bg-emerald-200 px-2 py-1 rounded-md text-emerald-800">Tek Tıkla Ekle</span>
+                                        </button>
+                                    )}
+
+                                    {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).length === 0 && customerSearch === "" && (
+                                        <div className="px-4 py-3 text-sm font-medium text-slate-400 text-center">
+                                            Mevcut firmaları arayın veya eklemek için adını yazın.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
                 
-                <div className="flex flex-col items-start md:items-end justify-center bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Genel Toplam</span>
-                    <div className="text-4xl font-black text-emerald-600 tracking-tight mt-1">
-                        {calculateTotal().toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
-                    </div>
-                    <div className="text-xs font-bold text-emerald-700/70 mt-2 flex items-center gap-1.5 bg-emerald-100/50 px-3 py-1.5 rounded-lg border border-emerald-200/50">
-                        // O kısmı bul ve şununla değiştir:
-                <div className="flex flex-col items-start md:items-end justify-center bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100">
+                <div className="flex flex-col items-start md:items-end justify-center bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 relative z-10">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Fatura Genel Toplamı</span>
                     <div className="text-4xl font-black text-emerald-600 tracking-tight mt-1">
                         {calculateTotal().toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
-                    </div>
-                </div>
                     </div>
                 </div>
             </div>
@@ -174,7 +261,7 @@ export function SalesOrderForm() {
                 </Button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 relative z-10">
                 {items.map((item, index) => {
                     const product = products.find(p => p.id == item.product_id)
                     const stockStatus = product ? product.current_stock : 0

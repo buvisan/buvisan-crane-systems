@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { 
   UploadCloud, FileCog, Loader2, CheckCircle2, AlertTriangle, 
-  Clock, Factory, FileText, Send, Layers, Hammer 
+  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle 
 } from "lucide-react"
 
 export default function ProjectPanelPage() {
@@ -24,6 +24,11 @@ export default function ProjectPanelPage() {
   const [files, setFiles] = useState<{ [key: string]: File | null }>({ kopru: null, yuruyus: null, kedi: null, direk: null })
   const [uploading, setUploading] = useState(false)
 
+  // 🚀 AKILLI ARAMA STATELERİ
+  const [customerSearch, setCustomerSearch] = useState("")
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
+  const [addingCustomer, setAddingCustomer] = useState(false)
+
   useEffect(() => {
     fetchCustomers()
   }, [])
@@ -35,8 +40,35 @@ export default function ProjectPanelPage() {
   }, [activeTab])
 
   const fetchCustomers = async () => {
-    const { data } = await supabase.from('customers').select('id, name')
+    const { data } = await supabase.from('customers').select('id, name').order('name', { ascending: true })
     if (data) setCustomers(data)
+  }
+
+  // 🚀 YENİ FİRMA EKLEME FONKSİYONU
+  const handleAddNewCustomer = async () => {
+      if(!customerSearch.trim()) return;
+      setAddingCustomer(true);
+      
+      try {
+          // Müşteriler (customers) tablosuna yeni firmayı ekle
+          const { data, error } = await supabase
+              .from('customers')
+              .insert([{ name: customerSearch.trim() }])
+              .select()
+              .single()
+
+          if (error) throw error;
+
+          // Listeyi güncelle ve yeni eklenen firmayı formda seçili hale getir
+          await fetchCustomers();
+          setFormData(prev => ({...prev, customer_id: data.id.toString()}));
+          setIsCustomerDropdownOpen(false);
+          setCustomerSearch(""); // Arama kutusunu temizle
+      } catch (error: any) {
+          alert("Firma eklenirken hata oluştu: " + error.message);
+      } finally {
+          setAddingCustomer(false);
+      }
   }
 
   // --- VERİ ÇEKME FONKSİYONLARI ---
@@ -135,6 +167,9 @@ export default function ProjectPanelPage() {
     { id: "gonderilenler", label: "Üretime İnenler", icon: <Factory className="h-4 w-4" /> },
   ]
 
+  // Seçili müşterinin adını bul
+  const selectedCustomerName = customers.find(c => c.id.toString() === formData.customer_id.toString())?.name || ""
+
   return (
     <div className="flex flex-col gap-8 font-sans max-w-[1200px] mx-auto w-full">
       
@@ -151,7 +186,7 @@ export default function ProjectPanelPage() {
         </div>
       </div>
 
-      {/* 🚀 YATAY AKIŞKAN MENÜ (GLASSMORPHISM) */}
+      {/* 🚀 YATAY AKIŞKAN MENÜ */}
       <div className="flex gap-2 p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto no-scrollbar">
         {tabs.map((tab) => (
             <button
@@ -177,7 +212,6 @@ export default function ProjectPanelPage() {
           ) : (
               <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] p-6 md:p-10 relative overflow-hidden">
                   
-                  {/* Neon Glow Arkaplan */}
                   <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
                   {/* 1. İŞ EMRİ OLUŞTURMA EKRANI */}
@@ -198,16 +232,85 @@ export default function ProjectPanelPage() {
                                   <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite</Label>
                                   <Input placeholder="Örn: 10 TON" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-14 rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-5 shadow-sm" />
                               </div>
-                              <div className="space-y-3 md:col-span-2">
+                              
+                              {/* 🚀 SİHRİN GERÇEKLEŞTİĞİ YER: AKILLI MÜŞTERİ SEÇİCİ */}
+                              <div className="space-y-3 md:col-span-2 relative">
                                   <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Müşteri / Firma</Label>
-                                  <select className="w-full h-14 rounded-2xl bg-white/80 border border-slate-200 px-5 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm" value={formData.customer_id} onChange={(e) => setFormData({...formData, customer_id: e.target.value})}>
-                                      <option value="">Firma Seçiniz...</option>
-                                      {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                  </select>
+                                  
+                                  {formData.customer_id ? (
+                                      // 1. DURUM: BİR FİRMA SEÇİLDİYSE
+                                      <div className="flex items-center justify-between h-14 rounded-2xl bg-indigo-50 border border-indigo-200 px-5 shadow-sm animate-in fade-in">
+                                          <div className="flex items-center gap-3">
+                                              <CheckCircle2 className="h-5 w-5 text-indigo-500" />
+                                              <span className="font-black text-indigo-900">{selectedCustomerName}</span>
+                                          </div>
+                                          <button type="button" onClick={() => { setFormData({...formData, customer_id: ""}); setCustomerSearch(""); }} className="p-2 hover:bg-indigo-200 rounded-full text-indigo-500 transition-colors" title="Firmayı Değiştir">
+                                              <X className="h-4 w-4" />
+                                          </button>
+                                      </div>
+                                  ) : (
+                                      // 2. DURUM: ARAMA EKRANI
+                                      <div className="relative z-50">
+                                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                                          <Input 
+                                              placeholder="Listeden ara veya yeni firma adını yazın..." 
+                                              value={customerSearch}
+                                              onChange={(e) => {
+                                                  setCustomerSearch(e.target.value);
+                                                  setIsCustomerDropdownOpen(true);
+                                              }}
+                                              onFocus={() => setIsCustomerDropdownOpen(true)}
+                                              onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)} // Tıklanmayı algılamak için ufak gecikme
+                                              className="pl-12 h-14 rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 pr-5 shadow-sm" 
+                                          />
+                                          
+                                          {isCustomerDropdownOpen && (
+                                              <div className="absolute w-full mt-2 bg-white rounded-2xl border border-slate-100 shadow-xl max-h-60 overflow-y-auto p-2 animate-in fade-in slide-in-from-top-2">
+                                                  
+                                                  {/* Listede Filtreleme */}
+                                                  {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
+                                                      <button 
+                                                          key={c.id}
+                                                          type="button"
+                                                          onClick={() => {
+                                                              setFormData({...formData, customer_id: c.id.toString()});
+                                                              setIsCustomerDropdownOpen(false);
+                                                          }}
+                                                          className="w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors"
+                                                      >
+                                                          {c.name}
+                                                      </button>
+                                                  ))}
+                                                  
+                                                  {/* EĞER FİRMA LİSTEDE YOKSA: YENİ EKLE BUTONU ÇIKAR */}
+                                                  {customerSearch.trim() !== "" && !customers.some(c => c.name.toLowerCase() === customerSearch.trim().toLowerCase()) && (
+                                                      <button
+                                                          type="button"
+                                                          onClick={handleAddNewCustomer}
+                                                          disabled={addingCustomer}
+                                                          className="w-full mt-1 flex items-center justify-between px-4 py-3 rounded-xl text-sm font-black text-emerald-700 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors"
+                                                      >
+                                                          <span className="flex items-center gap-2">
+                                                              {addingCustomer ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                                                              "{customerSearch}" yeni firma olarak kaydet
+                                                          </span>
+                                                          <span className="text-[10px] uppercase bg-emerald-200 px-2 py-1 rounded-md text-emerald-800">Tek Tıkla Ekle</span>
+                                                      </button>
+                                                  )}
+
+                                                  {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).length === 0 && customerSearch === "" && (
+                                                      <div className="px-4 py-3 text-sm font-medium text-slate-400 text-center">
+                                                          Mevcut firmaları arayın veya eklemek için adını yazın.
+                                                      </div>
+                                                  )}
+                                              </div>
+                                          )}
+                                      </div>
+                                  )}
                               </div>
                           </div>
 
-                          {/* Dosya Yükleme Alanı (Dropzone Style) */}
+                          {/* Dosya Yükleme Alanı */}
                           <div className="mt-4">
                               <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block">Teknik Çizimler / Proje Dosyaları (PDF)</Label>
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
