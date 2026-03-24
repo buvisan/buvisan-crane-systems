@@ -162,16 +162,16 @@ export default function TrackingSalesPage() {
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Müşteri Adı</Label>
-                          <Input required placeholder="Örn: Emre Sel" value={form.customer_name} onChange={e => setForm({...form, customer_name: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
+                          <Input required placeholder="Örn: Kaya Ali Tosun" value={form.customer_name} onChange={e => setForm({...form, customer_name: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Müşteri Konumu (İl)</Label>
                           <Input required placeholder="Örn: Bursa" value={form.customer_location} onChange={e => setForm({...form, customer_location: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                       </div>
                       <div className="space-y-2 md:col-span-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Satılan Araç / Model</Label>
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Satılan Makine</Label>
                           <select required value={form.product_id} onChange={e => handleProductChange(e.target.value)} className="w-full h-12 px-4 rounded-xl bg-amber-50 border border-amber-200 text-sm font-black text-amber-900 outline-none focus:ring-2 focus:ring-amber-500">
-                              <option value="">-- Satılan Aracı Seçin --</option>
+                              <option value="">-- Satılan Makineyi Seçin --</option>
                               {products.map(p => <option key={p.id} value={p.id}>{p.brand} - {p.model} ({p.price.toLocaleString('tr-TR', {style:'currency', currency:'TRY'})})</option>)}
                           </select>
                       </div>

@@ -77,11 +77,11 @@ export default function TrackingProductsPage() {
               <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div className="space-y-2">
                       <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Marka</Label>
-                      <Input required placeholder="Örn: Audi" value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
+                      <Input required placeholder="Örn: Caraskal" value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                   </div>
                   <div className="space-y-2">
                       <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Model</Label>
-                      <Input required placeholder="Örn: A3" value={form.model} onChange={e => setForm({...form, model: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
+                      <Input required placeholder="Örn: Çift Kiriş" value={form.model} onChange={e => setForm({...form, model: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                   </div>
                   <div className="space-y-2">
                       <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Liste Fiyatı (TL)</Label>
