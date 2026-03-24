@@ -8,7 +8,7 @@ import { createClient } from "@/utils/supabase/client"
 import { 
   Package2, Home, Package, ClipboardList, Tag, Users, Truck, 
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
-  LogOut, UserCircle, Settings, ChevronDown, Activity
+  LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront
 } from "lucide-react"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -78,6 +78,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: "SAHA (ÜRETİM)",
       items: [
         { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat },
+      ]
+    },
+    {
+      title: "SATIŞ TAKİP (BAYİ)",
+      items: [
+        { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart },
+        { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package },
+        { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp },
+        { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users },
       ]
     }
   ]
