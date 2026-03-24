@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TrendingUp, PlusCircle, Trash2, Loader2, Receipt, Calculator, Search, X, Edit2, Globe } from "lucide-react"
+import { TrendingUp, PlusCircle, Trash2, Loader2, Receipt, Calculator, Search, Edit2, Globe } from "lucide-react"
 
 export default function TrackingSalesPage() {
   const [sales, setSales] = useState<any[]>([])
@@ -14,49 +14,44 @@ export default function TrackingSalesPage() {
   const [loading, setLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [editingId, setEditingId] = useState<number | null>(null) // 🚀 DÜZENLEME STATE'İ
+  const [editingId, setEditingId] = useState<number | null>(null)
   
   const [searchTerm, setSearchTerm] = useState("") 
-  const [productSearch, setProductSearch] = useState("") 
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false)
 
   // 🚀 CANLI DÖVİZ KURU STATELERİ
   const [currency, setCurrency] = useState("TRY")
   const [rates, setRates] = useState<Record<string, number>>({ TRY: 1 })
 
+  // 🚀 FORM STATE'İ (Artık Marka ve Model bilgilerini de içeriyor)
   const [form, setForm] = useState({
-      sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", product_id: "",
-      list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0
+      sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", 
+      product_id: "", brand: "", model: "", list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0
   })
 
   const supabase = createClient()
 
   useEffect(() => { 
       fetchData()
-      fetchExchangeRates() // 🚀 Sayfa açıldığında kurları çek
+      fetchExchangeRates() 
   }, [])
 
-  // 🚀 API'den Canlı Kur Çekme Motoru
   const fetchExchangeRates = async () => {
       try {
           const res = await fetch('https://open.er-api.com/v6/latest/TRY')
           const data = await res.json()
-          if (data && data.rates) {
-              setRates(data.rates) // TRY karşılıklarını kaydettik (Örn: USD: 0.031)
-          }
+          if (data && data.rates) setRates(data.rates)
       } catch (error) {
           console.error("Döviz kurları çekilemedi:", error)
       }
   }
 
-  // 🚀 Dinamik Para Formatlayıcı
   const formatPrice = (priceInTRY: number) => {
       const rate = rates[currency] || 1
       const convertedPrice = priceInTRY * rate
       try {
           return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: currency }).format(convertedPrice)
       } catch (e) {
-          // Eğer çok bilinmeyen bir para birimi seçilirse çökmemesi için düz formatla
           return `${convertedPrice.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} ${currency}`
       }
   }
@@ -70,14 +65,6 @@ export default function TrackingSalesPage() {
       setForm(prev => ({ ...prev, sale_price: calculatedSalePrice, total_amount: calculatedTotal }))
   }, [form.list_price, form.discount_rate, form.quantity])
 
-  const handleProductChange = (productId: string) => {
-      const selectedProduct = products.find(p => p.id.toString() === productId)
-      setForm(prev => ({
-          ...prev, product_id: productId, list_price: selectedProduct ? selectedProduct.price : 0
-      }))
-      setIsProductDropdownOpen(false)
-  }
-
   const fetchData = async () => {
     setLoading(true)
     const { data: salesData } = await supabase.from('tracking_sales').select(`*, tracking_personnel(full_name), tracking_products(brand, model)`).order('sale_date', { ascending: false })
@@ -90,12 +77,12 @@ export default function TrackingSalesPage() {
     setLoading(false)
   }
 
-  // 🚀 DÜZENLEME MODUNU AÇ
   const openEdit = (sale: any) => {
       setForm({
           sale_date: sale.sale_date, personnel_id: sale.personnel_id.toString(), customer_name: sale.customer_name,
-          customer_location: sale.customer_location, product_id: sale.product_id.toString(), list_price: sale.list_price,
-          discount_rate: sale.discount_rate, sale_price: sale.sale_price, quantity: sale.quantity, total_amount: sale.total_amount
+          customer_location: sale.customer_location, product_id: sale.product_id.toString(), 
+          brand: sale.tracking_products?.brand || "", model: sale.tracking_products?.model || "",
+          list_price: sale.list_price, discount_rate: sale.discount_rate, sale_price: sale.sale_price, quantity: sale.quantity, total_amount: sale.total_amount
       })
       setEditingId(sale.id)
       setIsAdding(true)
@@ -103,12 +90,25 @@ export default function TrackingSalesPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.personnel_id || !form.product_id) return alert("Lütfen Personel ve Makine seçiniz!")
+    if (!form.personnel_id) return alert("Lütfen Personel seçiniz!")
+    if (!form.brand || !form.list_price) return alert("Lütfen Makine Markasını ve Liste Fiyatını giriniz!")
+    
     setSaving(true)
+    let finalProductId = form.product_id
+
+    // 🚀 EĞER YENİ BİR MAKİNE YAZILDIYSA, ÖNCE ONU ÜRÜNLERE KAYDET
+    if (!finalProductId) {
+        const { data: newProd, error: prodErr } = await supabase.from('tracking_products').insert([{
+            brand: form.brand, model: form.model || "-", price: Number(form.list_price), stock: 1
+        }]).select().single()
+
+        if (prodErr) { alert("Yeni makine veritabanına kaydedilirken hata oluştu: " + prodErr.message); setSaving(false); return; }
+        finalProductId = newProd.id.toString()
+    }
 
     const payload = {
         sale_date: form.sale_date, personnel_id: Number(form.personnel_id), customer_name: form.customer_name,
-        customer_location: form.customer_location, product_id: Number(form.product_id), list_price: form.list_price,
+        customer_location: form.customer_location, product_id: Number(finalProductId), list_price: form.list_price,
         discount_rate: form.discount_rate, sale_price: form.sale_price, quantity: form.quantity, total_amount: form.total_amount
     }
 
@@ -125,8 +125,7 @@ export default function TrackingSalesPage() {
 
     if (error) alert("Hata: " + error.message)
     else {
-        setForm({ sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", product_id: "", list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0 })
-        setProductSearch("")
+        setForm({ sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", product_id: "", brand: "", model: "", list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0 })
         setEditingId(null)
         setIsAdding(false)
         fetchData()
@@ -145,7 +144,6 @@ export default function TrackingSalesPage() {
       s.tracking_personnel?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // API'den gelen para birimi listesini oluştur (Öne çıkanları en üste alıyoruz)
   const currencyOptions = ['TRY', 'USD', 'EUR', 'GBP', ...Object.keys(rates).filter(c => !['TRY', 'USD', 'EUR', 'GBP'].includes(c))]
 
   return (
@@ -167,22 +165,18 @@ export default function TrackingSalesPage() {
             <Input placeholder="Listede Ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 h-16 bg-white/80 border-white/50 text-sm font-bold text-slate-700 shadow-sm rounded-[2rem] focus:ring-2 focus:ring-amber-500" />
         </div>
 
-        {/* 🚀 CANLI DÖVİZ KURU SEÇİCİ */}
         <div className="flex items-center gap-2 bg-white/80 border border-white/50 shadow-sm rounded-[2rem] h-16 px-4 shrink-0">
             <Globe className="h-5 w-5 text-emerald-600" />
             <select 
                 value={currency} 
                 onChange={(e) => setCurrency(e.target.value)}
                 className="bg-transparent border-none text-sm font-black text-slate-800 outline-none cursor-pointer pr-2"
-                title="Para Birimini Değiştir"
             >
-                {currencyOptions.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                ))}
+                {currencyOptions.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
         </div>
 
-        <Button onClick={() => { setIsAdding(!isAdding); setEditingId(null); setForm({ sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", product_id: "", list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0 }) }} className="h-16 px-8 bg-amber-500 hover:bg-amber-600 text-white text-base font-bold rounded-[2rem] shadow-lg shadow-amber-500/30 transition-all flex items-center gap-2 shrink-0">
+        <Button onClick={() => { setIsAdding(!isAdding); setEditingId(null); setForm({ sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", product_id: "", brand: "", model: "", list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0 }) }} className="h-16 px-8 bg-amber-500 hover:bg-amber-600 text-white text-base font-bold rounded-[2rem] shadow-lg shadow-amber-500/30 transition-all flex items-center gap-2 shrink-0">
             <PlusCircle className="h-5 w-5" /> Yeni Satış Gir
         </Button>
       </div>
@@ -216,30 +210,39 @@ export default function TrackingSalesPage() {
                           <Input required placeholder="Örn: Bursa" value={form.customer_location} onChange={e => setForm({...form, customer_location: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                       </div>
                       
-                      <div className="space-y-2 md:col-span-2 relative">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Satılan Makine</Label>
-                          {form.product_id ? (
-                              <div className="flex items-center justify-between h-12 px-4 rounded-xl bg-amber-50 border border-amber-200 shadow-sm animate-in fade-in">
-                                  <span className="font-black text-amber-900 text-sm">
-                                      {products.find(p => p.id.toString() === form.product_id)?.brand} - {products.find(p => p.id.toString() === form.product_id)?.model}
-                                  </span>
-                                  <button type="button" onClick={() => { setForm({...form, product_id: "", list_price: 0}); setProductSearch(""); }} className="text-amber-500 hover:text-amber-700 transition-colors"><X className="h-4 w-4" /></button>
-                              </div>
-                          ) : (
-                              <div className="relative">
-                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                  <Input placeholder="Makine markası veya modeli yazın..." value={productSearch} onChange={(e) => { setProductSearch(e.target.value); setIsProductDropdownOpen(true); }} onFocus={() => setIsProductDropdownOpen(true)} onBlur={() => setTimeout(() => setIsProductDropdownOpen(false), 200)} className="pl-9 h-12 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-amber-500 text-sm font-bold shadow-sm" />
-                                  {isProductDropdownOpen && (
-                                      <div className="absolute z-50 w-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl max-h-48 overflow-y-auto p-1 animate-in fade-in slide-in-from-top-2">
-                                          {products.filter(p => `${p.brand} ${p.model}`.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
-                                              <button key={p.id} type="button" onClick={() => handleProductChange(p.id.toString())} className="w-full text-left px-3 py-2 text-sm font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 rounded-lg transition-colors">
-                                                  {p.brand} - {p.model} <span className="text-xs text-slate-400 font-medium">({p.price.toLocaleString('tr-TR', {style:'currency', currency:'TRY'})})</span>
-                                              </button>
-                                          ))}
-                                      </div>
-                                  )}
-                              </div>
-                          )}
+                      {/* 🚀 AKILLI MAKİNE EKLEME/SEÇME ALANI */}
+                      <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 bg-amber-50/50 p-4 rounded-2xl border border-amber-100">
+                          <div className="space-y-2 relative md:col-span-1">
+                              <Label className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Makine Markası / Cinsi</Label>
+                              <Input
+                                  placeholder="Örn: 10 Ton Çift..."
+                                  value={form.brand}
+                                  onChange={(e) => { setForm({...form, brand: e.target.value, product_id: ""}); setIsProductDropdownOpen(true); }}
+                                  onFocus={() => setIsProductDropdownOpen(true)}
+                                  onBlur={() => setTimeout(() => setIsProductDropdownOpen(false), 200)}
+                                  className="h-12 rounded-xl bg-white border-amber-200 focus:ring-amber-500 font-bold"
+                              />
+                              {isProductDropdownOpen && form.brand && (
+                                  <div className="absolute z-50 w-full md:w-[250%] mt-1 bg-white rounded-xl border border-slate-200 shadow-xl max-h-48 overflow-y-auto p-1">
+                                      {products.filter(p => p.brand.toLowerCase().includes(form.brand.toLowerCase())).map(p => (
+                                          <button key={p.id} type="button" onClick={() => { setForm({...form, brand: p.brand, model: p.model, list_price: p.price, product_id: p.id.toString()}); setIsProductDropdownOpen(false); }} className="w-full text-left px-3 py-2 text-sm font-bold text-slate-700 hover:bg-amber-50 rounded-lg">
+                                              {p.brand} - {p.model}
+                                          </button>
+                                      ))}
+                                      {products.filter(p => p.brand.toLowerCase().includes(form.brand.toLowerCase())).length === 0 && (
+                                          <div className="px-3 py-2 text-[11px] font-bold text-emerald-600 text-center bg-emerald-50 rounded-lg">✨ Yeni makine olarak eklenecek</div>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Model / Kod</Label>
+                              <Input placeholder="Örn: 2026" value={form.model} onChange={e => setForm({...form, model: e.target.value, product_id: ""})} className="h-12 rounded-xl bg-white border-amber-200 focus:ring-amber-500 font-bold" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Liste Fiyatı (TRY)</Label>
+                              <Input type="number" value={form.list_price || ""} onChange={e => setForm({...form, list_price: Number(e.target.value), product_id: ""})} className="h-12 rounded-xl bg-white border-amber-200 focus:ring-amber-500 font-bold text-amber-700" />
+                          </div>
                       </div>
                   </div>
 
@@ -256,12 +259,14 @@ export default function TrackingSalesPage() {
                       </div>
                       <div className="mt-auto space-y-3 pt-4 border-t border-slate-200">
                           <div className="flex justify-between items-center">
-                              <span className="text-xs font-bold text-slate-500">Birim Satış Fiyatı (TRY):</span>
-                              <span className="text-sm font-black text-slate-700">{form.sale_price.toLocaleString('tr-TR', {style:'currency', currency:'TRY'})}</span>
+                              <span className="text-xs font-bold text-slate-500">Birim Satış Fiyatı:</span>
+                              {/* 🚀 DİNAMİK KUR BURADA ÇALIŞIYOR */}
+                              <span className="text-sm font-black text-slate-700">{formatPrice(form.sale_price)}</span>
                           </div>
                           <div className="flex justify-between items-end bg-emerald-100 p-3 rounded-xl border border-emerald-200">
                               <span className="text-xs font-black text-emerald-800 uppercase tracking-widest">TOPLAM TUTAR</span>
-                              <span className="text-2xl font-black text-emerald-600 tracking-tight">{form.total_amount.toLocaleString('tr-TR', {style:'currency', currency:'TRY'})}</span>
+                              {/* 🚀 DİNAMİK KUR BURADA ÇALIŞIYOR */}
+                              <span className="text-2xl font-black text-emerald-600 tracking-tight">{formatPrice(form.total_amount)}</span>
                           </div>
                       </div>
                   </div>
@@ -305,7 +310,6 @@ export default function TrackingSalesPage() {
                               <td className="px-4 py-3 text-sm font-medium text-slate-600">{sale.customer_location}</td>
                               <td className="px-4 py-3 text-sm font-bold text-slate-800 truncate max-w-[150px]">{sale.tracking_products?.brand}</td>
                               <td className="px-4 py-3 text-sm font-bold text-slate-600">{sale.tracking_products?.model}</td>
-                              {/* 🚀 DİNAMİK PARA BİRİMİ KULLANIMI */}
                               <td className="px-4 py-3 text-sm font-medium text-slate-500 tabular-nums">{formatPrice(sale.list_price)}</td>
                               <td className="px-4 py-3 text-sm font-bold text-amber-600 text-center bg-amber-50/50">%{sale.discount_rate}</td>
                               <td className="px-4 py-3 text-sm font-bold text-slate-800 tabular-nums">{formatPrice(sale.sale_price)}</td>
