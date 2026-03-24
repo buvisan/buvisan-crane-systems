@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TrendingUp, PlusCircle, Trash2, Loader2, Receipt, CalendarDays, Calculator, Search, X } from "lucide-react"
+import { TrendingUp, PlusCircle, Trash2, Loader2, Receipt, Calculator, Search, X, Edit2, Globe } from "lucide-react"
 
 export default function TrackingSalesPage() {
   const [sales, setSales] = useState<any[]>([])
@@ -14,20 +14,52 @@ export default function TrackingSalesPage() {
   const [loading, setLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null) // 🚀 DÜZENLEME STATE'İ
   
-  const [searchTerm, setSearchTerm] = useState("") // 🚀 ARAMA ÇUBUĞU STATE'İ
-  const [productSearch, setProductSearch] = useState("") // 🚀 AKILLI MAKİNE SEÇİCİ STATE'İ
+  const [searchTerm, setSearchTerm] = useState("") 
+  const [productSearch, setProductSearch] = useState("") 
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false)
 
+  // 🚀 CANLI DÖVİZ KURU STATELERİ
+  const [currency, setCurrency] = useState("TRY")
+  const [rates, setRates] = useState<Record<string, number>>({ TRY: 1 })
+
   const [form, setForm] = useState({
-      sale_date: new Date().toISOString().split('T')[0],
-      personnel_id: "", customer_name: "", customer_location: "", product_id: "",
+      sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", product_id: "",
       list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0
   })
 
   const supabase = createClient()
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { 
+      fetchData()
+      fetchExchangeRates() // 🚀 Sayfa açıldığında kurları çek
+  }, [])
+
+  // 🚀 API'den Canlı Kur Çekme Motoru
+  const fetchExchangeRates = async () => {
+      try {
+          const res = await fetch('https://open.er-api.com/v6/latest/TRY')
+          const data = await res.json()
+          if (data && data.rates) {
+              setRates(data.rates) // TRY karşılıklarını kaydettik (Örn: USD: 0.031)
+          }
+      } catch (error) {
+          console.error("Döviz kurları çekilemedi:", error)
+      }
+  }
+
+  // 🚀 Dinamik Para Formatlayıcı
+  const formatPrice = (priceInTRY: number) => {
+      const rate = rates[currency] || 1
+      const convertedPrice = priceInTRY * rate
+      try {
+          return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: currency }).format(convertedPrice)
+      } catch (e) {
+          // Eğer çok bilinmeyen bir para birimi seçilirse çökmemesi için düz formatla
+          return `${convertedPrice.toLocaleString('tr-TR', { maximumFractionDigits: 2 })} ${currency}`
+      }
+  }
 
   useEffect(() => {
       const listPrice = Number(form.list_price) || 0
@@ -35,16 +67,13 @@ export default function TrackingSalesPage() {
       const qty = Number(form.quantity) || 1
       const calculatedSalePrice = listPrice - (listPrice * (discount / 100))
       const calculatedTotal = calculatedSalePrice * qty
-
       setForm(prev => ({ ...prev, sale_price: calculatedSalePrice, total_amount: calculatedTotal }))
   }, [form.list_price, form.discount_rate, form.quantity])
 
   const handleProductChange = (productId: string) => {
       const selectedProduct = products.find(p => p.id.toString() === productId)
       setForm(prev => ({
-          ...prev,
-          product_id: productId,
-          list_price: selectedProduct ? selectedProduct.price : 0
+          ...prev, product_id: productId, list_price: selectedProduct ? selectedProduct.price : 0
       }))
       setIsProductDropdownOpen(false)
   }
@@ -61,23 +90,44 @@ export default function TrackingSalesPage() {
     setLoading(false)
   }
 
+  // 🚀 DÜZENLEME MODUNU AÇ
+  const openEdit = (sale: any) => {
+      setForm({
+          sale_date: sale.sale_date, personnel_id: sale.personnel_id.toString(), customer_name: sale.customer_name,
+          customer_location: sale.customer_location, product_id: sale.product_id.toString(), list_price: sale.list_price,
+          discount_rate: sale.discount_rate, sale_price: sale.sale_price, quantity: sale.quantity, total_amount: sale.total_amount
+      })
+      setEditingId(sale.id)
+      setIsAdding(true)
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.personnel_id || !form.product_id) return alert("Lütfen Personel ve Makine seçiniz!")
-
     setSaving(true)
-    const { error } = await supabase.from('tracking_sales').insert([{
+
+    const payload = {
         sale_date: form.sale_date, personnel_id: Number(form.personnel_id), customer_name: form.customer_name,
         customer_location: form.customer_location, product_id: Number(form.product_id), list_price: form.list_price,
         discount_rate: form.discount_rate, sale_price: form.sale_price, quantity: form.quantity, total_amount: form.total_amount
-    }])
+    }
+
+    let error;
+    if (editingId) {
+        const { error: updateError } = await supabase.from('tracking_sales').update(payload).eq('id', editingId)
+        error = updateError;
+    } else {
+        const { error: insertError } = await supabase.from('tracking_sales').insert([payload])
+        error = insertError;
+    }
+
     setSaving(false)
 
-    if (error) {
-        alert("Hata: " + error.message)
-    } else {
+    if (error) alert("Hata: " + error.message)
+    else {
         setForm({ sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", product_id: "", list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0 })
         setProductSearch("")
+        setEditingId(null)
         setIsAdding(false)
         fetchData()
     }
@@ -89,12 +139,14 @@ export default function TrackingSalesPage() {
     fetchData()
   }
 
-  // 🚀 ARAMA FİLTRESİ
   const filteredSales = sales.filter(s => 
       s.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       s.tracking_products?.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.tracking_personnel?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // API'den gelen para birimi listesini oluştur (Öne çıkanları en üste alıyoruz)
+  const currencyOptions = ['TRY', 'USD', 'EUR', 'GBP', ...Object.keys(rates).filter(c => !['TRY', 'USD', 'EUR', 'GBP'].includes(c))]
 
   return (
     <div className="flex flex-col gap-8 max-w-[1600px] mx-auto w-full font-sans pb-10">
@@ -110,13 +162,27 @@ export default function TrackingSalesPage() {
             </div>
         </div>
         
-        {/* 🚀 ARAMA ÇUBUĞU */}
-        <div className="relative w-full md:w-72">
+        <div className="relative w-full md:w-64 shrink-0">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <Input placeholder="Müşteri, Marka veya Personel Ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 h-16 bg-white/80 border-white/50 text-base font-bold text-slate-700 shadow-sm rounded-[2rem] focus:ring-2 focus:ring-amber-500" />
+            <Input placeholder="Listede Ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 h-16 bg-white/80 border-white/50 text-sm font-bold text-slate-700 shadow-sm rounded-[2rem] focus:ring-2 focus:ring-amber-500" />
         </div>
 
-        <Button onClick={() => setIsAdding(!isAdding)} className="h-16 px-8 bg-amber-500 hover:bg-amber-600 text-white text-base font-bold rounded-[2rem] shadow-lg shadow-amber-500/30 transition-all flex items-center gap-2 shrink-0">
+        {/* 🚀 CANLI DÖVİZ KURU SEÇİCİ */}
+        <div className="flex items-center gap-2 bg-white/80 border border-white/50 shadow-sm rounded-[2rem] h-16 px-4 shrink-0">
+            <Globe className="h-5 w-5 text-emerald-600" />
+            <select 
+                value={currency} 
+                onChange={(e) => setCurrency(e.target.value)}
+                className="bg-transparent border-none text-sm font-black text-slate-800 outline-none cursor-pointer pr-2"
+                title="Para Birimini Değiştir"
+            >
+                {currencyOptions.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                ))}
+            </select>
+        </div>
+
+        <Button onClick={() => { setIsAdding(!isAdding); setEditingId(null); setForm({ sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", product_id: "", list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0 }) }} className="h-16 px-8 bg-amber-500 hover:bg-amber-600 text-white text-base font-bold rounded-[2rem] shadow-lg shadow-amber-500/30 transition-all flex items-center gap-2 shrink-0">
             <PlusCircle className="h-5 w-5" /> Yeni Satış Gir
         </Button>
       </div>
@@ -125,7 +191,7 @@ export default function TrackingSalesPage() {
           <div className="bg-white/80 backdrop-blur-2xl border border-white shadow-xl shadow-amber-500/5 rounded-[2.5rem] p-8 animate-in fade-in slide-in-from-top-4">
               <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
                   <Calculator className="h-6 w-6 text-amber-500" />
-                  <h2 className="text-xl font-black text-slate-800">Akıllı Satış Formu</h2>
+                  <h2 className="text-xl font-black text-slate-800">{editingId ? "Satış Kaydını Düzenle" : "Akıllı Satış Formu"}</h2>
               </div>
               
               <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -150,7 +216,6 @@ export default function TrackingSalesPage() {
                           <Input required placeholder="Örn: Bursa" value={form.customer_location} onChange={e => setForm({...form, customer_location: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                       </div>
                       
-                      {/* 🚀 YENİ AKILLI MAKİNE SEÇİCİ */}
                       <div className="space-y-2 md:col-span-2 relative">
                           <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Satılan Makine</Label>
                           {form.product_id ? (
@@ -158,21 +223,12 @@ export default function TrackingSalesPage() {
                                   <span className="font-black text-amber-900 text-sm">
                                       {products.find(p => p.id.toString() === form.product_id)?.brand} - {products.find(p => p.id.toString() === form.product_id)?.model}
                                   </span>
-                                  <button type="button" onClick={() => { setForm({...form, product_id: "", list_price: 0}); setProductSearch(""); }} className="text-amber-500 hover:text-amber-700 transition-colors">
-                                      <X className="h-4 w-4" />
-                                  </button>
+                                  <button type="button" onClick={() => { setForm({...form, product_id: "", list_price: 0}); setProductSearch(""); }} className="text-amber-500 hover:text-amber-700 transition-colors"><X className="h-4 w-4" /></button>
                               </div>
                           ) : (
                               <div className="relative">
                                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                  <Input 
-                                      placeholder="Makine markası veya modeli yazın..." 
-                                      value={productSearch}
-                                      onChange={(e) => { setProductSearch(e.target.value); setIsProductDropdownOpen(true); }}
-                                      onFocus={() => setIsProductDropdownOpen(true)}
-                                      onBlur={() => setTimeout(() => setIsProductDropdownOpen(false), 200)}
-                                      className="pl-9 h-12 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-amber-500 text-sm font-bold shadow-sm"
-                                  />
+                                  <Input placeholder="Makine markası veya modeli yazın..." value={productSearch} onChange={(e) => { setProductSearch(e.target.value); setIsProductDropdownOpen(true); }} onFocus={() => setIsProductDropdownOpen(true)} onBlur={() => setTimeout(() => setIsProductDropdownOpen(false), 200)} className="pl-9 h-12 rounded-xl bg-white border border-slate-200 focus:ring-2 focus:ring-amber-500 text-sm font-bold shadow-sm" />
                                   {isProductDropdownOpen && (
                                       <div className="absolute z-50 w-full mt-1 bg-white rounded-xl border border-slate-200 shadow-xl max-h-48 overflow-y-auto p-1 animate-in fade-in slide-in-from-top-2">
                                           {products.filter(p => `${p.brand} ${p.model}`.toLowerCase().includes(productSearch.toLowerCase())).map(p => (
@@ -180,9 +236,6 @@ export default function TrackingSalesPage() {
                                                   {p.brand} - {p.model} <span className="text-xs text-slate-400 font-medium">({p.price.toLocaleString('tr-TR', {style:'currency', currency:'TRY'})})</span>
                                               </button>
                                           ))}
-                                          {products.filter(p => `${p.brand} ${p.model}`.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
-                                              <div className="px-3 py-2 text-xs font-medium text-slate-400 text-center">Makine bulunamadı.</div>
-                                          )}
                                       </div>
                                   )}
                               </div>
@@ -203,7 +256,7 @@ export default function TrackingSalesPage() {
                       </div>
                       <div className="mt-auto space-y-3 pt-4 border-t border-slate-200">
                           <div className="flex justify-between items-center">
-                              <span className="text-xs font-bold text-slate-500">Birim Satış Fiyatı:</span>
+                              <span className="text-xs font-bold text-slate-500">Birim Satış Fiyatı (TRY):</span>
                               <span className="text-sm font-black text-slate-700">{form.sale_price.toLocaleString('tr-TR', {style:'currency', currency:'TRY'})}</span>
                           </div>
                           <div className="flex justify-between items-end bg-emerald-100 p-3 rounded-xl border border-emerald-200">
@@ -214,9 +267,9 @@ export default function TrackingSalesPage() {
                   </div>
 
                   <div className="md:col-span-12 flex justify-end gap-3 mt-4">
-                      <Button type="button" variant="ghost" onClick={() => setIsAdding(false)} className="h-14 px-8 rounded-2xl font-bold">İptal Et</Button>
+                      <Button type="button" variant="ghost" onClick={() => { setIsAdding(false); setEditingId(null); }} className="h-14 px-8 rounded-2xl font-bold">İptal Et</Button>
                       <Button type="submit" disabled={saving} className="h-14 px-10 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black shadow-xl shadow-amber-500/20 text-lg">
-                          {saving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Satışı Veritabanına Yaz"}
+                          {saving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (editingId ? "Satışı Güncelle" : "Satışı Veritabanına Yaz")}
                       </Button>
                   </div>
               </form>
@@ -240,7 +293,7 @@ export default function TrackingSalesPage() {
                           <th className="px-4 py-4 text-[11px] font-black uppercase tracking-widest">Satış Fiyatı</th>
                           <th className="px-4 py-4 text-[11px] font-black uppercase tracking-widest text-center">Adet</th>
                           <th className="px-4 py-4 text-[11px] font-black uppercase tracking-widest bg-[#3d4d34]">Toplam Tutar</th>
-                          <th className="px-4 py-4 text-[11px] font-black uppercase tracking-widest text-right"></th>
+                          <th className="px-4 py-4 text-[11px] font-black uppercase tracking-widest text-right">İşlem</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-[#e1e6de]">
@@ -252,12 +305,14 @@ export default function TrackingSalesPage() {
                               <td className="px-4 py-3 text-sm font-medium text-slate-600">{sale.customer_location}</td>
                               <td className="px-4 py-3 text-sm font-bold text-slate-800 truncate max-w-[150px]">{sale.tracking_products?.brand}</td>
                               <td className="px-4 py-3 text-sm font-bold text-slate-600">{sale.tracking_products?.model}</td>
-                              <td className="px-4 py-3 text-sm font-medium text-slate-500 tabular-nums">{sale.list_price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
+                              {/* 🚀 DİNAMİK PARA BİRİMİ KULLANIMI */}
+                              <td className="px-4 py-3 text-sm font-medium text-slate-500 tabular-nums">{formatPrice(sale.list_price)}</td>
                               <td className="px-4 py-3 text-sm font-bold text-amber-600 text-center bg-amber-50/50">%{sale.discount_rate}</td>
-                              <td className="px-4 py-3 text-sm font-bold text-slate-800 tabular-nums">{sale.sale_price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
+                              <td className="px-4 py-3 text-sm font-bold text-slate-800 tabular-nums">{formatPrice(sale.sale_price)}</td>
                               <td className="px-4 py-3 text-sm font-black text-blue-600 text-center bg-blue-50/50">{sale.quantity}</td>
-                              <td className="px-4 py-3 text-sm font-black text-[#2e4024] bg-[#dbe6d5] tabular-nums shadow-inner">{sale.total_amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
-                              <td className="px-4 py-3 text-right">
+                              <td className="px-4 py-3 text-sm font-black text-[#2e4024] bg-[#dbe6d5] tabular-nums shadow-inner">{formatPrice(sale.total_amount)}</td>
+                              <td className="px-4 py-3 text-right flex justify-end gap-1">
+                                  <button onClick={() => openEdit(sale)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
                                   <button onClick={() => handleDelete(sale.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
                               </td>
                           </tr>
