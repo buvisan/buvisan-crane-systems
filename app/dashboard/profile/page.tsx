@@ -43,14 +43,13 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser()
     
     if (user) {
-        // 🚀 GÜVENLİK GÜNCELLEMESİ: Veritabanına sadece isim ve soyisim gidiyor. 
-        // Departman bilgisini asla göndermiyoruz, mühürlendi!
-        const { error } = await supabase.from('profiles').upsert({
-            id: user.id,
+        // 🚀 ÇÖZÜM BURADA: 'upsert' yerine 'update' kullandık.
+        // Veritabanına "SADECE isim ve soyismi güncelle, diğer sütunlara dokunma" emrini verdik!
+        const { error } = await supabase.from('profiles').update({
             first_name: formData.first_name,
             last_name: formData.last_name,
             updated_at: new Date().toISOString()
-        })
+        }).eq('id', user.id)
 
         if (!error) {
             alert("✅ Profil başarıyla güncellendi! Değişikliklerin her yere yansıması için sayfayı yenileyebilirsiniz.")
@@ -122,7 +121,7 @@ export default function ProfilePage() {
                     <div className="relative">
                         <Input 
                             value={formData.department} 
-                            disabled // 🚀 BU KUTUYU KİLİTLER
+                            disabled 
                             className="h-14 rounded-2xl bg-slate-100 border-slate-200 font-black text-slate-500 px-5 shadow-inner cursor-not-allowed pr-12" 
                         />
                         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" title="Güvenlik sebebiyle bu alan mühürlenmiştir.">
