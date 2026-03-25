@@ -95,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "SATIŞ TAKİP",
-      allowedRoles: ["satış", "pazarlama", "bayi"],
+      allowedRoles: ["satış", "pazarlama", "bayi","satın", "üretim","muhasebe","proje", ],
       items: [
         { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart },
         { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package },
