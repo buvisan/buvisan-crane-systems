@@ -87,7 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // 🚀 YENİ DEPARTMAN EKLENDİ: MUHASEBE VE FİNANS
     {
       title: "MUHASEBE & FİNANS",
-      allowedRoles: ["muhasebe", "finans", "yönetim"],
+      allowedRoles: ["muhasebe", "finans", "yönetici"],
       items: [
         { href: "/dashboard/finance/invoices", label: "Faturalar & İrsaliyeler", icon: FileText },
         { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet },

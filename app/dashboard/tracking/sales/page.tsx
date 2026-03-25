@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TrendingUp, PlusCircle, Trash2, Loader2, Receipt, Calculator, Search, Edit2, Globe } from "lucide-react"
+import { TrendingUp, PlusCircle, Trash2, Loader2, Receipt, Calculator, Search, X, Edit2, Globe } from "lucide-react"
 
 export default function TrackingSalesPage() {
   const [sales, setSales] = useState<any[]>([])
@@ -18,12 +18,12 @@ export default function TrackingSalesPage() {
   
   const [searchTerm, setSearchTerm] = useState("") 
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false)
+  const [productSearch, setProductSearch] = useState("") 
 
   // 🚀 CANLI DÖVİZ KURU STATELERİ
   const [currency, setCurrency] = useState("TRY")
   const [rates, setRates] = useState<Record<string, number>>({ TRY: 1 })
 
-  // 🚀 FORM STATE'İ (Artık Marka ve Model bilgilerini de içeriyor)
   const [form, setForm] = useState({
       sale_date: new Date().toISOString().split('T')[0], personnel_id: "", customer_name: "", customer_location: "", 
       product_id: "", brand: "", model: "", list_price: 0, discount_rate: 0, sale_price: 0, quantity: 1, total_amount: 0
@@ -46,6 +46,7 @@ export default function TrackingSalesPage() {
       }
   }
 
+  // TL olarak duran veriyi ekrandaki seçili kura çevirir (Tablolar için)
   const formatPrice = (priceInTRY: number) => {
       const rate = rates[currency] || 1
       const convertedPrice = priceInTRY * rate
@@ -56,6 +57,7 @@ export default function TrackingSalesPage() {
       }
   }
 
+  // Form içindeki hesaplamalar HER ZAMAN seçili kur üzerinden yapılır
   useEffect(() => {
       const listPrice = Number(form.list_price) || 0
       const discount = Number(form.discount_rate) || 0
@@ -78,11 +80,17 @@ export default function TrackingSalesPage() {
   }
 
   const openEdit = (sale: any) => {
+      const rate = rates[currency] || 1
       setForm({
           sale_date: sale.sale_date, personnel_id: sale.personnel_id.toString(), customer_name: sale.customer_name,
           customer_location: sale.customer_location, product_id: sale.product_id.toString(), 
           brand: sale.tracking_products?.brand || "", model: sale.tracking_products?.model || "",
-          list_price: sale.list_price, discount_rate: sale.discount_rate, sale_price: sale.sale_price, quantity: sale.quantity, total_amount: sale.total_amount
+          // 🚀 SEÇİLİ KURA ÇEVİRİP FORMA DOLDURUYORUZ
+          list_price: sale.list_price * rate, 
+          discount_rate: sale.discount_rate, 
+          sale_price: sale.sale_price * rate, 
+          quantity: sale.quantity, 
+          total_amount: sale.total_amount * rate
       })
       setEditingId(sale.id)
       setIsAdding(true)
@@ -96,10 +104,14 @@ export default function TrackingSalesPage() {
     setSaving(true)
     let finalProductId = form.product_id
 
-    // 🚀 EĞER YENİ BİR MAKİNE YAZILDIYSA, ÖNCE ONU ÜRÜNLERE KAYDET
+    // Ürün kaydı varsa kur çevirisi ile TRY olarak kaydedelim
+    const rate = rates[currency] || 1
+
     if (!finalProductId) {
         const { data: newProd, error: prodErr } = await supabase.from('tracking_products').insert([{
-            brand: form.brand, model: form.model || "-", price: Number(form.list_price), stock: 1
+            brand: form.brand, model: form.model || "-", 
+            price: Number(form.list_price) / rate, // 🚀 TRY'ye ÇEVİRİP KAYDEDİYORUZ
+            stock: 1
         }]).select().single()
 
         if (prodErr) { alert("Yeni makine veritabanına kaydedilirken hata oluştu: " + prodErr.message); setSaving(false); return; }
@@ -108,8 +120,13 @@ export default function TrackingSalesPage() {
 
     const payload = {
         sale_date: form.sale_date, personnel_id: Number(form.personnel_id), customer_name: form.customer_name,
-        customer_location: form.customer_location, product_id: Number(finalProductId), list_price: form.list_price,
-        discount_rate: form.discount_rate, sale_price: form.sale_price, quantity: form.quantity, total_amount: form.total_amount
+        customer_location: form.customer_location, product_id: Number(finalProductId), 
+        // 🚀 VERİTABANINA GİDERKEN TRY'YE GERİ ÇEVİRİYORUZ (Güvenli Veri)
+        list_price: form.list_price / rate,
+        discount_rate: form.discount_rate, 
+        sale_price: form.sale_price / rate, 
+        quantity: form.quantity, 
+        total_amount: form.total_amount / rate
     }
 
     let error;
@@ -210,7 +227,6 @@ export default function TrackingSalesPage() {
                           <Input required placeholder="Örn: Bursa" value={form.customer_location} onChange={e => setForm({...form, customer_location: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                       </div>
                       
-                      {/* 🚀 AKILLI MAKİNE EKLEME/SEÇME ALANI */}
                       <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 bg-amber-50/50 p-4 rounded-2xl border border-amber-100">
                           <div className="space-y-2 relative md:col-span-1">
                               <Label className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Makine Markası / Cinsi</Label>
@@ -225,7 +241,11 @@ export default function TrackingSalesPage() {
                               {isProductDropdownOpen && form.brand && (
                                   <div className="absolute z-50 w-full md:w-[250%] mt-1 bg-white rounded-xl border border-slate-200 shadow-xl max-h-48 overflow-y-auto p-1">
                                       {products.filter(p => p.brand.toLowerCase().includes(form.brand.toLowerCase())).map(p => (
-                                          <button key={p.id} type="button" onClick={() => { setForm({...form, brand: p.brand, model: p.model, list_price: p.price, product_id: p.id.toString()}); setIsProductDropdownOpen(false); }} className="w-full text-left px-3 py-2 text-sm font-bold text-slate-700 hover:bg-amber-50 rounded-lg">
+                                          <button key={p.id} type="button" onClick={() => { 
+                                              const productRate = rates[currency] || 1;
+                                              setForm({...form, brand: p.brand, model: p.model, list_price: p.price * productRate, product_id: p.id.toString()}); 
+                                              setIsProductDropdownOpen(false); 
+                                          }} className="w-full text-left px-3 py-2 text-sm font-bold text-slate-700 hover:bg-amber-50 rounded-lg">
                                               {p.brand} - {p.model}
                                           </button>
                                       ))}
@@ -240,7 +260,8 @@ export default function TrackingSalesPage() {
                               <Input placeholder="Örn: 2026" value={form.model} onChange={e => setForm({...form, model: e.target.value, product_id: ""})} className="h-12 rounded-xl bg-white border-amber-200 focus:ring-amber-500 font-bold" />
                           </div>
                           <div className="space-y-2">
-                              <Label className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Liste Fiyatı (TRY)</Label>
+                              {/* 🚀 ETİKET SEÇİLİ KURA DÖNÜŞTÜ */}
+                              <Label className="text-[10px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-2 py-0.5 rounded">Liste Fiyatı ({currency})</Label>
                               <Input type="number" value={form.list_price || ""} onChange={e => setForm({...form, list_price: Number(e.target.value), product_id: ""})} className="h-12 rounded-xl bg-white border-amber-200 focus:ring-amber-500 font-bold text-amber-700" />
                           </div>
                       </div>
@@ -260,13 +281,16 @@ export default function TrackingSalesPage() {
                       <div className="mt-auto space-y-3 pt-4 border-t border-slate-200">
                           <div className="flex justify-between items-center">
                               <span className="text-xs font-bold text-slate-500">Birim Satış Fiyatı:</span>
-                              {/* 🚀 DİNAMİK KUR BURADA ÇALIŞIYOR */}
-                              <span className="text-sm font-black text-slate-700">{formatPrice(form.sale_price)}</span>
+                              <span className="text-sm font-black text-slate-700">
+                                  {/* 🚀 SONUÇLAR DOĞRUDAN FORM DEĞERİNDEN GÖSTERİLİR */}
+                                  {form.sale_price.toLocaleString('tr-TR', {style:'currency', currency: currency})}
+                              </span>
                           </div>
                           <div className="flex justify-between items-end bg-emerald-100 p-3 rounded-xl border border-emerald-200">
                               <span className="text-xs font-black text-emerald-800 uppercase tracking-widest">TOPLAM TUTAR</span>
-                              {/* 🚀 DİNAMİK KUR BURADA ÇALIŞIYOR */}
-                              <span className="text-2xl font-black text-emerald-600 tracking-tight">{formatPrice(form.total_amount)}</span>
+                              <span className="text-2xl font-black text-emerald-600 tracking-tight">
+                                  {form.total_amount.toLocaleString('tr-TR', {style:'currency', currency: currency})}
+                              </span>
                           </div>
                       </div>
                   </div>

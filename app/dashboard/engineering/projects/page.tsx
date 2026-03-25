@@ -9,28 +9,34 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { 
   UploadCloud, FileCog, Loader2, CheckCircle2, AlertTriangle, 
-  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download
+  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight
 } from "lucide-react"
 
 export default function ProjectPanelPage() {
-  const [activeTab, setActiveTab] = useState("is_emri")
+  const [activeTab, setActiveTab] = useState("bekleyen_satislar") // 🚀 İLK AÇILIŞTA BEKLEYEN SATIŞLAR GELSİN
   const [loading, setLoading] = useState(false)
   const [dataList, setDataList] = useState<any[]>([]) 
   const supabase = createClient()
 
   const [customers, setCustomers] = useState<any[]>([])
+  const [pendingSales, setPendingSales] = useState<any[]>([]) // 🚀 BEKLEYEN SATIŞLAR STATE'İ
   const [formData, setFormData] = useState({ customer_id: "", project_code: "", capacity: "" })
-  // 🚀 FATURA İÇİN YENİ BİR DOSYA YERİ AÇTIK
-  const [files, setFiles] = useState<{ [key: string]: File | null }>({ kopru: null, yuruyus: null, kedi: null, direk: null, fatura: null })
+  
+  // 🚀 IS_EMRI DOSYA YUVASI EKLENDİ
+  const [files, setFiles] = useState<{ [key: string]: File | null }>({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, direk: null })
   const [uploading, setUploading] = useState(false)
 
   const [customerSearch, setCustomerSearch] = useState("")
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
   const [addingCustomer, setAddingCustomer] = useState(false)
 
-  useEffect(() => { fetchCustomers() }, [])
+  useEffect(() => { 
+      fetchCustomers();
+      fetchPendingSales(); // 🚀 SATIŞLARI SAYFA YÜKLENİNCE ÇEK
+  }, [])
 
   useEffect(() => {
+    if (activeTab === "bekleyen_satislar") fetchPendingSales()
     if (activeTab === "revize_talepleri") fetchRevisions()
     if (activeTab === "onay_listesi") fetchProjectsByStatus('ONAY_BEKLIYOR')
     if (activeTab === "gonderilenler") fetchProjectsByStatus('URETIMDE')
@@ -39,6 +45,23 @@ export default function ProjectPanelPage() {
   const fetchCustomers = async () => {
     const { data } = await supabase.from('customers').select('id, name').order('name', { ascending: true })
     if (data) setCustomers(data)
+  }
+
+  // 🚀 SATIŞLARI ÇEKEN YENİ FONKSİYON
+  const fetchPendingSales = async () => {
+      setLoading(true)
+      const { data } = await supabase.from('tracking_sales').select('*, tracking_products(brand, model)').order('created_at', { ascending: false })
+      if (data) setPendingSales(data)
+      setLoading(false)
+  }
+
+  // 🚀 SATIŞTAN İŞ EMRİNE KÖPRÜ KURAN FONKSİYON
+  const startWorkOrderFromSale = (sale: any) => {
+      setActiveTab("is_emri") // Forma Zıpla
+      setCustomerSearch(sale.customer_name) // Müşteriyi Arama Kutusuna Doldur
+      
+      const machineInfo = `${sale.tracking_products?.brand || "Bilinmeyen Makine"} - ${sale.tracking_products?.model || ""}`
+      setFormData(prev => ({...prev, capacity: machineInfo})) // Makineyi Kapasite/Açıklamaya Doldur
   }
 
   const handleAddNewCustomer = async () => {
@@ -64,7 +87,6 @@ export default function ProjectPanelPage() {
 
   const fetchProjectsByStatus = async (status: string) => {
     setLoading(true)
-    // 🚀 SİHİR BURADA: Dosyaları da (project_files) çekiyoruz ki listede indirebilelim!
     const { data } = await supabase.from('projects').select('*, customers(name), project_files(file_type, file_url)').eq('status', status).order('created_at', { ascending: false })
     if (data) setDataList(data)
     setLoading(false)
@@ -105,8 +127,8 @@ export default function ProjectPanelPage() {
         if (error) throw error
 
         const fileInserts = []
-        // 🚀 LİSTEYE 'fatura'YI DA EKLEDİK
-        for (const type of ['kopru', 'yuruyus', 'kedi', 'direk', 'fatura']) {
+        // 🚀 LİSTEYE 'IS_EMRI' Yİ DE EKLEDİK VE GRID'I 6'YA ÇIKARDIK
+        for (const type of ['is_emri', 'fatura', 'kopru', 'yuruyus', 'kedi', 'direk']) {
             const file = files[type]
             if (file) {
                 const publicUrl = await uploadFileToSupabase(file, formData.project_code)
@@ -117,12 +139,14 @@ export default function ProjectPanelPage() {
 
         alert("✅ İş Emri başarıyla oluşturuldu!")
         setFormData({ customer_id: "", project_code: "", capacity: "" })
-        setFiles({ kopru: null, yuruyus: null, kedi: null, direk: null, fatura: null })
+        setFiles({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, direk: null })
+        setActiveTab("onay_listesi") // İşlem bitince listeye yönlendir
     } catch (error: any) { alert("Hata: " + error.message) } 
     finally { setUploading(false) }
   }
 
   const tabs = [
+    { id: "bekleyen_satislar", label: "Satıştan Gelenler", icon: <TrendingUp className="h-4 w-4" /> },
     { id: "is_emri", label: "İş Emri Oluştur", icon: <FileCog className="h-4 w-4" /> },
     { id: "revize_talepleri", label: "Revize Talepleri", icon: <AlertTriangle className="h-4 w-4" /> },
     { id: "onay_listesi", label: "Onay Listesi", icon: <Clock className="h-4 w-4" /> },
@@ -132,7 +156,7 @@ export default function ProjectPanelPage() {
   const selectedCustomerName = customers.find(c => c.id.toString() === formData.customer_id.toString())?.name || ""
 
   return (
-    <div className="flex flex-col gap-8 font-sans max-w-[1200px] mx-auto w-full pb-20">
+    <div className="flex flex-col gap-8 font-sans max-w-[1400px] mx-auto w-full pb-20">
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-5">
@@ -170,6 +194,42 @@ export default function ProjectPanelPage() {
                   
                   <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
+                  {/* 🚀 YENİ EKLENEN SEKME: BEKLEYEN SATIŞLAR (SATIŞTAN GELENLER) */}
+                  {activeTab === "bekleyen_satislar" && (
+                      <div className="flex flex-col gap-6 relative z-10 animate-in fade-in">
+                          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3 mb-2"><TrendingUp className="text-indigo-500"/> Satıştan Gelen Bekleyen İşler</h2>
+                          <div className="overflow-x-auto">
+                              <table className="w-full text-left border-collapse">
+                                  <thead>
+                                      <tr className="border-b border-slate-200">
+                                          <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Tarih</th>
+                                          <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri</th>
+                                          <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Satılan Makine</th>
+                                          <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Adet</th>
+                                          <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aksiyon</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                      {pendingSales.map((sale) => (
+                                          <tr key={sale.id} className="hover:bg-white/50 transition-colors group">
+                                              <td className="py-5 px-4 font-bold text-slate-500">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
+                                              <td className="py-5 px-4 font-black text-slate-800">{sale.customer_name}</td>
+                                              <td className="py-5 px-4 font-bold text-indigo-700">{sale.tracking_products?.brand} - {sale.tracking_products?.model}</td>
+                                              <td className="py-5 px-4 font-black text-slate-800 text-center"><span className="bg-slate-100 px-3 py-1 rounded-lg">{sale.quantity}</span></td>
+                                              <td className="py-5 px-4 text-right">
+                                                  <Button onClick={() => startWorkOrderFromSale(sale)} className="h-10 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 group/btn">
+                                                      İş Emrine Çevir <ArrowRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                                                  </Button>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                      {pendingSales.length === 0 && <tr><td colSpan={5} className="py-10 text-center font-bold text-slate-400">Satıştan gelen bekleyen iş bulunmuyor.</td></tr>}
+                                  </tbody>
+                              </table>
+                          </div>
+                      </div>
+                  )}
+
                   {/* 1. İŞ EMRİ OLUŞTURMA EKRANI */}
                   {activeTab === "is_emri" && (
                       <div className="flex flex-col gap-8 relative z-10 animate-in fade-in">
@@ -184,8 +244,8 @@ export default function ProjectPanelPage() {
                                   <Input placeholder="Örn: PRJ-2026-001" value={formData.project_code} onChange={(e) => setFormData({...formData, project_code: e.target.value})} className="h-14 rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-5 shadow-sm" />
                               </div>
                               <div className="space-y-3">
-                                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite</Label>
-                                  <Input placeholder="Örn: 10 TON" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-14 rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-5 shadow-sm" />
+                                  <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite / Açıklama</Label>
+                                  <Input placeholder="Örn: 10 TON Çift Kiriş" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-14 rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-5 shadow-sm" />
                               </div>
                               
                               <div className="space-y-3 md:col-span-2 relative">
@@ -223,22 +283,25 @@ export default function ProjectPanelPage() {
                               </div>
                           </div>
 
-                          {/* 🚀 DOSYA YÜKLEME ALANI (FATURA EKLENDİ) */}
+                          {/* 🚀 DOSYA YÜKLEME ALANI (IS EMRİ EKLENDİ VE GRID 6 OLDU) */}
                           <div className="mt-4">
-                              <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block">Teknik Çizimler ve Fatura / İrsaliye (PDF)</Label>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                                  {['KOPRU', 'YURUYUS', 'KEDI', 'DIREK', 'FATURA'].map((type) => {
+                              <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block">Resmi Evraklar ve Teknik Çizimler (PDF)</Label>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                                  {['IS_EMRI', 'FATURA', 'KOPRU', 'YURUYUS', 'KEDI', 'DIREK'].map((type) => {
                                       const fileKey = type.toLowerCase();
                                       const file = files[fileKey];
-                                      const isFatura = type === 'FATURA';
+                                      
+                                      // Dosya tipine göre renk kodlaması
+                                      const isEmriColor = type === 'IS_EMRI' ? 'blue' : type === 'FATURA' ? 'amber' : 'emerald';
+                                      
                                       return (
-                                      <div key={type} className={`relative flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-2xl transition-all group ${file ? (isFatura ? 'border-amber-400 bg-amber-50/50' : 'border-emerald-400 bg-emerald-50/50') : 'border-slate-300 bg-white/50 hover:border-indigo-400'}`}>
+                                      <div key={type} className={`relative flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-2xl transition-all group ${file ? `border-${isEmriColor}-400 bg-${isEmriColor}-50/50` : 'border-slate-300 bg-white/50 hover:border-indigo-400'}`}>
                                           <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setFiles({...files, [fileKey]: e.target.files?.[0] || null})} />
-                                          <div className={`p-2 rounded-full mb-2 transition-colors ${file ? (isFatura ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600') : 'bg-slate-100 text-slate-400'}`}>
+                                          <div className={`p-2 rounded-full mb-2 transition-colors ${file ? `bg-${isEmriColor}-100 text-${isEmriColor}-600` : 'bg-slate-100 text-slate-400'}`}>
                                               {file ? <FileText className="h-5 w-5" /> : <UploadCloud className="h-5 w-5" />}
                                           </div>
-                                          <span className={`font-black text-[11px] mb-1 ${file ? (isFatura ? 'text-amber-700' : 'text-emerald-700') : 'text-slate-600'}`}>{type}</span>
-                                          <span className="text-[9px] font-bold text-slate-400 text-center px-1 truncate w-full">{file ? file.name : "Tıkla"}</span>
+                                          <span className={`font-black text-[10px] mb-1 text-center ${file ? `text-${isEmriColor}-700` : 'text-slate-600'}`}>{type.replace('_', ' ')}</span>
+                                          <span className="text-[9px] font-bold text-slate-400 text-center px-1 truncate w-full">{file ? file.name : "Tıkla Yükle"}</span>
                                       </div>
                                   )})}
                               </div>
@@ -251,7 +314,7 @@ export default function ProjectPanelPage() {
                       </div>
                   )}
 
-                  {/* 2. REVİZE TALEPLERİ */}
+                  {/* REVİZE TALEPLERİ */}
                   {activeTab === "revize_talepleri" && (
                       <div className="flex flex-col gap-6 relative z-10 animate-in fade-in">
                           <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3 mb-2"><AlertTriangle className="text-rose-500"/> Sahadan Gelen Revizeler</h2>
@@ -280,7 +343,7 @@ export default function ProjectPanelPage() {
                       </div>
                   )}
 
-                  {/* 3. ONAY LİSTESİ VE 4. GÖNDERİLENLER (DOSYA İNDİRME LİNKİ EKLENDİ) */}
+                  {/* ONAY LİSTESİ VE GÖNDERİLENLER */}
                   {(activeTab === "onay_listesi" || activeTab === "gonderilenler") && (
                       <div className="flex flex-col gap-6 relative z-10 animate-in fade-in">
                           <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3 mb-2">
@@ -293,7 +356,7 @@ export default function ProjectPanelPage() {
                                       <tr className="border-b border-slate-200">
                                           <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">İş Emri</th>
                                           <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri / Firma</th>
-                                          <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Dosyalar & Faturalar</th>
+                                          <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Dosyalar & Evraklar</th>
                                           <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Durum</th>
                                       </tr>
                                   </thead>
@@ -302,15 +365,17 @@ export default function ProjectPanelPage() {
                                           <tr key={item.id} className="hover:bg-white/50 transition-colors">
                                               <td className="py-5 px-4 font-mono font-bold text-slate-800">{item.project_code}</td>
                                               <td className="py-5 px-4 font-bold text-slate-600">{item.customers?.name}</td>
-                                              {/* 🚀 DOSYALARI LİSTELEME ALANI */}
                                               <td className="py-5 px-4">
                                                   <div className="flex flex-wrap gap-2">
                                                       {item.project_files && item.project_files.length > 0 ? (
-                                                          item.project_files.map((file: any, idx: number) => (
-                                                              <a key={idx} href={file.file_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-md border hover:shadow-sm transition-all ${file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
-                                                                  <Download className="h-3 w-3" /> {file.file_type}
-                                                              </a>
-                                                          ))
+                                                          item.project_files.map((file: any, idx: number) => {
+                                                              const isEmriColor = file.file_type === 'IS_EMRI' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100';
+                                                              return (
+                                                                  <a key={idx} href={file.file_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2.5 py-1 rounded-md border hover:shadow-sm transition-all ${isEmriColor}`}>
+                                                                      <Download className="h-3 w-3" /> {file.file_type.replace('_', ' ')}
+                                                                  </a>
+                                                              )
+                                                          })
                                                       ) : (
                                                           <span className="text-[10px] text-slate-400 font-bold">Dosya Yok</span>
                                                       )}
