@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { UserCircle, Mail, Briefcase, Save, Loader2, ShieldCheck } from "lucide-react"
+import { UserCircle, Mail, Briefcase, Save, Loader2, ShieldCheck, Lock } from "lucide-react"
 
 export default function ProfilePage() {
   const supabase = createClient()
@@ -43,9 +43,12 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser()
     
     if (user) {
+        // 🚀 GÜVENLİK GÜNCELLEMESİ: Veritabanına sadece isim ve soyisim gidiyor. 
+        // Departman bilgisini asla göndermiyoruz, mühürlendi!
         const { error } = await supabase.from('profiles').upsert({
             id: user.id,
-            ...formData,
+            first_name: formData.first_name,
+            last_name: formData.last_name,
             updated_at: new Date().toISOString()
         })
 
@@ -79,13 +82,15 @@ export default function ProfilePage() {
         <div className="relative z-10 flex flex-col gap-6">
             
             {/* Sadece Okunabilir (E-posta) Alanı */}
-            <div className="flex items-center gap-4 bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
-                <div className="bg-white p-3 rounded-xl shadow-sm"><Mail className="h-6 w-6 text-slate-400" /></div>
-                <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Sistem Giriş E-Postası (Değiştirilemez)</span>
-                    <span className="text-lg font-black text-slate-700">{userEmail}</span>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-4 flex-1">
+                    <div className="bg-white p-3 rounded-xl shadow-sm shrink-0"><Mail className="h-6 w-6 text-slate-400" /></div>
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block truncate">Sistem Giriş E-Postası (Değiştirilemez)</span>
+                        <span className="text-lg font-black text-slate-700 truncate block">{userEmail}</span>
+                    </div>
                 </div>
-                <div className="ml-auto bg-emerald-100 text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1">
+                <div className="sm:ml-auto bg-emerald-100 text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 shrink-0 w-max">
                     <ShieldCheck className="h-4 w-4" /> Doğrulanmış Hesap
                 </div>
             </div>
@@ -108,17 +113,25 @@ export default function ProfilePage() {
                         className="h-14 rounded-2xl bg-white border-slate-200 text-lg font-black text-slate-800 px-5 focus:ring-2 focus:ring-blue-500 shadow-sm" 
                     />
                 </div>
-                <div className="space-y-3 md:col-span-2">
+                
+                {/* 🚀 MÜHÜRLENMİŞ DEPARTMAN ALANI (DISABLED) */}
+                <div className="space-y-3 md:col-span-2 relative">
                     <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <Briefcase className="h-4 w-4" /> Departman / Ünvan
+                        <Briefcase className="h-4 w-4" /> Departman / Ünvan Yetkisi
                     </Label>
-                    <Input 
-                        value={formData.department} 
-                        onChange={(e) => setFormData({...formData, department: e.target.value})} 
-                        placeholder="Örn: Teknoloji Yöneticisi, Satın Alma, Üretim"
-                        className="h-14 rounded-2xl bg-white border-slate-200 font-bold text-slate-700 px-5 focus:ring-2 focus:ring-blue-500 shadow-sm" 
-                    />
-                    <p className="text-xs text-slate-400 font-medium ml-1 mt-2">Bu ünvan, yaptığınız tüm sistem işlemlerinin altında (Log kayıtlarında) görünecektir.</p>
+                    <div className="relative">
+                        <Input 
+                            value={formData.department} 
+                            disabled // 🚀 BU KUTUYU KİLİTLER
+                            className="h-14 rounded-2xl bg-slate-100 border-slate-200 font-black text-slate-500 px-5 shadow-inner cursor-not-allowed pr-12" 
+                        />
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" title="Güvenlik sebebiyle bu alan mühürlenmiştir.">
+                            <Lock className="h-5 w-5" />
+                        </div>
+                    </div>
+                    <p className="text-[11px] text-rose-500 font-bold ml-1 mt-2 flex items-center gap-1.5">
+                        <ShieldCheck className="h-3.5 w-3.5" /> Bu alan sistem yöneticisi tarafından atanır ve değiştirilemez.
+                    </p>
                 </div>
             </div>
 
