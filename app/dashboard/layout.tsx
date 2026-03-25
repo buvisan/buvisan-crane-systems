@@ -1,6 +1,6 @@
 "use client"
 
-import Image from 'next/image' // Next.js'in Optimize edilmiş Image bileşeni
+import Image from 'next/image' 
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -41,16 +41,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login')
   }
 
-  // 🚀 BİLDİRİM TIKLAMA FONKSİYONU (YENİ)
   const handleNotificationClick = (path: string) => {
-      setIsNotifOpen(false) // Paneli kapat
-      setUnreadNotifs(prev => Math.max(0, prev - 1)) // Bildirim sayısını 1 düşür
-      router.push(path) // İlgili sayfaya ışınlan
+      setIsNotifOpen(false) 
+      setUnreadNotifs(prev => Math.max(0, prev - 1)) 
+      router.push(path) 
   }
 
+  // 🚀 SİHRİN BAŞLADIĞI YER: Kategorilere "allowedRoles" (İzin Verilen Roller) ekledik
   const menuGroups = [
     {
       title: "GENEL",
+      allowedRoles: ["ALL"], // "ALL" yazdığımız için burayı tüm personeller görebilir.
       items: [
         { href: "/dashboard", label: "Ana Sayfa", icon: Home },
         { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package },
@@ -62,6 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "MÜHENDİSLİK & PROJE",
+      allowedRoles: ["mühendis", "arge", "proje", "tasarım"], // Sadece bu kelimeleri içeren departmanlar görür
       items: [
         { href: "/dashboard/engineering/projects", label: "Proje Paneli", icon: FileCog },
         { href: "/dashboard/offers", label: "Teklif & Hesaplama", icon: Calculator },
@@ -69,6 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "İMALAT YÖNETİMİ",
+      allowedRoles: ["imalat", "üretim", "fabrika"],
       items: [
         { href: "/dashboard/manufacturing/dashboard", label: "İmalat Paneli", icon: Factory },
         { href: "/dashboard/manufacturing/missing", label: "Eksik Malzemeler", icon: AlertCircle },
@@ -76,12 +79,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "SAHA (ÜRETİM)",
+      allowedRoles: ["imalat", "üretim", "saha", "montaj"],
       items: [
         { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat },
       ]
     },
     {
       title: "SATIŞ TAKİP",
+      allowedRoles: ["satış", "pazarlama", "bayi"],
       items: [
         { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart },
         { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package },
@@ -91,6 +96,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   ]
 
+  // 🚀 AKILLI FİLTRELEME MOTORU
+  const userDept = (profile?.department || "").toLowerCase()
+  
+  // "teknoloji", "yönetim", "admin" gibi kelimeler departmanında geçiyorsa her yeri görür.
+  const isMaster = userDept.includes("teknoloji") || userDept.includes("admin") || userDept.includes("yönetim") || userDept.includes("kurucu")
+
+  const filteredMenuGroups = menuGroups.filter(group => {
+    if (isMaster) return true; // Master yetki her şeyi görür
+    if (group.allowedRoles.includes("ALL")) return true; // Herkese açık kategoriler
+    // Kullanıcının departmanı, izin verilen rollerden herhangi birini içeriyor mu?
+    return group.allowedRoles.some(role => userDept.includes(role)); 
+  })
+
   return (
     <div className="min-h-screen w-full bg-[#f4f7f9] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-[#f0f4f8] to-slate-100 flex font-sans">
       
@@ -98,27 +116,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex-1 flex flex-col bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] overflow-hidden">
           
           <div className="flex items-center gap-3 p-5 border-b border-gray-100/50">
-            
-            {/* YENİ LOGO YAPISI - Resmi ana sayfaya linklemek için <Link> ile sarmalıyoruz */}
             <Link href="/dashboard" className="flex items-center gap-3 flex-shrink-0">
-              
-              {/* next/image bileşeni */}
               <Image 
-                src="/buvisan.png" // Public klasöründeki dosyanın yolu (klasör adını başına yazma)
-                alt="Buvisan ve ZM Logoları" // Resim yüklenemezse veya görme engelli kullanıcılar için açıklama
-                width={180} // Resmin kodda kaplayacağı genişlik (pikseller - layout'a göre ayarlanabilir)
-                height={60} // Resmin kodda kaplayacağı yükseklik (pikseller - layout'a göre ayarlanabilir)
-                priority // Bu resim sayfanın en üstünde olduğu için daha hızlı yüklenmesi için 'priority' veriyoruz
-                className="object-contain" // Resmin en boy oranını koruyarak div'e sığmasını sağlar
+                src="/buvisan.png" 
+                alt="Buvisan ve ZM Logoları" 
+                width={180} 
+                height={60} 
+                priority 
+                className="object-contain" 
               />
-
             </Link>
           </div>
 
           <div className="flex-1 overflow-y-auto py-6 px-4 no-scrollbar">
             <nav className="flex flex-col gap-8">
-              {menuGroups.map((group, index) => (
-                <div key={index} className="space-y-2">
+              {/* 🚀 ARTIK TÜM LİSTEYİ DEĞİL, SADECE FİLTRELENMİŞ LİSTEYİ (filteredMenuGroups) BASIYORUZ */}
+              {filteredMenuGroups.map((group, index) => (
+                <div key={index} className="space-y-2 animate-in fade-in slide-in-from-left-2" style={{ animationDelay: `${index * 50}ms` }}>
                   <h3 className="px-4 text-[11px] font-black text-slate-400 mb-3 tracking-widest uppercase">{group.title}</h3>
                   {group.items.map((item) => {
                     const isActive = pathname === item.href
@@ -136,7 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="p-4 mt-auto border-t border-white/40 bg-white/20">
-             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/50 border border-white/60 shadow-sm">
+             <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/50 border border-white/60 shadow-sm hover:bg-white/80 transition-colors">
                 <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-black border border-white shadow-inner">
                   {profile?.first_name?.charAt(0) || "K"}
                 </div>
@@ -159,8 +173,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-5">
-             
-             {/* 🔔 ETKİLEŞİMLİ BİLDİRİM MERKEZİ */}
              <div className="relative">
                  <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false)}} className={`h-12 w-12 rounded-2xl border flex items-center justify-center transition-all relative ${isNotifOpen ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-inner' : 'bg-white/80 border-white text-slate-500 hover:text-blue-600 hover:shadow-md'}`}>
                     <Bell className="h-5 w-5" />
@@ -174,8 +186,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                              <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">{unreadNotifs} Yeni</span>
                          </div>
                          <div className="max-h-[300px] overflow-y-auto p-2">
-                             
-                             {/* 🚀 TIKLANINCA EKSİK MALZEMELERE GİDER */}
                              <div onClick={() => handleNotificationClick('/dashboard/manufacturing/missing')} className="p-3 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors flex gap-3">
                                  <div className="h-8 w-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><AlertCircle className="h-4 w-4"/></div>
                                  <div>
@@ -183,8 +193,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                      <p className="text-[10px] text-slate-500 mt-0.5">Üretimden yeni bir malzeme talebi var. Tıklayıp görüntüle.</p>
                                  </div>
                              </div>
-
-                             {/* 🚀 TIKLANINCA SATIN ALMA SAYFASINA GİDER */}
                              <div onClick={() => handleNotificationClick('/dashboard/purchases')} className="p-3 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors flex gap-3">
                                  <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><Activity className="h-4 w-4"/></div>
                                  <div>
@@ -192,7 +200,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                      <p className="text-[10px] text-slate-500 mt-0.5">Bekleyen satın alma siparişlerinizde hareket var.</p>
                                  </div>
                              </div>
-
                          </div>
                          <div className="p-3 border-t border-slate-100 text-center">
                              <button onClick={() => setUnreadNotifs(0)} className="text-xs font-bold text-blue-600 hover:text-blue-800">Tümünü Okundu İşaretle</button>
@@ -201,7 +208,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                  )}
              </div>
 
-             {/* 👤 KULLANICI MENÜSÜ */}
              <div className="relative">
                  <button onClick={() => {setIsUserMenuOpen(!isUserMenuOpen); setIsNotifOpen(false)}} className="flex items-center gap-3 h-12 pl-2 pr-4 rounded-2xl bg-white/80 border border-white hover:shadow-md transition-all">
                      <div className="h-8 w-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
@@ -212,7 +218,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                  {isUserMenuOpen && (
                      <div className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-3xl border border-slate-100 rounded-[2rem] shadow-2xl p-2 animate-in fade-in slide-in-from-top-4 z-50">
-                        {/* Kullanıcı Açılır Penceresi İçindeki Linkler */}
                         <div className="flex flex-col gap-1">
                             <Link href="/dashboard/profile" onClick={() => setIsUserMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
                                 <UserCircle className="h-4 w-4" /> Profilim
