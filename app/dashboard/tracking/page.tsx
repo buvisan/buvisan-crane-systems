@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from "recharts"
-import { Banknote, Package, Trophy, Loader2, BarChart3, Activity } from "lucide-react"
+import { Banknote, Package, Trophy, Loader2, BarChart3, Activity, Lock } from "lucide-react"
 
 const COLORS_GREEN = ['#3d4d34', '#4b5e40', '#6b855a', '#8b9e7d', '#c2cfb6']
 const COLORS_ORANGE = ['#c75c10', '#d38b5d', '#e6a87c', '#f0c7a5', '#f8dfcb']
 
 export default function TrackingDashboardPage() {
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false) // 🚀 YETKİ KONTROL STATE'İ
   const [dashboardData, setDashboardData] = useState({
       toplamCiro: 0, toplamAdet: 0, topProducts: [] as any[], personnelSales: [] as any[], brandData: [] as any[], monthlyTrend: [] as any[], recentSales: [] as any[]
   })
@@ -20,6 +21,16 @@ export default function TrackingDashboardPage() {
 
   const fetchDashboardData = async () => {
     setLoading(true)
+    
+    // 🚀 YETKİ KONTROLÜNÜ ÇEKİYORUZ
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+        const { data: profile } = await supabase.from('profiles').select('department').eq('id', user.id).single()
+        const dept = (profile?.department || "").toLowerCase()
+        // Admin, Kurucu veya Teknoloji Yöneticisi ise ciroyu görebilir
+        setIsAdmin(dept.includes("admin") || dept.includes("teknoloji") || dept.includes("yönetim") || dept.includes("kurucu"))
+    }
+
     const { data: sales } = await supabase.from('tracking_sales').select(`*, tracking_products(brand, model), tracking_personnel(full_name)`).order('created_at', { ascending: false })
 
     if (sales) {
@@ -43,7 +54,6 @@ export default function TrackingDashboardPage() {
         })
         const brandData = Object.values(brandMap).sort((a,b) => b.value - a.value)
 
-        // 🚀 Markaya Göre En Çok Satan 5
         const prodMap: Record<string, { model: string, adet: number }> = {}
         sales.forEach(s => {
             const mName = s.tracking_products?.brand || "Bilinmeyen" 
@@ -61,7 +71,7 @@ export default function TrackingDashboardPage() {
 
         setDashboardData({
             toplamCiro: ciro, toplamAdet: adet, topProducts: top5, personnelSales: personnelData, brandData: brandData, monthlyTrend: monthlyData,
-            recentSales: sales.slice(0, 5) // 🚀 Son 5 İşlemi Ekledik
+            recentSales: sales.slice(0, 5) 
         })
     }
     setLoading(false)
@@ -82,13 +92,18 @@ export default function TrackingDashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full">
           
-          {/* SOL SÜTUN */}
           <div className="xl:col-span-3 flex flex-col gap-6">
               <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
                   <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity"><Banknote className="h-20 w-20 text-[#4b5e40]" /></div>
-                  <div className="relative z-10">
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-2">Toplam Ciro</h3>
-                      <div className="text-4xl font-black text-[#3d4d34] tracking-tight">{dashboardData.toplamCiro.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}</div>
+                  <div className="relative z-10 flex flex-col items-start">
+                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                          Toplam Ciro {!isAdmin && <Lock className="h-3.5 w-3.5 text-slate-400" />}
+                      </h3>
+                      {/* 🚀 SİHİRLİ BLUR ALANI */}
+                      <div className={`text-4xl font-black text-[#3d4d34] tracking-tight transition-all duration-300 ${!isAdmin ? 'blur-md select-none opacity-60' : ''}`}>
+                          {isAdmin ? dashboardData.toplamCiro.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }) : "₺ 9.999.999"}
+                      </div>
+                      {!isAdmin && <span className="text-[10px] font-bold text-rose-500 mt-2 bg-rose-50 px-2 py-1 rounded-md">Gizli Veri (Sadece Yönetim)</span>}
                   </div>
               </div>
 
@@ -116,7 +131,6 @@ export default function TrackingDashboardPage() {
               </div>
           </div>
 
-          {/* ORTA SÜTUN */}
           <div className="xl:col-span-6 flex flex-col gap-6">
               <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm h-[320px] flex flex-col">
                   <h3 className="text-lg font-black text-slate-800 mb-6">Personel Satış Adeti | Satış Tutarı</h3>
@@ -148,7 +162,6 @@ export default function TrackingDashboardPage() {
               </div>
           </div>
 
-          {/* SAĞ SÜTUN */}
           <div className="xl:col-span-3 flex flex-col gap-6">
               <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex-1 flex flex-col">
                   <h3 className="text-lg font-black text-slate-800 mb-2">Marka Dağılımı</h3>
@@ -172,7 +185,6 @@ export default function TrackingDashboardPage() {
                   </div>
               </div>
 
-              {/* 🚀 YENİ EKLENEN VİDGET: SON İŞLEMLER */}
               <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex-1 flex flex-col">
                   <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Activity className="h-4 w-4 text-blue-500" /> Son Satış Hareketleri</h3>
                   <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">

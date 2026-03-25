@@ -8,7 +8,8 @@ import { createClient } from "@/utils/supabase/client"
 import { 
   Package2, Home, Package, ClipboardList, Tag, Users, Truck, 
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
-  LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront
+  LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront,
+  Wallet, FileText // 🚀 YENİ MUHASEBE İKONLARI
 } from "lucide-react"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -47,11 +48,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push(path) 
   }
 
-  // 🚀 SİHRİN BAŞLADIĞI YER: Kategorilere "allowedRoles" (İzin Verilen Roller) ekledik
   const menuGroups = [
     {
       title: "GENEL",
-      allowedRoles: ["ALL"], // "ALL" yazdığımız için burayı tüm personeller görebilir.
+      allowedRoles: ["ALL"], 
       items: [
         { href: "/dashboard", label: "Ana Sayfa", icon: Home },
         { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package },
@@ -63,7 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "MÜHENDİSLİK & PROJE",
-      allowedRoles: ["mühendis", "arge", "proje", "tasarım"], // Sadece bu kelimeleri içeren departmanlar görür
+      allowedRoles: ["mühendis", "arge", "proje", "tasarım"], 
       items: [
         { href: "/dashboard/engineering/projects", label: "Proje Paneli", icon: FileCog },
         { href: "/dashboard/offers", label: "Teklif & Hesaplama", icon: Calculator },
@@ -84,9 +84,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat },
       ]
     },
+    // 🚀 YENİ DEPARTMAN EKLENDİ: MUHASEBE VE FİNANS
+    {
+      title: "MUHASEBE & FİNANS",
+      allowedRoles: ["muhasebe", "finans", "yönetim"],
+      items: [
+        { href: "/dashboard/finance/invoices", label: "Faturalar & İrsaliyeler", icon: FileText },
+        { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet },
+      ]
+    },
     {
       title: "SATIŞ TAKİP",
-      allowedRoles: ["satış", "pazarlama", "bayi", "proje", "genel", "kurucu", "üretim", "muhasebe", "satın"],
+      allowedRoles: ["satış", "pazarlama", "bayi"],
       items: [
         { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart },
         { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package },
@@ -96,16 +105,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   ]
 
-  // 🚀 AKILLI FİLTRELEME MOTORU
   const userDept = (profile?.department || "").toLowerCase()
   
-  // "teknoloji", "yönetim", "admin" gibi kelimeler departmanında geçiyorsa her yeri görür.
   const isMaster = userDept.includes("teknoloji") || userDept.includes("admin") || userDept.includes("yönetim") || userDept.includes("kurucu")
 
   const filteredMenuGroups = menuGroups.filter(group => {
-    if (isMaster) return true; // Master yetki her şeyi görür
-    if (group.allowedRoles.includes("ALL")) return true; // Herkese açık kategoriler
-    // Kullanıcının departmanı, izin verilen rollerden herhangi birini içeriyor mu?
+    if (isMaster) return true; 
+    if (group.allowedRoles.includes("ALL")) return true; 
     return group.allowedRoles.some(role => userDept.includes(role)); 
   })
 
@@ -117,20 +123,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           
           <div className="flex items-center gap-3 p-5 border-b border-gray-100/50">
             <Link href="/dashboard" className="flex items-center gap-3 flex-shrink-0">
-              <Image 
-                src="/buvisan.png" 
-                alt="Buvisan ve ZM Logoları" 
-                width={180} 
-                height={60} 
-                priority 
-                className="object-contain" 
-              />
+              <Image src="/buvisan.png" alt="Buvisan ve ZM Logoları" width={180} height={60} priority className="object-contain" />
             </Link>
           </div>
 
           <div className="flex-1 overflow-y-auto py-6 px-4 no-scrollbar">
             <nav className="flex flex-col gap-8">
-              {/* 🚀 ARTIK TÜM LİSTEYİ DEĞİL, SADECE FİLTRELENMİŞ LİSTEYİ (filteredMenuGroups) BASIYORUZ */}
               {filteredMenuGroups.map((group, index) => (
                 <div key={index} className="space-y-2 animate-in fade-in slide-in-from-left-2" style={{ animationDelay: `${index * 50}ms` }}>
                   <h3 className="px-4 text-[11px] font-black text-slate-400 mb-3 tracking-widest uppercase">{group.title}</h3>

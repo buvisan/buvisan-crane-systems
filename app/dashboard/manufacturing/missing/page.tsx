@@ -7,7 +7,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { AlertCircle, ShoppingCart, Loader2, CheckCircle2, Factory, ArrowRight, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { ActionUserBadge } from "@/components/ActionUserBadge" // 🚀 Rozeti içeri aktardık!
+import { ActionUserBadge } from "@/components/ActionUserBadge"
 
 export default function MissingMaterialsPage() {
   const [items, setItems] = useState<any[]>([])
@@ -28,7 +28,7 @@ export default function MissingMaterialsPage() {
             *,
             projects ( project_code, customers ( name ) ),
             profiles ( first_name, last_name, department ) 
-        `) // 🚀 profiles tablosunu da çektik!
+        `)
         .order('status', { ascending: true }) 
         .order('created_at', { ascending: false })
     
@@ -51,8 +51,9 @@ export default function MissingMaterialsPage() {
         const pCust = item.projects?.customers?.name || "-"
         const desc = `Üretim Talebi: ${item.product_name} (${item.quantity} Adet) | Proje: ${pCode} (${pCust}) | Talep No: ${formatTalepNumber(item.id)}`
 
+        // 🚀 ÇÖZÜM BURADA: 'supplier_id: 1' satırını tamamen kaldırdık. 
+        // Tedarikçiyi sonradan satın alma departmanı belirleyecek.
         const { error: orderError } = await supabase.from('purchase_orders').insert([{
-            supplier_id: 1, 
             order_date: new Date().toISOString(),
             status: 'BEKLIYOR',
             total_amount: 0,
@@ -60,7 +61,7 @@ export default function MissingMaterialsPage() {
             created_by: userId
         }])
 
-        if (orderError) throw new Error("Sipariş veritabanına eklenemedi.")
+        if (orderError) throw new Error("Sipariş veritabanına eklenemedi: " + orderError.message)
 
         const { error: updateError } = await supabase
             .from('missing_materials')
@@ -88,7 +89,6 @@ export default function MissingMaterialsPage() {
   return (
     <div className="flex flex-col gap-8 p-2 max-w-[1600px] mx-auto w-full font-sans">
       
-      {/* ÜST BAŞLIK */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 bg-white/60 backdrop-blur-2xl border border-white/50 p-6 rounded-[2rem] shadow-sm">
         <div className="flex items-center gap-5">
             <div className="bg-gradient-to-br from-red-500 to-rose-600 p-4 rounded-2xl shadow-lg shadow-red-500/30">
@@ -110,7 +110,6 @@ export default function MissingMaterialsPage() {
         </div>
       </div>
 
-      {/* KART MİMARİSİ */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         
         {filteredItems.map((item) => {
@@ -124,7 +123,6 @@ export default function MissingMaterialsPage() {
             >
                 {isUrgent && <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-red-400/20 rounded-full blur-3xl pointer-events-none group-hover:bg-red-400/30 transition-all"></div>}
                 
-                {/* 1. SATIR: PROJE VE DURUM */}
                 <div className="flex items-start justify-between mb-6 relative z-10">
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
@@ -145,7 +143,6 @@ export default function MissingMaterialsPage() {
                     {isUrgent && <div className="h-3 w-3 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse shrink-0 mt-1"></div>}
                 </div>
 
-                {/* 2. SATIR: MALZEME BİLGİSİ */}
                 <div className="flex flex-col gap-1 mb-8 relative z-10">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">İstenen Malzeme</span>
                     <div className="flex items-end gap-3">
@@ -158,10 +155,8 @@ export default function MissingMaterialsPage() {
                     </div>
                 </div>
 
-                {/* 3. SATIR: AKSİYON VE ROZET */}
                 <div className="mt-auto pt-4 border-t border-slate-100 relative z-10 flex flex-col gap-4">
                     
-                    {/* 🚀 İŞTE EFSANE ROZETİMİZ: Kimin talep ettiğini gösterir */}
                     <div className="scale-95 origin-left">
                         <ActionUserBadge 
                             profile={item.profiles} 
