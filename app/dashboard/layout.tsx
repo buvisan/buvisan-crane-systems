@@ -9,7 +9,7 @@ import {
   Package2, Home, Package, ClipboardList, Tag, Users, Truck, 
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
   LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront,
-  Wallet, FileText // 🚀 YENİ MUHASEBE İKONLARI
+  Wallet, FileText, Archive, ScanLine, History // 🚀 YENİ DEPO İKONLARI
 } from "lucide-react"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -84,7 +84,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat },
       ]
     },
-    // 🚀 YENİ DEPARTMAN EKLENDİ: MUHASEBE VE FİNANS
+    // 🚀 YENİ DEPARTMAN: DEPO VE LOJİSTİK
+    {
+      title: "DEPO & LOJİSTİK",
+      allowedRoles: ["depo", "lojistik", "üretim", "satın"],
+      items: [
+        { href: "/dashboard/warehouse/products", label: "Depo Ürünleri (QR)", icon: Archive },
+        { href: "/dashboard/warehouse/entries", label: "Mal Kabul & İrsaliye", icon: ClipboardList },
+        { href: "/dashboard/warehouse/scanner", label: "QR Barkod Terminali", icon: ScanLine },
+        { href: "/dashboard/warehouse/logs", label: "Stok Hareket Analizi", icon: History },
+      ]
+    },
     {
       title: "MUHASEBE & FİNANS",
       allowedRoles: ["muhasebe", "finans", "yönetici"],
@@ -95,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "SATIŞ TAKİP",
-      allowedRoles: ["satış", "pazarlama", "bayi","satın", "üretim","muhasebe","proje", ],
+      allowedRoles: ["satış", "pazarlama", "bayi","satın", "üretim","muhasebe","proje" ],
       items: [
         { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart },
         { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package },
@@ -106,7 +116,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   ]
 
   const userDept = (profile?.department || "").toLowerCase()
-  
   const isMaster = userDept.includes("teknoloji") || userDept.includes("admin") || userDept.includes("yönetim") || userDept.includes("kurucu")
 
   const filteredMenuGroups = menuGroups.filter(group => {
@@ -133,7 +142,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div key={index} className="space-y-2 animate-in fade-in slide-in-from-left-2" style={{ animationDelay: `${index * 50}ms` }}>
                   <h3 className="px-4 text-[11px] font-black text-slate-400 mb-3 tracking-widest uppercase">{group.title}</h3>
                   {group.items.map((item) => {
-                    const isActive = pathname === item.href
+                    const isActive = pathname.startsWith(item.href) // Alt sayfalarda da aktif kalsın diye
                     return (
                       <Link key={item.href} href={item.href} className={`flex items-center gap-3.5 rounded-2xl px-4 py-3.5 text-sm font-semibold transition-all duration-300 relative overflow-hidden group ${isActive ? "text-white shadow-lg shadow-blue-500/30" : "text-slate-500 hover:text-slate-900 hover:bg-white/80"}`}>
                         {isActive && <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 opacity-100 z-0 transition-opacity"></div>}
@@ -162,9 +171,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
       
       <main className="flex-1 lg:pl-[300px] flex flex-col min-h-screen relative">
-        
         <header className="h-20 flex items-center justify-between px-6 lg:px-8 mt-5 mx-5 lg:mx-8 bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-[2rem] sticky top-5 z-40">
-          
           <div className="flex items-center gap-4">
              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)] animate-pulse"></div>
              <span className="font-black text-slate-700 text-sm md:text-base uppercase tracking-widest">Sistem Çevrimiçi</span>
@@ -188,14 +195,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                  <div className="h-8 w-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0"><AlertCircle className="h-4 w-4"/></div>
                                  <div>
                                      <p className="text-xs font-bold text-slate-700">Acil Eksik Malzeme</p>
-                                     <p className="text-[10px] text-slate-500 mt-0.5">Üretimden yeni bir malzeme talebi var. Tıklayıp görüntüle.</p>
-                                 </div>
-                             </div>
-                             <div onClick={() => handleNotificationClick('/dashboard/purchases')} className="p-3 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors flex gap-3">
-                                 <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0"><Activity className="h-4 w-4"/></div>
-                                 <div>
-                                     <p className="text-xs font-bold text-slate-700">Satın Alma İşlemi</p>
-                                     <p className="text-[10px] text-slate-500 mt-0.5">Bekleyen satın alma siparişlerinizde hareket var.</p>
+                                     <p className="text-[10px] text-slate-500 mt-0.5">Üretimden yeni bir malzeme talebi var.</p>
                                  </div>
                              </div>
                          </div>
