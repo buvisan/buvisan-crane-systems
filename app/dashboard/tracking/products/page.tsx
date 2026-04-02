@@ -13,7 +13,7 @@ export default function TrackingProductsPage() {
   const [isAdding, setIsAdding] = useState(false)
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState("") 
-  const [editingId, setEditingId] = useState<number | null>(null) // 🚀 DÜZENLEME STATE'İ
+  const [editingId, setEditingId] = useState<number | null>(null)
   
   const [form, setForm] = useState({ brand: "", model: "", price: "", stock: "" })
   const supabase = createClient()
@@ -27,11 +27,11 @@ export default function TrackingProductsPage() {
     setLoading(false)
   }
 
-  // 🚀 DÜZENLEME MODUNU AÇ
   const openEdit = (p: any) => {
       setForm({ brand: p.brand, model: p.model, price: p.price, stock: p.stock })
       setEditingId(p.id)
       setIsAdding(true)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -70,50 +70,54 @@ export default function TrackingProductsPage() {
   )
 
   return (
-    <div className="flex flex-col gap-8 max-w-[1400px] mx-auto w-full font-sans pb-10">
+    <div className="flex flex-col gap-6 md:gap-8 max-w-[1400px] mx-auto w-full font-sans pb-10">
       
+      {/* 🚀 ÜST BAŞLIK ALANI (Mobil Uyumlu) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-6 rounded-[2rem] shadow-sm flex-1">
-            <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-4 rounded-2xl shadow-lg shadow-indigo-500/30"><CarFront className="h-8 w-8 text-white" /></div>
+        <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] shadow-sm flex-1">
+            <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-3 md:p-4 rounded-xl md:rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0"><CarFront className="h-6 w-6 md:h-8 md:w-8 text-white" /></div>
             <div>
-                <h1 className="text-3xl font-black tracking-tight text-slate-900">Ürünler ve Modeller</h1>
-                <p className="text-slate-500 font-medium text-sm mt-1">Satıştaki araçların marka, model ve fiyat listesi.</p>
+                <h1 className="text-xl md:text-3xl font-black tracking-tight text-slate-900">Ürünler ve Modeller</h1>
+                <p className="text-slate-500 font-medium text-xs md:text-sm mt-1">Satıştaki araçların marka, model ve fiyat listesi.</p>
             </div>
         </div>
 
-        <div className="relative w-full md:w-72">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <Input placeholder="Marka veya Model Ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 h-16 bg-white/80 border-white/50 text-base font-bold text-slate-700 shadow-sm rounded-[2rem] focus:ring-2 focus:ring-indigo-500" />
-        </div>
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
+            <div className="relative w-full sm:w-64 md:w-72">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-slate-400" />
+                <Input placeholder="Marka veya Model Ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 md:pl-11 h-12 md:h-14 bg-white/80 border-white/50 text-sm md:text-base font-bold text-slate-700 shadow-sm rounded-xl md:rounded-[2rem] focus:ring-2 focus:ring-indigo-500 w-full" />
+            </div>
 
-        <Button onClick={() => { setIsAdding(!isAdding); setEditingId(null); setForm({ brand: "", model: "", price: "", stock: "" }) }} className="h-16 px-8 bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold rounded-[2rem] shadow-lg shadow-indigo-500/30 transition-all flex items-center gap-2 shrink-0">
-            <PlusCircle className="h-5 w-5" /> Yeni Ürün Ekle
-        </Button>
+            <Button onClick={() => { setIsAdding(!isAdding); setEditingId(null); setForm({ brand: "", model: "", price: "", stock: "" }) }} className="h-12 md:h-14 px-6 md:px-8 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-sm md:text-base font-bold rounded-xl md:rounded-[2rem] shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center gap-2">
+                <PlusCircle className="h-4 w-4 md:h-5 md:w-5" /> Yeni Ürün Ekle
+            </Button>
+        </div>
       </div>
 
+      {/* 🚀 FORM ALANI */}
       {isAdding && (
-          <div className="bg-white/80 backdrop-blur-2xl border border-white shadow-lg rounded-[2.5rem] p-8 animate-in fade-in slide-in-from-top-4">
-              <h2 className="text-xl font-black text-slate-800 mb-6">{editingId ? "Ürün Bilgilerini Güncelle" : "Yeni Araç Kaydı"}</h2>
-              <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div className="space-y-2">
-                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Marka</Label>
-                      <Input required placeholder="Örn: 10 TON ÇİFT KİRİŞ..." value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
+          <div className="bg-white/80 backdrop-blur-2xl border border-white shadow-lg rounded-[1.5rem] md:rounded-[2.5rem] p-5 md:p-8 animate-in fade-in slide-in-from-top-4">
+              <h2 className="text-lg md:text-xl font-black text-slate-800 mb-5 md:mb-6">{editingId ? "Ürün Bilgilerini Güncelle" : "Yeni Araç Kaydı"}</h2>
+              <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+                  <div className="space-y-1.5 md:space-y-2">
+                      <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Marka</Label>
+                      <Input required placeholder="Örn: 10 TON ÇİFT KİRİŞ..." value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm" />
                   </div>
-                  <div className="space-y-2">
-                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Model Yılı / Kodu</Label>
-                      <Input required placeholder="Örn: 2026" value={form.model} onChange={e => setForm({...form, model: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
+                  <div className="space-y-1.5 md:space-y-2">
+                      <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Model Yılı / Kodu</Label>
+                      <Input required placeholder="Örn: 2026" value={form.model} onChange={e => setForm({...form, model: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm" />
                   </div>
-                  <div className="space-y-2">
-                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Liste Fiyatı (TL)</Label>
-                      <Input required type="number" placeholder="1500000" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-indigo-600" />
+                  <div className="space-y-1.5 md:space-y-2">
+                      <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Liste Fiyatı (TL)</Label>
+                      <Input required type="number" placeholder="1500000" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-indigo-600 text-sm" />
                   </div>
-                  <div className="space-y-2">
-                      <Label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Stok Adeti</Label>
-                      <Input required type="number" placeholder="1" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
+                  <div className="space-y-1.5 md:space-y-2">
+                      <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Stok Adeti</Label>
+                      <Input required type="number" placeholder="1" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm" />
                   </div>
-                  <div className="md:col-span-4 flex justify-end gap-3 mt-2">
-                      <Button type="button" variant="ghost" onClick={() => { setIsAdding(false); setEditingId(null); }} className="h-12 px-6 rounded-xl font-bold">İptal</Button>
-                      <Button type="submit" disabled={saving} className="h-12 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md">
+                  <div className="sm:col-span-2 md:col-span-4 flex flex-col-reverse sm:flex-row justify-end gap-3 mt-2 md:mt-4">
+                      <Button type="button" variant="ghost" onClick={() => { setIsAdding(false); setEditingId(null); }} className="h-12 px-6 rounded-xl font-bold w-full sm:w-auto">İptal</Button>
+                      <Button type="submit" disabled={saving} className="h-12 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-md w-full sm:w-auto">
                           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (editingId ? "Güncelle" : "Kaydet")}
                       </Button>
                   </div>
@@ -121,32 +125,38 @@ export default function TrackingProductsPage() {
           </div>
       )}
 
-      <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] overflow-hidden">
-          <table className="w-full text-left border-collapse">
-              <thead className="bg-white/40 border-b border-slate-100">
-                  <tr>
-                      <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Ürün Markası / Cinsi</th>
-                      <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Model / Kod</th>
-                      <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Fiyat</th>
-                      <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Stok</th>
-                      <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">İşlem</th>
-                  </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                  {filteredProducts.map((p) => (
-                      <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors">
-                          <td className="px-6 py-4 text-sm font-black text-slate-800">{p.brand}</td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-600">{p.model}</td>
-                          <td className="px-6 py-4 text-sm font-black text-indigo-600 tabular-nums">{p.price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
-                          <td className="px-6 py-4"><span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-sm font-bold border border-slate-200">{p.stock}</span></td>
-                          <td className="px-6 py-4 text-right flex justify-end gap-2">
-                              <button onClick={() => openEdit(p)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="h-5 w-5" /></button>
-                              <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="h-5 w-5" /></button>
-                          </td>
+      {/* 🚀 AKIŞKAN TABLO LİSTESİ */}
+      <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
+          <div className="overflow-x-auto custom-scrollbar p-2">
+              <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead className="bg-white/40 border-b border-slate-100">
+                      <tr>
+                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest rounded-tl-xl md:rounded-tl-2xl">Ürün Markası / Cinsi</th>
+                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Model / Kod</th>
+                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Fiyat</th>
+                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Stok</th>
+                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right rounded-tr-xl md:rounded-tr-2xl">İşlem</th>
                       </tr>
-                  ))}
-              </tbody>
-          </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                      {filteredProducts.map((p) => (
+                          <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors group">
+                              <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-800 truncate max-w-[200px]">{p.brand}</td>
+                              <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-bold text-slate-600">{p.model}</td>
+                              <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-indigo-600 tabular-nums">{p.price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
+                              <td className="px-4 md:px-6 py-3 md:py-4"><span className="bg-slate-100 text-slate-600 px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-sm font-bold border border-slate-200">{p.stock}</span></td>
+                              <td className="px-4 md:px-6 py-3 md:py-4 text-right flex justify-end gap-1.5 md:gap-2 opacity-100 lg:opacity-30 lg:group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => openEdit(p)} className="p-1.5 md:p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg md:rounded-xl transition-colors"><Edit2 className="h-4 w-4 md:h-5 md:w-5" /></button>
+                                  <button onClick={() => handleDelete(p.id)} className="p-1.5 md:p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg md:rounded-xl transition-colors"><Trash2 className="h-4 w-4 md:h-5 md:w-5" /></button>
+                              </td>
+                          </tr>
+                      ))}
+                      {filteredProducts.length === 0 && !loading && (
+                          <tr><td colSpan={5} className="py-16 md:py-20 text-center"><div className="flex flex-col items-center gap-3"><div className="bg-white p-4 md:p-5 rounded-full shadow-sm"><PackageOpen className="h-8 w-8 md:h-10 md:w-10 text-slate-300" /></div><p className="text-sm md:text-lg font-bold text-slate-500">Ürün bulunamadı.</p></div></td></tr>
+                      )}
+                  </tbody>
+              </table>
+          </div>
       </div>
     </div>
   )

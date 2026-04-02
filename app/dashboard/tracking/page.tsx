@@ -10,7 +10,7 @@ const COLORS_ORANGE = ['#c75c10', '#d38b5d', '#e6a87c', '#f0c7a5', '#f8dfcb']
 
 export default function TrackingDashboardPage() {
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false) // 🚀 YETKİ KONTROL STATE'İ
+  const [isAdmin, setIsAdmin] = useState(false)
   const [dashboardData, setDashboardData] = useState({
       toplamCiro: 0, toplamAdet: 0, topProducts: [] as any[], personnelSales: [] as any[], brandData: [] as any[], monthlyTrend: [] as any[], recentSales: [] as any[]
   })
@@ -22,12 +22,10 @@ export default function TrackingDashboardPage() {
   const fetchDashboardData = async () => {
     setLoading(true)
     
-    // 🚀 YETKİ KONTROLÜNÜ ÇEKİYORUZ
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
         const { data: profile } = await supabase.from('profiles').select('department').eq('id', user.id).single()
         const dept = (profile?.department || "").toLowerCase()
-        // Admin, Kurucu veya Teknoloji Yöneticisi ise ciroyu görebilir
         setIsAdmin(dept.includes("admin") || dept.includes("teknoloji") || dept.includes("yönetim") || dept.includes("kurucu"))
     }
 
@@ -77,85 +75,90 @@ export default function TrackingDashboardPage() {
     setLoading(false)
   }
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-12 w-12 text-[#4b5e40]" /></div>
+  if (loading) return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="animate-spin h-10 w-10 md:h-12 md:w-12 text-[#4b5e40]" /></div>
 
   return (
     <div className="flex flex-col gap-6 max-w-[1600px] mx-auto w-full font-sans pb-10">
       
-      <div className="flex items-center gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-6 rounded-[2rem] shadow-sm">
-        <div className="bg-gradient-to-br from-[#4b5e40] to-[#6b855a] p-4 rounded-2xl shadow-lg shadow-[#4b5e40]/30"><BarChart3 className="h-8 w-8 text-white" /></div>
+      {/* 🚀 ÜST BAŞLIK ALANI */}
+      <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] shadow-sm">
+        <div className="bg-gradient-to-br from-[#4b5e40] to-[#6b855a] p-3 md:p-4 rounded-xl md:rounded-2xl shadow-lg shadow-[#4b5e40]/30 shrink-0"><BarChart3 className="h-6 w-6 md:h-8 md:w-8 text-white" /></div>
         <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">Satış Takip Paneli</h1>
-            <p className="text-slate-500 font-medium text-sm mt-1">Personel, marka ve model bazlı gerçek zamanlı satış analizleri.</p>
+            <h1 className="text-xl md:text-3xl font-black tracking-tight text-slate-900">Satış Takip Paneli</h1>
+            <p className="text-slate-500 font-medium text-xs md:text-sm mt-1">Personel, marka ve model bazlı gerçek zamanlı satış analizleri.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full">
           
           <div className="xl:col-span-3 flex flex-col gap-6">
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity"><Banknote className="h-20 w-20 text-[#4b5e40]" /></div>
+              {/* TOPLAM CİRO KARTI */}
+              <div className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity"><Banknote className="h-16 w-16 md:h-20 md:w-20 text-[#4b5e40]" /></div>
                   <div className="relative z-10 flex flex-col items-start">
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                          Toplam Ciro {!isAdmin && <Lock className="h-3.5 w-3.5 text-slate-400" />}
+                      <h3 className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2 flex items-center gap-2">
+                          Toplam Ciro {!isAdmin && <Lock className="h-3 md:h-3.5 w-3 md:w-3.5 text-slate-400" />}
                       </h3>
-                      {/* 🚀 SİHİRLİ BLUR ALANI */}
-                      <div className={`text-4xl font-black text-[#3d4d34] tracking-tight transition-all duration-300 ${!isAdmin ? 'blur-md select-none opacity-60' : ''}`}>
+                      <div className={`text-3xl md:text-4xl font-black text-[#3d4d34] tracking-tight transition-all duration-300 ${!isAdmin ? 'blur-md select-none opacity-60' : ''}`}>
                           {isAdmin ? dashboardData.toplamCiro.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }) : "₺ 9.999.999"}
                       </div>
-                      {!isAdmin && <span className="text-[10px] font-bold text-rose-500 mt-2 bg-rose-50 px-2 py-1 rounded-md">Gizli Veri (Sadece Yönetim)</span>}
+                      {!isAdmin && <span className="text-[9px] md:text-[10px] font-bold text-rose-500 mt-2 bg-rose-50 px-2 py-1 rounded-md">Gizli Veri (Sadece Yönetim)</span>}
                   </div>
               </div>
 
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity"><Package className="h-20 w-20 text-[#c75c10]" /></div>
+              {/* TOPLAM SATILAN ÜRÜN KARTI */}
+              <div className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity"><Package className="h-16 w-16 md:h-20 md:w-20 text-[#c75c10]" /></div>
                   <div className="relative z-10">
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-2">Toplam Satılan Ürün</h3>
-                      <div className="text-5xl font-black text-[#c75c10] tracking-tight">{dashboardData.toplamAdet}</div>
+                      <h3 className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-1 md:mb-2">Toplam Satılan Ürün</h3>
+                      <div className="text-4xl md:text-5xl font-black text-[#c75c10] tracking-tight">{dashboardData.toplamAdet}</div>
                   </div>
               </div>
 
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex-1">
-                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-6"><Trophy className="h-5 w-5 text-amber-500" /> En Çok Satan 5 Marka</h3>
-                  <div className="flex flex-col gap-4">
+              {/* EN ÇOK SATAN MARKALAR */}
+              <div className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm flex-1">
+                  <h3 className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 mb-4 md:mb-6"><Trophy className="h-4 w-4 md:h-5 md:w-5 text-amber-500" /> En Çok Satan 5 Marka</h3>
+                  <div className="flex flex-col gap-3 md:gap-4">
                       {dashboardData.topProducts.map((p, idx) => (
-                          <div key={idx} className="flex items-center gap-4">
-                              <span className="text-sm font-bold text-slate-700 w-24 truncate" title={p.model}>{p.model}</span>
-                              <div className="flex-1 h-6 bg-slate-100 rounded-r-md overflow-hidden flex items-center">
-                                  <div className="h-full bg-[#4b5e40] flex items-center justify-end pr-2 text-xs font-bold text-white transition-all duration-1000" style={{ width: `${(p.adet / Math.max(dashboardData.topProducts[0]?.adet || 1, 1)) * 100}%` }}>{p.adet}</div>
+                          <div key={idx} className="flex items-center gap-3 md:gap-4">
+                              <span className="text-xs md:text-sm font-bold text-slate-700 w-20 md:w-24 truncate" title={p.model}>{p.model}</span>
+                              <div className="flex-1 h-5 md:h-6 bg-slate-100 rounded-r-md overflow-hidden flex items-center">
+                                  <div className="h-full bg-[#4b5e40] flex items-center justify-end pr-2 text-[10px] md:text-xs font-bold text-white transition-all duration-1000" style={{ width: `${(p.adet / Math.max(dashboardData.topProducts[0]?.adet || 1, 1)) * 100}%` }}>{p.adet}</div>
                               </div>
                           </div>
                       ))}
-                      {dashboardData.topProducts.length === 0 && <p className="text-sm text-slate-400 font-medium">Satış verisi yok.</p>}
+                      {dashboardData.topProducts.length === 0 && <p className="text-xs md:text-sm text-slate-400 font-medium">Satış verisi yok.</p>}
                   </div>
               </div>
           </div>
 
           <div className="xl:col-span-6 flex flex-col gap-6">
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm h-[320px] flex flex-col">
-                  <h3 className="text-lg font-black text-slate-800 mb-6">Personel Satış Adeti | Satış Tutarı</h3>
+              {/* PERSONEL GRAFİĞİ */}
+              <div className="bg-white p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm h-[280px] md:h-[320px] flex flex-col">
+                  <h3 className="text-base md:text-lg font-black text-slate-800 mb-4 md:mb-6">Personel Satış Tutarı</h3>
                   <div className="flex-1 w-full min-h-0">
                       <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={dashboardData.personnelSales} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                          <BarChart data={dashboardData.personnelSales} layout="vertical" margin={{ top: 0, right: 10, left: 30, bottom: 0 }}>
                               <XAxis type="number" hide />
-                              <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 700}} width={100} />
-                              <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)'}} formatter={(value: any) => new Intl.NumberFormat('tr-TR').format(value)} />
-                              <Bar dataKey="ciro" fill="#4b5e40" radius={[0, 4, 4, 0]} barSize={20} name="Satış Tutarı (TL)" />
+                              <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10, fontWeight: 700}} width={80} />
+                              <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px'}} formatter={(value: any) => new Intl.NumberFormat('tr-TR').format(value)} />
+                              <Bar dataKey="ciro" fill="#4b5e40" radius={[0, 4, 4, 0]} barSize={16} name="Satış Tutarı (TL)" />
                           </BarChart>
                       </ResponsiveContainer>
                   </div>
               </div>
 
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm h-[280px] flex flex-col">
-                  <h3 className="text-lg font-black text-slate-800 mb-6">Aylık Satış Trendi - Adet</h3>
+              {/* AYLIK TREND GRAFİĞİ */}
+              <div className="bg-white p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm h-[240px] md:h-[280px] flex flex-col">
+                  <h3 className="text-base md:text-lg font-black text-slate-800 mb-4 md:mb-6">Aylık Satış Trendi - Adet</h3>
                   <div className="flex-1 w-full min-h-0">
                       <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={dashboardData.monthlyTrend} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                          <LineChart data={dashboardData.monthlyTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}} dy={10} />
-                              <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}} dx={-10} />
-                              <Tooltip cursor={{stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '3 3'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)'}} />
-                              <Line type="monotone" dataKey="adet" stroke="#c75c10" strokeWidth={4} dot={{r: 6, fill: '#c75c10', stroke: '#fff', strokeWidth: 2}} activeDot={{r: 8}} name="Satış Adeti" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dy={10} />
+                              <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} dx={-10} />
+                              <Tooltip cursor={{stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '3 3'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px'}} />
+                              <Line type="monotone" dataKey="adet" stroke="#c75c10" strokeWidth={3} dot={{r: 4, fill: '#c75c10', stroke: '#fff', strokeWidth: 2}} activeDot={{r: 6}} name="Satış Adeti" />
                           </LineChart>
                       </ResponsiveContainer>
                   </div>
@@ -163,38 +166,40 @@ export default function TrackingDashboardPage() {
           </div>
 
           <div className="xl:col-span-3 flex flex-col gap-6">
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex-1 flex flex-col">
-                  <h3 className="text-lg font-black text-slate-800 mb-2">Marka Dağılımı</h3>
+              {/* PASTA GRAFİK */}
+              <div className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm flex-1 flex flex-col">
+                  <h3 className="text-base md:text-lg font-black text-slate-800 mb-2">Marka Dağılımı</h3>
                   <div className="flex-1 w-full min-h-[160px] relative">
                       <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                              <Pie data={dashboardData.brandData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
+                              <Pie data={dashboardData.brandData} innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value">
                                   {dashboardData.brandData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS_GREEN[index % COLORS_GREEN.length]} />)}
                               </Pie>
-                              <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)'}} />
+                              <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px'}} />
                           </PieChart>
                       </ResponsiveContainer>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mt-4">
                       {dashboardData.brandData.slice(0,4).map((b, idx) => (
                           <div key={idx} className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full shrink-0" style={{backgroundColor: COLORS_GREEN[idx % COLORS_GREEN.length]}}></div>
-                              <span className="text-xs font-bold text-slate-600 truncate">{b.name}</span>
+                              <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shrink-0" style={{backgroundColor: COLORS_GREEN[idx % COLORS_GREEN.length]}}></div>
+                              <span className="text-[10px] md:text-xs font-bold text-slate-600 truncate">{b.name}</span>
                           </div>
                       ))}
                   </div>
               </div>
 
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex-1 flex flex-col">
-                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Activity className="h-4 w-4 text-blue-500" /> Son Satış Hareketleri</h3>
-                  <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
+              {/* SON HAREKETLER */}
+              <div className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-sm flex-1 flex flex-col">
+                  <h3 className="text-xs md:text-sm font-bold text-slate-500 uppercase tracking-widest mb-3 md:mb-4 flex items-center gap-2"><Activity className="h-4 w-4 text-blue-500" /> Son Satış Hareketleri</h3>
+                  <div className="flex flex-col gap-2 md:gap-3 overflow-y-auto pr-1 custom-scrollbar max-h-[250px]">
                       {dashboardData.recentSales.map((sale, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
+                          <div key={idx} className="flex items-center justify-between p-2.5 md:p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-200 transition-colors">
                               <div className="flex flex-col w-[60%] truncate">
-                                  <span className="text-xs font-bold text-slate-800 truncate">{sale.tracking_products?.brand} - {sale.customer_name}</span>
-                                  <span className="text-[10px] text-slate-400 font-medium">{new Date(sale.sale_date).toLocaleDateString('tr-TR')} • {sale.tracking_personnel?.full_name}</span>
+                                  <span className="text-[11px] md:text-xs font-bold text-slate-800 truncate">{sale.tracking_products?.brand} - {sale.customer_name}</span>
+                                  <span className="text-[9px] md:text-[10px] text-slate-400 font-medium">{new Date(sale.sale_date).toLocaleDateString('tr-TR')} • {sale.tracking_personnel?.full_name}</span>
                               </div>
-                              <div className="text-xs font-black text-emerald-600 shrink-0">
+                              <div className="text-[11px] md:text-xs font-black text-emerald-600 shrink-0">
                                   +{sale.total_amount.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
                               </div>
                           </div>
