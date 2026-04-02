@@ -23,9 +23,17 @@ export default function WarehouseProductsPage() {
       name: "", category: "", description: ""
   })
 
+  // 🚀 URL TESPİTİ (Akıllı QR için)
+  const [baseUrl, setBaseUrl] = useState("https://portal.buvisan.com")
+
   const supabase = createClient()
 
-  useEffect(() => { fetchProducts() }, [])
+  useEffect(() => { 
+      fetchProducts() 
+      if (typeof window !== 'undefined') {
+          setBaseUrl(window.location.origin) // Sitenin güncel URL'sini alır
+      }
+  }, [])
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -81,13 +89,15 @@ export default function WarehouseProductsPage() {
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.product_code.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // API Kullanarak Bedava ve Hızlı QR Kod Üretici Linki
-  const getQrUrl = (code: string) => `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${code}`
+  // 🚀 SİHİR BURADA: QR Kod artık salt metin değil, "Tıkla-Git" özelliğine sahip tam bir URL!
+  const getQrUrl = (code: string) => {
+      const targetLink = `${baseUrl}/dashboard/warehouse/scanner?code=${code}`
+      return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetLink)}`
+  }
 
   return (
     <div className="flex flex-col gap-8 max-w-[1600px] mx-auto w-full font-sans pb-10">
       
-      {/* 🚀 ÜST KART */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-6 rounded-[2rem] shadow-sm flex-1">
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 rounded-2xl shadow-lg shadow-indigo-500/30">
@@ -109,14 +119,11 @@ export default function WarehouseProductsPage() {
         </Button>
       </div>
 
-      {/* 🚀 YENİ ÜRÜN EKLEME FORMU */}
       {isAdding && (
           <div className="bg-white/80 backdrop-blur-2xl border border-white shadow-xl rounded-[2.5rem] p-8 animate-in fade-in slide-in-from-top-4">
               <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2"><PlusCircle className="text-indigo-500"/> Ürün Kartı Oluştur</h2>
               
               <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-12 gap-8">
-                  
-                  {/* RESİM YÜKLEME ALANI */}
                   <div className="md:col-span-3 flex flex-col gap-2">
                       <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ürün Görseli</Label>
                       <div className="relative h-48 w-full border-2 border-dashed border-slate-300 rounded-3xl bg-slate-50 flex flex-col items-center justify-center overflow-hidden hover:border-indigo-400 hover:bg-indigo-50 transition-colors group">
@@ -132,7 +139,6 @@ export default function WarehouseProductsPage() {
                       </div>
                   </div>
 
-                  {/* BİLGİ ALANI */}
                   <div className="md:col-span-9 grid grid-cols-1 md:grid-cols-2 gap-5">
                       <div className="space-y-2">
                           <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Seri / Barkod Kodu</Label>
@@ -165,7 +171,6 @@ export default function WarehouseProductsPage() {
           </div>
       )}
 
-      {/* 🚀 LİSTELEME */}
       <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] overflow-hidden">
           <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse whitespace-nowrap">
@@ -196,7 +201,6 @@ export default function WarehouseProductsPage() {
                                   </span>
                               </td>
                               <td className="px-6 py-4 text-right flex justify-end gap-2 items-center">
-                                  {/* 🚀 QR GÖRÜNTÜLEME BUTONU */}
                                   <Button variant="outline" size="sm" className="h-10 rounded-xl text-indigo-600 border-indigo-200 hover:bg-indigo-50 font-bold" onClick={() => setQrModal({ isOpen: true, code: p.product_code, name: p.name })}>
                                       <QrCode className="h-4 w-4 mr-2" /> QR Etiket
                                   </Button>
@@ -212,13 +216,11 @@ export default function WarehouseProductsPage() {
           </div>
       </div>
 
-      {/* 🚀 BARKOD / QR YAZDIRMA MODALI */}
       {qrModal.isOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[99] flex items-center justify-center p-4 animate-in fade-in">
               <div className="bg-white rounded-[2rem] shadow-2xl p-8 max-w-sm w-full flex flex-col items-center text-center relative">
                   <button onClick={() => setQrModal({isOpen: false, code: "", name: ""})} className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors"><X className="h-5 w-5" /></button>
                   
-                  {/* YAZDIRILACAK ALAN (Sadece bu div yazıcıdan çıkar) */}
                   <div id="print-qr-section" className="flex flex-col items-center p-4 border-2 border-dashed border-slate-300 rounded-2xl w-full">
                       <h3 className="font-black text-lg text-slate-800 mb-4">{qrModal.name}</h3>
                       <img src={getQrUrl(qrModal.code)} alt="QR" className="w-48 h-48 mb-4 border p-2 rounded-xl shadow-sm" />
@@ -233,7 +235,7 @@ export default function WarehouseProductsPage() {
                           document.body.innerHTML = `<div style="display:flex; justify-content:center; padding:20px;">${printContent}</div>`;
                           window.print();
                           document.body.innerHTML = originalContent;
-                          window.location.reload(); // React state'i toparlamak için sayfayı yeniler
+                          window.location.reload(); 
                       }
                   }} className="w-full h-14 mt-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-lg shadow-lg flex items-center justify-center gap-2">
                       <Printer className="h-5 w-5" /> Etiketi Yazdır
