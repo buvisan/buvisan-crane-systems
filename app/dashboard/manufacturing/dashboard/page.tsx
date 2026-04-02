@@ -47,113 +47,114 @@ export default function ManufacturingDashboard() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1600px] mx-auto w-full pb-10">
       
-      {/* ÜST BİLGİ KARTI */}
-      <Card className="border-l-4 border-l-yellow-500 shadow-sm bg-yellow-50/50">
-        <CardContent className="pt-6 flex items-center justify-between">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight text-yellow-800 flex items-center gap-2">
-                    <Factory className="h-6 w-6" />
+      {/* 🚀 ÜST BİLGİ KARTI (Mobil Uyumlu) */}
+      <Card className="border-l-4 md:border-l-8 border-l-yellow-500 shadow-sm bg-yellow-50/50 rounded-xl md:rounded-[2rem] overflow-hidden">
+        <CardContent className="p-5 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-1 md:gap-2">
+                <h1 className="text-xl md:text-3xl font-black tracking-tight text-yellow-800 flex items-center gap-2 md:gap-3">
+                    <Factory className="h-6 w-6 md:h-8 md:w-8" />
                     İmalat Yönetim Paneli
                 </h1>
-                <p className="text-yellow-700 text-sm mt-1">
+                <p className="text-yellow-700/80 font-medium text-xs md:text-sm">
                     Mühendislikten gelen projeleri inceleyin ve üretime sevk edin.
                 </p>
             </div>
-            <div className="text-right">
-                <span className="text-3xl font-bold text-yellow-600">{projects.length}</span>
-                <p className="text-xs text-yellow-600 font-semibold uppercase">Bekleyen Onay</p>
+            <div className="flex flex-col items-start sm:items-end bg-yellow-100/50 p-3 md:p-4 rounded-xl md:rounded-2xl border border-yellow-200/50 w-full sm:w-auto">
+                <span className="text-3xl md:text-4xl font-black text-yellow-600 leading-none">{projects.length}</span>
+                <p className="text-[10px] md:text-xs text-yellow-600/80 font-bold uppercase tracking-widest mt-1">Bekleyen Onay</p>
             </div>
         </CardContent>
       </Card>
 
-      {/* LİSTE */}
-      <div className="rounded-md border bg-white shadow-sm">
-        <div className="p-4 border-b bg-gray-50 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-orange-500" />
-            <span className="font-semibold text-gray-700">Onay Bekleyen İş Emirleri</span>
+      {/* 🚀 AKIŞKAN TABLO LİSTESİ */}
+      <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
+        <div className="p-4 md:p-6 border-b bg-slate-50/50 flex items-center gap-2 md:gap-3">
+            <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-orange-500" />
+            <span className="font-black text-sm md:text-base text-slate-800 uppercase tracking-widest">Onay Bekleyen İş Emirleri</span>
         </div>
 
-        <Table>
-          <TableHeader className="bg-blue-600">
-            <TableRow className="hover:bg-blue-600">
-              <TableHead className="text-white font-bold">İş Emri No</TableHead>
-              <TableHead className="text-white font-bold">Firma</TableHead>
-              <TableHead className="text-white font-bold">Kapasite</TableHead>
-              <TableHead className="text-white font-bold text-center">Dosyalar (PDF)</TableHead>
-              <TableHead className="text-white font-bold text-right">İşlem</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projects.map((project: any) => {
-                // Dosyaları bul (Nesne olarak alıyoruz ki linkine erişelim)
-                const getFile = (type: string) => project.project_files.find((f: any) => f.file_type === type);
-                
-                const fileList = [
-                    { label: 'Köprü', data: getFile('KOPRU') },
-                    { label: 'Yürüyüş', data: getFile('YURUYUS') },
-                    { label: 'Kedi', data: getFile('KEDI') },
-                    { label: 'Direk', data: getFile('DIREK') },
-                ];
+        <div className="overflow-x-auto p-2 custom-scrollbar">
+            <table className="w-full text-left border-collapse whitespace-nowrap min-w-[700px]">
+                <thead className="bg-blue-600/90 backdrop-blur-md">
+                    <tr>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black text-blue-100 uppercase tracking-widest rounded-tl-xl md:rounded-tl-2xl">İş Emri No</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black text-blue-100 uppercase tracking-widest">Firma</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black text-blue-100 uppercase tracking-widest">Kapasite</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black text-blue-100 uppercase tracking-widest text-center">Dosyalar (PDF)</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black text-blue-100 uppercase tracking-widest text-right rounded-tr-xl md:rounded-tr-2xl">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100/50 bg-white/40">
+                    {projects.map((project: any) => {
+                        const getFile = (type: string) => project.project_files.find((f: any) => f.file_type === type);
+                        
+                        const fileList = [
+                            { label: 'Köprü', data: getFile('KOPRU') },
+                            { label: 'Yürüyüş', data: getFile('YURUYUS') },
+                            { label: 'Kedi', data: getFile('KEDI') },
+                            { label: 'Direk', data: getFile('DIREK') },
+                        ];
 
-                return (
-                  <TableRow key={project.id} className="hover:bg-blue-50/50">
-                    <TableCell className="font-mono font-bold text-blue-900">{project.project_code}</TableCell>
-                    <TableCell className="font-medium">{project.customers?.name}</TableCell>
-                    <TableCell>
-                        <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300">
-                            {project.capacity}
-                        </Badge>
-                    </TableCell>
+                        return (
+                          <tr key={project.id} className="hover:bg-blue-50/40 transition-colors group">
+                            <td className="px-4 md:px-6 py-4 md:py-5 font-mono text-xs md:text-sm font-bold text-blue-900">{project.project_code}</td>
+                            <td className="px-4 md:px-6 py-4 md:py-5 text-xs md:text-sm font-black text-slate-800 truncate max-w-[150px] md:max-w-[200px]">{project.customers?.name}</td>
+                            <td className="px-4 md:px-6 py-4 md:py-5">
+                                <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 shadow-sm font-bold text-[10px] md:text-xs py-1">
+                                    {project.capacity}
+                                </Badge>
+                            </td>
+                            
+                            <td className="px-4 md:px-6 py-4 md:py-5 text-center">
+                                <div className="flex flex-wrap justify-center gap-1.5 md:gap-2">
+                                    {fileList.map((f, i) => (
+                                        f.data ? (
+                                            <a 
+                                                key={i} 
+                                                href={f.data.file_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-wider px-2 md:px-3 py-1.5 rounded-lg bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 hover:text-blue-800 hover:border-blue-300 transition-all shadow-sm"
+                                                title={`${f.label} Dosyasını Aç`}
+                                            >
+                                                <FileText className="h-3 w-3" /> 
+                                                {f.label}
+                                                <ExternalLink className="h-2.5 w-2.5 ml-0.5 opacity-50" />
+                                            </a>
+                                        ) : null
+                                    ))}
+                                    {!fileList.some(f => f.data) && <span className="text-slate-300 text-xs font-bold">-</span>}
+                                </div>
+                            </td>
+
+                            <td className="px-4 md:px-6 py-4 md:py-5 text-right">
+                                <Button 
+                                    onClick={() => approveProject(project.id)}
+                                    className="h-10 md:h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 font-bold text-xs md:text-sm px-4 md:px-6 transition-all"
+                                >
+                                    <CheckCircle className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" />
+                                    ONAY VER
+                                </Button>
+                            </td>
+                          </tr>
+                        )
+                    })}
                     
-                    {/* TIKLANABİLİR DOSYALAR */}
-                    <TableCell className="text-center">
-                        <div className="flex flex-wrap justify-center gap-2">
-                            {fileList.map((f, i) => (
-                                f.data ? (
-                                    <a 
-                                        key={i} 
-                                        href={f.data.file_url} // Dosya linki
-                                        target="_blank" // Yeni sekmede aç
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 hover:text-blue-800 transition-colors shadow-sm"
-                                        title={`${f.label} Dosyasını Aç`}
-                                    >
-                                        <FileText className="h-3 w-3" /> 
-                                        {f.label}
-                                        <ExternalLink className="h-2 w-2 ml-1 opacity-50" />
-                                    </a>
-                                ) : null
-                            ))}
-                            {/* Hiç dosya yoksa tire koy */}
-                            {!fileList.some(f => f.data) && <span className="text-gray-300">-</span>}
-                        </div>
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                        <Button 
-                            onClick={() => approveProject(project.id)}
-                            className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
-                            size="sm"
-                        >
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            ONAY VER
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-            })}
-            
-            {!loading && projects.length === 0 && (
-                <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center text-gray-500">
-                        Şu an onay bekleyen proje yok.
-                    </TableCell>
-                </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                    {!loading && projects.length === 0 && (
+                        <tr>
+                            <td colSpan={5} className="py-16 md:py-20 text-center">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="bg-white p-4 md:p-5 rounded-full shadow-sm"><Factory className="h-8 w-8 md:h-10 md:w-10 text-slate-300" /></div>
+                                    <p className="text-base md:text-lg font-bold text-slate-500">Şu an onay bekleyen proje yok.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
       </div>
     </div>
   )
