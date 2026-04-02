@@ -90,10 +90,11 @@ export default function WarehouseProductsPage() {
   )
 
   // 🚀 SİHİR BURADA: QR Kod artık salt metin değil, "Tıkla-Git" özelliğine sahip tam bir URL!
-  const getQrUrl = (code: string) => {
-      const targetLink = `${baseUrl}/dashboard/warehouse/scanner?code=${code}`
-      return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetLink)}`
-  }
+    const getQrUrl = (code: string) => {
+        // 🚀 DİREKT DIŞARIYA AÇIK OLAN YENİ /scan SAYFASINA GİDER
+        const targetLink = `${baseUrl}/scan?code=${code}`
+        return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetLink)}`
+    }
 
   return (
     <div className="flex flex-col gap-8 max-w-[1600px] mx-auto w-full font-sans pb-10">
