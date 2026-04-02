@@ -4,8 +4,10 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Package, AlertTriangle, Clock, Activity, AlertOctagon, Boxes } from "lucide-react"
 import { DashboardNotes } from "@/components/DashboardNotes"
+import { useRouter } from "next/navigation"
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [data, setData] = useState<any>({
     products: [],
     pendingPurchases: [],
@@ -16,6 +18,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
+      // 🚀 1. GÜVENLİK DUVARI: Önce kimin girdiğine bakıyoruz
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+          // Kullanıcının departmanını çek
+          const { data: profile } = await supabase.from('profiles').select('department').eq('id', user.id).single()
+          const dept = (profile?.department || "").toLowerCase()
+          
+          // Eğer depocuysa veya lojistikçiyse direkt kendi ekranına fırlat ve işlemi kes!
+          if (dept.includes("depo") || dept.includes("lojistik")) {
+              router.push('/dashboard/warehouse/scanner')
+              return; // ⛔ BURASI ÇOK ÖNEMLİ: Kod buradan aşağı inmez, boşuna veri çekmez.
+          }
+      }
+
+      // 🚀 2. Eğer depocu DEĞİLSE normal Ana Sayfa verilerini çekmeye devam et
       const { data: products } = await supabase.from('products').select('*')
       
       const { data: pending } = await supabase
@@ -37,8 +55,11 @@ export default function DashboardPage() {
       })
       setLoading(false)
     }
+    
     fetchData()
-  }, [])
+  }, [router]) // React kuralı gereği router'ı buraya ekliyoruz
+
+// ... KODUN GERİ KALAN RETURN (Arayüz) KISMI AYNEN DEVAM EDİYOR ...
 
   return (
     <div className="flex flex-col gap-6 md:gap-8 w-full font-sans">
