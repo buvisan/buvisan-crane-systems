@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const menuGroups = [
     {
       title: "GENEL",
-      allowedRoles: ["yönetim", "admin", "satış", "satın", "muhasebe", "mühendis", "üretim"], // 🚀 DİKKAT: Buraya "depo" yazmadık!
+      allowedRoles: ["yönetim", "admin", "satış", "satın", "muhasebe", "mühendis", "üretim", "proje"], // 🚀 DİKKAT: Buraya "depo" yazmadık!
       items: [
         { href: "/dashboard", label: "Ana Sayfa", icon: Home },
         { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package },
