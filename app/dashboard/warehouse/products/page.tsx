@@ -21,7 +21,6 @@ export default function WarehouseProductsPage() {
   
   const [qrModal, setQrModal] = useState<{isOpen: boolean, code: string, name: string}>({ isOpen: false, code: "", name: "" })
   
-  // 🚀 YENİ: Toplu QR yazdırma stateleri
   const [selectedProducts, setSelectedProducts] = useState<any[]>([])
   const [isBulkPrintOpen, setIsBulkPrintOpen] = useState(false)
 
@@ -121,12 +120,12 @@ export default function WarehouseProductsPage() {
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.product_code.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // 🚀 SİHİR BURADA: QR API'si daha güvenilir olan QuickChart ile değiştirildi
   const getQrUrl = (code: string) => {
       const targetLink = `${baseUrl}/scan?code=${code}`
-      return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(targetLink)}`
+      return `https://quickchart.io/qr?text=${encodeURIComponent(targetLink)}&size=250&margin=1`
   }
 
-  // 🚀 YENİ: Toplu Seçim Mantığı
   const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.checked) {
           setSelectedProducts(filteredProducts)
@@ -143,10 +142,92 @@ export default function WarehouseProductsPage() {
       }
   }
 
+  // 🚀 SAYFA YENİLEMEYEN AKILLI YAZDIRMA (IFRAME) FONKSİYONU
+  const executePrint = (htmlContent: string) => {
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+      
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+          doc.open();
+          doc.write(htmlContent);
+          doc.close();
+          
+          // Resimlerin yüklenmesi için 1 saniye bekle ve yazdır
+          setTimeout(() => {
+              iframe.contentWindow?.focus();
+              iframe.contentWindow?.print();
+              setTimeout(() => document.body.removeChild(iframe), 1000);
+          }, 1000);
+      }
+  }
+
+  const handleSinglePrint = () => {
+      const content = `
+          <html>
+          <head>
+              <style>
+                  body { background: white; margin: 0; padding: 20px; font-family: sans-serif; display: flex; justify-content: center; }
+                  .print-item { display: flex; flex-direction: column; align-items: center; padding: 20px; border: 2px dashed #ccc; border-radius: 16px; text-align: center; width: 300px; }
+                  .print-title { font-size: 16px; font-weight: bold; color: #1e293b; margin-bottom: 15px; text-transform: uppercase; }
+                  .print-img { width: 200px; height: 200px; margin-bottom: 15px; }
+                  .print-code { font-size: 18px; font-family: monospace; font-weight: bold; color: #4338ca; background: #eef2ff; padding: 5px 10px; border-radius: 8px; }
+                  .print-footer { font-size: 10px; color: #94a3b8; font-weight: bold; margin-top: 15px; }
+              </style>
+          </head>
+          <body>
+              <div class="print-item">
+                  <div class="print-title">${qrModal.name}</div>
+                  <img src="${getQrUrl(qrModal.code)}" class="print-img" />
+                  <div class="print-code">${qrModal.code}</div>
+                  <div class="print-footer">BUVİSAN DEPO SİSTEMİ</div>
+              </div>
+          </body>
+          </html>
+      `;
+      executePrint(content);
+  }
+
+  const handleBulkPrint = () => {
+      const content = `
+          <html>
+          <head>
+              <style>
+                  @page { margin: 10mm; size: A4; }
+                  body { background: white; margin: 0; padding: 0; font-family: sans-serif; -webkit-print-color-adjust: exact; }
+                  .print-container { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+                  .print-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px 10px; border: 1px dashed #ccc; border-radius: 8px; text-align: center; page-break-inside: avoid; height: 170px; }
+                  .print-title { font-size: 11px; font-weight: bold; color: #1e293b; margin-bottom: 8px; text-transform: uppercase; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; height: 26px; }
+                  .print-img { width: 80px; height: 80px; margin-bottom: 8px; }
+                  .print-code { font-size: 12px; font-family: monospace; font-weight: bold; color: #4338ca; }
+              </style>
+          </head>
+          <body>
+              <div class="print-container">
+                  ${selectedProducts.map(p => `
+                      <div class="print-item">
+                          <div class="print-title">${p.name}</div>
+                          <img src="${getQrUrl(p.product_code)}" class="print-img" />
+                          <div class="print-code">${p.product_code}</div>
+                      </div>
+                  `).join('')}
+              </div>
+          </body>
+          </html>
+      `;
+      executePrint(content);
+  }
+
   return (
     <div className="flex flex-col gap-6 md:gap-8 w-full font-sans pb-10">
       
-      {/* 🚀 ÜST KART */}
+      {/* ÜST KART */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 md:p-4 rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
@@ -159,7 +240,6 @@ export default function WarehouseProductsPage() {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
-            {/* 🚀 YENİ: Toplu QR Yazdır Butonu (Sadece ürün seçiliyse görünür) */}
             {selectedProducts.length > 0 && (
                 <Button onClick={() => setIsBulkPrintOpen(true)} className="h-14 md:h-16 px-6 bg-slate-800 hover:bg-slate-900 text-white text-sm md:text-base font-bold rounded-[1.5rem] md:rounded-[2rem] shadow-lg transition-all flex items-center justify-center gap-2 shrink-0 animate-in zoom-in-95">
                     <Printer className="h-5 w-5" /> Toplu QR Yazdır ({selectedProducts.length})
@@ -236,14 +316,13 @@ export default function WarehouseProductsPage() {
           </div>
       )}
 
-      {/* 🚀 TABLO ALANI */}
+      {/* TABLO ALANI */}
       <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
-          <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse whitespace-nowrap min-w-[900px]">
+          <div className="overflow-x-auto custom-scrollbar p-2">
+              <table className="w-full text-left border-collapse whitespace-nowrap min-w-[800px]">
                   <thead className="bg-slate-900 text-white">
                       <tr>
-                          {/* 🚀 YENİ: Tümünü Seç Checkbox'ı */}
-                          <th className="px-4 md:px-6 py-4 md:py-5 w-12 text-center">
+                          <th className="px-4 md:px-6 py-4 md:py-5 w-12 text-center rounded-tl-2xl">
                               <input 
                                   type="checkbox" 
                                   className="w-4 h-4 md:w-5 md:h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
@@ -256,7 +335,7 @@ export default function WarehouseProductsPage() {
                           <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest">Ürün Adı</th>
                           <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest">Kategori</th>
                           <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-center">Mevcut Stok</th>
-                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-right">İşlemler</th>
+                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-right rounded-tr-2xl">İşlemler</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -264,7 +343,6 @@ export default function WarehouseProductsPage() {
                           const isSelected = selectedProducts.find(sp => sp.id === p.id) !== undefined;
                           return (
                           <tr key={p.id} className={`transition-colors ${isSelected ? 'bg-indigo-50' : 'hover:bg-slate-50/80 bg-white'}`}>
-                              {/* 🚀 YENİ: Satır Seçim Checkbox'ı */}
                               <td className="px-4 md:px-6 py-3 md:py-4 text-center">
                                   <input 
                                       type="checkbox" 
@@ -309,35 +387,25 @@ export default function WarehouseProductsPage() {
               <div className="bg-white rounded-[2rem] shadow-2xl p-6 md:p-8 max-w-sm w-full flex flex-col items-center text-center relative">
                   <button onClick={() => setQrModal({isOpen: false, code: "", name: ""})} className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors"><X className="h-5 w-5" /></button>
                   
-                  <div id="print-qr-section" className="flex flex-col items-center p-4 border-2 border-dashed border-slate-300 rounded-2xl w-full mt-4 md:mt-0">
+                  <div className="flex flex-col items-center p-4 border-2 border-dashed border-slate-300 rounded-2xl w-full mt-4 md:mt-0">
                       <h3 className="font-black text-base md:text-lg text-slate-800 mb-4">{qrModal.name}</h3>
                       <img src={getQrUrl(qrModal.code)} alt="QR" className="w-40 h-40 md:w-48 md:h-48 mb-4 border p-2 rounded-xl shadow-sm" />
                       <p className="font-mono font-black text-indigo-600 text-lg md:text-xl tracking-widest bg-indigo-50 px-3 md:px-4 py-1.5 rounded-lg border border-indigo-100 break-all">{qrModal.code}</p>
                       <p className="text-[10px] text-slate-400 font-bold mt-3">BUVİSAN DEPO SİSTEMİ</p>
                   </div>
 
-                  <Button onClick={() => {
-                      const printContent = document.getElementById('print-qr-section')?.innerHTML;
-                      const originalContent = document.body.innerHTML;
-                      if(printContent) {
-                          document.body.innerHTML = `<div style="display:flex; justify-content:center; padding:20px;">${printContent}</div>`;
-                          window.print();
-                          document.body.innerHTML = originalContent;
-                          window.location.reload(); 
-                      }
-                  }} className="w-full h-12 md:h-14 mt-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-base md:text-lg shadow-lg flex items-center justify-center gap-2">
+                  <Button onClick={handleSinglePrint} className="w-full h-12 md:h-14 mt-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-base md:text-lg shadow-lg flex items-center justify-center gap-2">
                       <Printer className="h-4 w-4 md:h-5 md:w-5" /> Etiketi Yazdır
                   </Button>
               </div>
           </div>
       )}
 
-      {/* 🚀 YENİ: TOPLU QR YAZDIRMA MODALI */}
+      {/* TOPLU QR YAZDIRMA MODALI */}
       {isBulkPrintOpen && (
           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[99] flex flex-col items-center justify-start p-4 md:p-8 animate-in fade-in overflow-y-auto custom-scrollbar">
               <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-2xl p-6 md:p-8 w-full max-w-4xl relative mt-4 md:mt-10 mb-10 flex flex-col items-center">
                   
-                  {/* Başlık ve Kapat Butonu */}
                   <div className="flex items-center justify-between w-full mb-6 pb-4 border-b border-slate-100">
                       <div>
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2">
@@ -348,9 +416,7 @@ export default function WarehouseProductsPage() {
                       <button onClick={() => setIsBulkPrintOpen(false)} className="p-2 bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 rounded-full transition-colors"><X className="h-6 w-6" /></button>
                   </div>
 
-                  {/* 🚀 IZGARA BÖLÜMÜ (Burası yazdırılacak alandır) */}
-                  <div id="bulk-print-section" className="w-full">
-                      {/* Grid ayarları sadece ekran için, Print için ayrı style enjekte edeceğiz */}
+                  <div className="w-full">
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                           {selectedProducts.map((p, index) => (
                               <div key={index} className="flex flex-col items-center justify-center p-3 border-2 border-dashed border-slate-200 rounded-xl text-center">
@@ -362,40 +428,7 @@ export default function WarehouseProductsPage() {
                       </div>
                   </div>
 
-                  {/* Yazdır Butonu */}
-                  <Button onClick={() => {
-                      const printContent = document.getElementById('bulk-print-section')?.innerHTML;
-                      const originalContent = document.body.innerHTML;
-                      
-                      if(printContent) {
-                          // 🚀 A4 Sayfasına uyacak ve ızgarayı bozmayacak özel Print CSS'i
-                          document.body.innerHTML = `
-                              <style>
-                                  @media print {
-                                      @page { margin: 10mm; size: A4; }
-                                      body { background: white; margin: 0; padding: 0; font-family: sans-serif; -webkit-print-color-adjust: exact; }
-                                      .print-container { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-                                      .print-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; border: 1px dashed #ccc; border-radius: 8px; text-align: center; page-break-inside: avoid; }
-                                      .print-title { font-size: 10px; font-weight: bold; color: #333; margin-bottom: 5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-                                      .print-img { width: 80px; height: 80px; margin-bottom: 5px; }
-                                      .print-code { font-size: 11px; font-family: monospace; font-weight: bold; color: #4338ca; }
-                                  }
-                              </style>
-                              <div class="print-container">
-                                  ${selectedProducts.map(p => `
-                                      <div class="print-item">
-                                          <div class="print-title">${p.name}</div>
-                                          <img src="${getQrUrl(p.product_code)}" class="print-img" />
-                                          <div class="print-code">${p.product_code}</div>
-                                      </div>
-                                  `).join('')}
-                              </div>
-                          `;
-                          window.print();
-                          document.body.innerHTML = originalContent;
-                          window.location.reload(); 
-                      }
-                  }} className="w-full md:w-auto mt-8 px-12 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-lg shadow-xl flex items-center justify-center gap-2">
+                  <Button onClick={handleBulkPrint} className="w-full md:w-auto mt-8 px-12 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-lg shadow-xl flex items-center justify-center gap-2">
                       <Printer className="h-5 w-5" /> Sayfayı Yazdır (PDF)
                   </Button>
               </div>
