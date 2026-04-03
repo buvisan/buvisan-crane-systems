@@ -72,7 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "MÜHENDİSLİK & PROJE",
-      allowedRoles: ["mühendis", "arge", "proje", "tasarım"], 
+      allowedRoles: ["mühendis", "arge", "proje", "tasarım", "ressam"], 
       items: [
         { href: "/dashboard/engineering/projects", label: "Proje Paneli", icon: FileCog },
         { href: "/dashboard/offers", label: "Teklif & Hesaplama", icon: Calculator },
@@ -95,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       title: "DEPO & LOJİSTİK",
-      allowedRoles: ["depo", "lojistik", "üretim", "satın"],
+      allowedRoles: ["depo", "lojistik", "üretim", "satın", "teknik"],
       items: [
         { href: "/dashboard/warehouse/products", label: "Depo Ürünleri (QR)", icon: Archive },
         { href: "/dashboard/warehouse/entries", label: "Mal Kabul & İrsaliye", icon: ClipboardList },
