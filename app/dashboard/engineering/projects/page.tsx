@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { 
   UploadCloud, FileCog, Loader2, CheckCircle2, AlertTriangle, 
-  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, XCircle
+  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2
 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function ProjectPanelPage() {
   const [activeTab, setActiveTab] = useState("bekleyen_satislar") 
@@ -22,16 +23,20 @@ export default function ProjectPanelPage() {
   const [pendingSales, setPendingSales] = useState<any[]>([]) 
   const [formData, setFormData] = useState({ customer_id: "", project_code: "", capacity: "" })
   
-  // 🚀 YENİ: Dosya tipleri güncellendi (Çelik Konstrüksiyon ve Genel Montaj)
+  // 🚀 DOSYA TİPLERİ GÜNCELLENDİ (Çelik Konstrüksiyon ve Genel Montaj eklendi)
   const [files, setFiles] = useState<{ [key: string]: File | null }>({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, celik_konstruksiyon: null, genel_montaj: null })
   const [uploading, setUploading] = useState(false)
 
   const [customerSearch, setCustomerSearch] = useState("")
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
   const [addingCustomer, setAddingCustomer] = useState(false)
-
-  // 🚀 YENİ: Hangi satışın iş emrine çevrildiğini tutmak için
   const [activeSaleId, setActiveSaleId] = useState<number | null>(null)
+
+  // 🚀 DÜZENLEME (EDIT) MODAL STATELERİ
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editProjectData, setEditProjectData] = useState<any>(null)
+  const [editFiles, setEditFiles] = useState<{ [key: string]: File | null }>({})
+  const [editUploading, setEditUploading] = useState(false)
 
   useEffect(() => { 
       fetchCustomers();
@@ -57,19 +62,12 @@ export default function ProjectPanelPage() {
       setLoading(false)
   }
 
-  // 🚀 GÜNCELLENDİ: Satış durumu iptal/reddetme
-  const updateSaleStatus = async (id: number, newStatus: string) => {
-      if(!confirm(`Bu satışın durumunu ${newStatus} olarak işaretlemek istediğinize emin misiniz?`)) return;
-      await supabase.from('tracking_sales').update({ status: newStatus }).eq('id', id)
-      fetchPendingSales()
-  }
-
   const startWorkOrderFromSale = (sale: any) => {
       setActiveTab("is_emri") 
       setCustomerSearch(sale.customer_name) 
       const machineInfo = `${sale.tracking_products?.brand || "Bilinmeyen Makine"} - ${sale.tracking_products?.model || ""}`
       setFormData(prev => ({...prev, capacity: machineInfo})) 
-      setActiveSaleId(sale.id) // Satış ID'sini hafızaya al
+      setActiveSaleId(sale.id) 
   }
 
   const handleAddNewCustomer = async () => {
@@ -123,6 +121,7 @@ export default function ProjectPanelPage() {
     return data.publicUrl
   }
 
+  // YENİ İŞ EMRİ OLUŞTURMA
   const handleSubmit = async () => {
     if (!formData.customer_id || !formData.project_code) { alert("Lütfen firma ve iş emri numarasını giriniz."); return; }
     setUploading(true)
@@ -135,7 +134,6 @@ export default function ProjectPanelPage() {
         if (error) throw error
 
         const fileInserts = []
-        // 🚀 GÜNCELLENDİ: Dosya tipleri artırıldı
         const fileTypes = ['is_emri', 'fatura', 'kopru', 'yuruyus', 'kedi', 'celik_konstruksiyon', 'genel_montaj']
         
         for (const type of fileTypes) {
@@ -147,7 +145,6 @@ export default function ProjectPanelPage() {
         }
         if (fileInserts.length > 0) await supabase.from('project_files').insert(fileInserts)
 
-        // 🚀 EĞER BİR SATIŞTAN GELDİYSE, O SATIŞIN DURUMUNU "ONAYLANDI" YAP
         if (activeSaleId) {
             await supabase.from('tracking_sales').update({ status: 'ONAYLANDI' }).eq('id', activeSaleId)
         }
@@ -159,6 +156,62 @@ export default function ProjectPanelPage() {
         setActiveTab("onay_listesi")
     } catch (error: any) { alert("Hata: " + error.message) } 
     finally { setUploading(false) }
+  }
+
+  // 🚀 MEVCUT İŞ EMRİNİ DÜZENLEME MODALINI AÇ
+  const openEditModal = (project: any) => {
+      setEditProjectData({
+          id: project.id,
+          project_code: project.project_code,
+          capacity: project.capacity,
+          existingFiles: project.project_files || []
+      })
+      setEditFiles({}) 
+      setIsEditModalOpen(true)
+  }
+
+  // 🚀 MEVCUT İŞ EMRİNİ GÜNCELLE
+  const handleEditSubmit = async () => {
+      if (!editProjectData.project_code) return alert("Proje No zorunludur.")
+      setEditUploading(true)
+
+      try {
+          // 1. Proje ana bilgilerini güncelle
+          const { error: projError } = await supabase.from('projects').update({
+              project_code: editProjectData.project_code,
+              capacity: editProjectData.capacity
+          }).eq('id', editProjectData.id)
+          
+          if (projError) throw projError
+
+          // 2. Yeni yüklenen dosyalar varsa onları güncelle/ekle
+          const fileTypes = ['is_emri', 'fatura', 'kopru', 'yuruyus', 'kedi', 'celik_konstruksiyon', 'genel_montaj']
+          
+          for (const type of fileTypes) {
+              const file = editFiles[type]
+              if (file) {
+                  const publicUrl = await uploadFileToSupabase(file, editProjectData.project_code)
+                  
+                  // Dosya tipi önceden var mı kontrol et
+                  const existingFile = editProjectData.existingFiles.find((f:any) => f.file_type === type.toUpperCase())
+                  
+                  if (existingFile) {
+                      await supabase.from('project_files').update({ file_url: publicUrl }).eq('id', existingFile.id)
+                  } else {
+                      await supabase.from('project_files').insert([{ project_id: editProjectData.id, file_type: type.toUpperCase(), file_url: publicUrl }])
+                  }
+              }
+          }
+
+          alert("✅ İş Emri başarıyla güncellendi!")
+          setIsEditModalOpen(false)
+          
+          // Hangi sekmedeysek onu yenile
+          if (activeTab === "onay_listesi") fetchProjectsByStatus('ONAY_BEKLIYOR')
+          if (activeTab === "gonderilenler") fetchProjectsByStatus('URETIMDE')
+
+      } catch (error: any) { alert("Hata: " + error.message) }
+      finally { setEditUploading(false) }
   }
 
   const tabs = [
@@ -174,7 +227,6 @@ export default function ProjectPanelPage() {
   return (
     <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1400px] mx-auto w-full pb-10 xl:pb-20">
       
-      {/* ÜST BAŞLIK ALANI */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 md:p-4 rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
@@ -187,7 +239,6 @@ export default function ProjectPanelPage() {
         </div>
       </div>
 
-      {/* KAYDIRILABİLİR TAB MENÜSÜ */}
       <div className="flex gap-2 p-1.5 md:p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-[1.5rem] md:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto custom-scrollbar w-full">
         {tabs.map((tab) => (
             <button
@@ -212,7 +263,7 @@ export default function ProjectPanelPage() {
                   
                   <div className="absolute top-0 right-0 -mr-20 -mt-20 w-48 h-48 md:w-64 md:h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
-                  {/* 🚀 SATIŞTAN GELENLER VE RENKLENDİRME */}
+                  {/* 🚀 SATIŞTAN GELENLER (RENKLENDİRİLMİŞ) */}
                   {activeTab === "bekleyen_satislar" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in w-full">
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2"><TrendingUp className="text-indigo-500 h-5 w-5 md:h-6 md:w-6"/> Satıştan Gelen İşler</h2>
@@ -227,39 +278,34 @@ export default function ProjectPanelPage() {
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aksiyon</th>
                                       </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-slate-100 bg-white/20">
+                                  <tbody className="divide-y divide-slate-100 bg-white/40">
                                       {pendingSales.map((sale) => {
-                                          // 🚀 RENKLENDİRME MANTIĞI
-                                          let rowColor = "hover:bg-white/50 bg-transparent";
-                                          let statusBadge = <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[10px] font-bold">BEKLEYEN İŞ</span>;
+                                          // 🚀 YENİ RENKLENDİRME MANTIĞI
+                                          let rowColor = "hover:bg-white/60 bg-transparent";
+                                          let statusBadge = <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[10px] font-bold border border-slate-200">GÖNDERİLMEDİ</span>;
                                           
                                           if (sale.status === 'ONAYLANDI') {
                                               rowColor = "bg-emerald-50/50 hover:bg-emerald-50";
-                                              statusBadge = <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-emerald-200 flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3"/> ONAYLANDI</span>;
+                                              statusBadge = <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-emerald-200 flex items-center justify-center gap-1 w-max mx-auto"><CheckCircle2 className="h-3 w-3"/> GÖNDERİLDİ</span>;
                                           } else if (sale.status === 'IPTAL') {
                                               rowColor = "bg-rose-50/50 hover:bg-rose-50";
-                                              statusBadge = <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-rose-200 flex items-center justify-center gap-1"><XCircle className="h-3 w-3"/> İPTAL / RED</span>;
+                                              statusBadge = <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-rose-200 flex items-center justify-center gap-1 w-max mx-auto"><AlertTriangle className="h-3 w-3"/> ONAYLANMADI</span>;
                                           }
 
                                           return (
                                           <tr key={sale.id} className={`transition-colors group ${rowColor}`}>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-500">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-slate-800">{sale.customer_name}</td>
-                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-indigo-700 max-w-[200px] truncate">{sale.tracking_products?.brand} - {sale.tracking_products?.model}</td>
+                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-indigo-700 max-w-[250px] truncate">{sale.tracking_products?.brand} - {sale.tracking_products?.model}</td>
                                               <td className="py-4 md:py-5 px-4 text-center">{statusBadge}</td>
-                                              <td className="py-4 md:py-5 px-4 text-right flex items-center justify-end gap-2">
-                                                  {sale.status !== 'ONAYLANDI' && sale.status !== 'IPTAL' && (
-                                                      <>
-                                                          <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, 'IPTAL')} className="h-9 md:h-10 text-xs md:text-sm rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50">
-                                                              Reddet
-                                                          </Button>
-                                                          <Button onClick={() => startWorkOrderFromSale(sale)} className="h-9 md:h-10 text-xs md:text-sm rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 group/btn">
-                                                              İş Emrine Çevir <ArrowRight className="ml-1.5 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover/btn:translate-x-1 transition-transform" />
-                                                          </Button>
-                                                      </>
+                                              <td className="py-4 md:py-5 px-4 text-right">
+                                                  {sale.status === 'BEKLIYOR' ? (
+                                                      <Button onClick={() => startWorkOrderFromSale(sale)} className="h-9 md:h-10 text-xs md:text-sm rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 group/btn">
+                                                          İş Emrine Çevir <ArrowRight className="ml-1.5 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover/btn:translate-x-1 transition-transform" />
+                                                      </Button>
+                                                  ) : (
+                                                      <span className="text-[10px] font-bold text-slate-400">İşlem Tamamlandı</span>
                                                   )}
-                                                  {sale.status === 'ONAYLANDI' && <span className="text-xs font-bold text-emerald-600">İş Emri Açıldı</span>}
-                                                  {sale.status === 'IPTAL' && <Button variant="ghost" size="sm" onClick={() => updateSaleStatus(sale.id, 'BEKLIYOR')} className="h-9 text-xs text-slate-500">Geri Al</Button>}
                                               </td>
                                           </tr>
                                       )})}
@@ -323,7 +369,6 @@ export default function ProjectPanelPage() {
                               </div>
                           </div>
 
-                          {/* 🚀 GÜNCELLENDİ: DOSYA YÜKLEME ALANI */}
                           <div className="mt-2 md:mt-4">
                               <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 block">Resmi Evraklar ve Teknik Çizimler (PDF)</Label>
                               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 md:gap-4">
@@ -382,7 +427,7 @@ export default function ProjectPanelPage() {
                       </div>
                   )}
 
-                  {/* ONAY LİSTESİ VE GÖNDERİLENLER */}
+                  {/* 🚀 ONAY LİSTESİ VE ÜRETİME İNENLER (DÜZENLEME BUTONU EKLENDİ) */}
                   {(activeTab === "onay_listesi" || activeTab === "gonderilenler") && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2">
@@ -390,13 +435,14 @@ export default function ProjectPanelPage() {
                               {activeTab === "onay_listesi" ? "Üretim Onayı Bekleyenler" : "Sahaya İnen İşler (Üretimde)"}
                           </h2>
                           <div className="overflow-x-auto custom-scrollbar border border-slate-100/50 rounded-2xl">
-                              <table className="w-full text-left border-collapse min-w-[700px]">
+                              <table className="w-full text-left border-collapse min-w-[800px]">
                                   <thead>
                                       <tr className="border-b border-slate-200 bg-white/40">
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">İş Emri</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri / Firma</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Dosyalar & Evraklar</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">Durum</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">İşlem</th>
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 bg-white/20">
@@ -420,14 +466,19 @@ export default function ProjectPanelPage() {
                                                       )}
                                                   </div>
                                               </td>
-                                              <td className="py-4 md:py-5 px-4 text-right">
-                                                  <span className={`inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold ${activeTab === 'onay_listesi' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                              <td className="py-4 md:py-5 px-4 text-center">
+                                                  <span className={`inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold w-max ${activeTab === 'onay_listesi' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                                       {activeTab === "onay_listesi" ? <><span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-amber-500 animate-pulse"></span> Onay Bekliyor</> : <><Factory className="h-3 w-3 md:h-3.5 md:w-3.5" /> Üretimde</>}
                                                   </span>
                                               </td>
+                                              <td className="py-4 md:py-5 px-4 text-right">
+                                                  <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-8 md:h-9 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                                                      <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Düzenle
+                                                  </Button>
+                                              </td>
                                           </tr>
                                       ))}
-                                      {dataList.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-sm font-bold text-slate-400">Kayıt bulunamadı.</td></tr>}
+                                      {dataList.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm font-bold text-slate-400">Kayıt bulunamadı.</td></tr>}
                                   </tbody>
                               </table>
                           </div>
@@ -436,6 +487,57 @@ export default function ProjectPanelPage() {
               </div>
           )}
       </div>
+
+      {/* 🚀 MEVCUT İŞ EMRİNİ DÜZENLEME MODALI */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <DialogContent className="rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 max-w-[90vw] md:max-w-[700px] border-none shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <DialogHeader className="shrink-0"><DialogTitle className="text-xl md:text-3xl font-black text-slate-800 flex items-center gap-2 md:gap-3"><Edit2 className="h-5 w-5 md:h-6 md:w-6 text-indigo-500" /> İş Emrini Düzenle</DialogTitle></DialogHeader>
+              
+              <div className="flex flex-col gap-4 md:gap-6 py-2 overflow-y-auto custom-scrollbar pr-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                          <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">İş Emri (Proje) No</Label>
+                          <Input value={editProjectData?.project_code || ""} onChange={(e) => setEditProjectData({...editProjectData, project_code: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-slate-800" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite / Açıklama</Label>
+                          <Input value={editProjectData?.capacity || ""} onChange={(e) => setEditProjectData({...editProjectData, capacity: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-slate-800" />
+                      </div>
+                  </div>
+
+                  <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-2xl">
+                      <Label className="text-[10px] md:text-xs font-black text-blue-800 uppercase tracking-widest mb-3 block">Dosyaları Güncelle veya Yeni Ekle</Label>
+                      <p className="text-[10px] md:text-xs font-medium text-slate-500 mb-4">Buradan yüklediğiniz yeni dosyalar eskinin üzerine yazılır. Boş bıraktıklarınız eskisi gibi kalır.</p>
+                      
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {['IS_EMRI', 'FATURA', 'KOPRU', 'YURUYUS', 'KEDI', 'CELIK_KONSTRUKSIYON', 'GENEL_MONTAJ'].map((type) => {
+                              const fileKey = type.toLowerCase();
+                              const newFile = editFiles[fileKey];
+                              const existingFile = editProjectData?.existingFiles?.find((f:any) => f.file_type === type);
+                              const hasFile = newFile || existingFile;
+                              
+                              return (
+                              <div key={type} className={`relative flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl transition-all ${hasFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-white hover:border-indigo-400'}`}>
+                                  <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setEditFiles({...editFiles, [fileKey]: e.target.files?.[0] || null})} />
+                                  <div className={`p-1.5 rounded-full mb-1 transition-colors ${hasFile ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                      {hasFile ? <CheckCircle2 className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
+                                  </div>
+                                  <span className={`font-black text-[9px] mb-0.5 text-center ${hasFile ? 'text-emerald-700' : 'text-slate-600'}`}>{type.replace('_', ' ')}</span>
+                                  <span className="text-[8px] font-bold text-slate-400 text-center px-1 truncate w-full">{newFile ? newFile.name : existingFile ? "Mevcut Yüklü" : "Tıkla Yükle"}</span>
+                              </div>
+                          )})}
+                      </div>
+                  </div>
+              </div>
+              
+              <div className="mt-4 md:mt-6 pt-4 border-t border-slate-100 shrink-0">
+                  <Button onClick={handleEditSubmit} disabled={editUploading} className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm md:text-base shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2">
+                      {editUploading ? <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" /> : <Send className="h-4 w-4 md:h-5 md:w-5" />}
+                      {editUploading ? "GÜNCELLENİYOR..." : "DEĞİŞİKLİKLERİ KAYDET"}
+                  </Button>
+              </div>
+          </DialogContent>
+      </Dialog>
     </div>
   )
 }
