@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { 
     HardHat, FileText, AlertTriangle, MessageSquare, 
-    CheckCircle2, ExternalLink, Loader2, Activity, PlayCircle, MonitorStop
+    CheckCircle2, ExternalLink, Loader2, PlayCircle, MonitorStop
 } from "lucide-react"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
@@ -175,7 +175,10 @@ export default function ProductionScreenPage() {
                             <div className="grid gap-3 md:gap-4 py-2 md:py-4 overflow-y-auto max-h-[60vh] custom-scrollbar">
                                 {project.project_files?.map((file: any) => (
                                     <a key={file.id} href={file.file_url} target="_blank" className="flex items-center justify-between p-4 md:p-6 bg-slate-50 rounded-xl md:rounded-2xl border-2 border-slate-100 hover:border-blue-400 hover:bg-blue-50 transition-all group">
-                                        <span className="font-bold text-sm md:text-xl text-slate-700 group-hover:text-blue-700">{file.file_type} İŞ EMRİ</span>
+                                        {/* 🚀 DOSYA ADI DÜZELTİLDİ (Alt tireler silindi) */}
+                                        <span className="font-bold text-sm md:text-xl text-slate-700 group-hover:text-blue-700 uppercase">
+                                            {file.file_type.replace('_', ' ')}
+                                        </span>
                                         <ExternalLink className="h-6 w-6 md:h-8 md:w-8 text-slate-400 group-hover:text-blue-600" />
                                     </a>
                                 ))}

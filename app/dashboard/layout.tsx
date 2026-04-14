@@ -65,7 +65,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/dashboard", label: "Ana Sayfa", icon: Home },
         { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package },
         { href: "/dashboard/purchases", label: "Satın Alma", icon: ClipboardList },
-        { href: "/dashboard/sales", label: "Satış İşlemleri", icon: Tag },
         { href: "/dashboard/customers", label: "Müşteriler", icon: Users },
         { href: "/dashboard/suppliers", label: "Tedarikçiler", icon: Truck },
       ]

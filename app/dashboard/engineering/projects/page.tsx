@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { 
   UploadCloud, FileCog, Loader2, CheckCircle2, AlertTriangle, 
-  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight
+  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, XCircle
 } from "lucide-react"
 
 export default function ProjectPanelPage() {
@@ -22,12 +22,16 @@ export default function ProjectPanelPage() {
   const [pendingSales, setPendingSales] = useState<any[]>([]) 
   const [formData, setFormData] = useState({ customer_id: "", project_code: "", capacity: "" })
   
-  const [files, setFiles] = useState<{ [key: string]: File | null }>({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, direk: null })
+  // 🚀 YENİ: Dosya tipleri güncellendi (Çelik Konstrüksiyon ve Genel Montaj)
+  const [files, setFiles] = useState<{ [key: string]: File | null }>({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, celik_konstruksiyon: null, genel_montaj: null })
   const [uploading, setUploading] = useState(false)
 
   const [customerSearch, setCustomerSearch] = useState("")
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
   const [addingCustomer, setAddingCustomer] = useState(false)
+
+  // 🚀 YENİ: Hangi satışın iş emrine çevrildiğini tutmak için
+  const [activeSaleId, setActiveSaleId] = useState<number | null>(null)
 
   useEffect(() => { 
       fetchCustomers();
@@ -53,11 +57,19 @@ export default function ProjectPanelPage() {
       setLoading(false)
   }
 
+  // 🚀 GÜNCELLENDİ: Satış durumu iptal/reddetme
+  const updateSaleStatus = async (id: number, newStatus: string) => {
+      if(!confirm(`Bu satışın durumunu ${newStatus} olarak işaretlemek istediğinize emin misiniz?`)) return;
+      await supabase.from('tracking_sales').update({ status: newStatus }).eq('id', id)
+      fetchPendingSales()
+  }
+
   const startWorkOrderFromSale = (sale: any) => {
       setActiveTab("is_emri") 
       setCustomerSearch(sale.customer_name) 
       const machineInfo = `${sale.tracking_products?.brand || "Bilinmeyen Makine"} - ${sale.tracking_products?.model || ""}`
       setFormData(prev => ({...prev, capacity: machineInfo})) 
+      setActiveSaleId(sale.id) // Satış ID'sini hafızaya al
   }
 
   const handleAddNewCustomer = async () => {
@@ -123,7 +135,10 @@ export default function ProjectPanelPage() {
         if (error) throw error
 
         const fileInserts = []
-        for (const type of ['is_emri', 'fatura', 'kopru', 'yuruyus', 'kedi', 'direk']) {
+        // 🚀 GÜNCELLENDİ: Dosya tipleri artırıldı
+        const fileTypes = ['is_emri', 'fatura', 'kopru', 'yuruyus', 'kedi', 'celik_konstruksiyon', 'genel_montaj']
+        
+        for (const type of fileTypes) {
             const file = files[type]
             if (file) {
                 const publicUrl = await uploadFileToSupabase(file, formData.project_code)
@@ -132,9 +147,15 @@ export default function ProjectPanelPage() {
         }
         if (fileInserts.length > 0) await supabase.from('project_files').insert(fileInserts)
 
+        // 🚀 EĞER BİR SATIŞTAN GELDİYSE, O SATIŞIN DURUMUNU "ONAYLANDI" YAP
+        if (activeSaleId) {
+            await supabase.from('tracking_sales').update({ status: 'ONAYLANDI' }).eq('id', activeSaleId)
+        }
+
         alert("✅ İş Emri başarıyla oluşturuldu!")
         setFormData({ customer_id: "", project_code: "", capacity: "" })
-        setFiles({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, direk: null })
+        setFiles({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, celik_konstruksiyon: null, genel_montaj: null })
+        setActiveSaleId(null)
         setActiveTab("onay_listesi")
     } catch (error: any) { alert("Hata: " + error.message) } 
     finally { setUploading(false) }
@@ -153,7 +174,7 @@ export default function ProjectPanelPage() {
   return (
     <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1400px] mx-auto w-full pb-10 xl:pb-20">
       
-      {/* 🚀 ÜST BAŞLIK ALANI */}
+      {/* ÜST BAŞLIK ALANI */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 md:p-4 rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
@@ -166,7 +187,7 @@ export default function ProjectPanelPage() {
         </div>
       </div>
 
-      {/* 🚀 KAYDIRILABİLİR TAB MENÜSÜ */}
+      {/* KAYDIRILABİLİR TAB MENÜSÜ */}
       <div className="flex gap-2 p-1.5 md:p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-[1.5rem] md:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto custom-scrollbar w-full">
         {tabs.map((tab) => (
             <button
@@ -191,36 +212,58 @@ export default function ProjectPanelPage() {
                   
                   <div className="absolute top-0 right-0 -mr-20 -mt-20 w-48 h-48 md:w-64 md:h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
-                  {/* 🚀 BEKLEYEN SATIŞLAR (SATIŞTAN GELENLER) */}
+                  {/* 🚀 SATIŞTAN GELENLER VE RENKLENDİRME */}
                   {activeTab === "bekleyen_satislar" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in w-full">
-                          <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2"><TrendingUp className="text-indigo-500 h-5 w-5 md:h-6 md:w-6"/> Satıştan Gelen Bekleyen İşler</h2>
+                          <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2"><TrendingUp className="text-indigo-500 h-5 w-5 md:h-6 md:w-6"/> Satıştan Gelen İşler</h2>
                           <div className="overflow-x-auto custom-scrollbar w-full border border-slate-100/50 rounded-2xl">
-                              <table className="w-full text-left border-collapse min-w-[700px]">
+                              <table className="w-full text-left border-collapse min-w-[800px]">
                                   <thead>
                                       <tr className="border-b border-slate-200 bg-white/40">
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Tarih</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Satılan Makine</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-center">Adet</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aksiyon</th>
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 bg-white/20">
-                                      {pendingSales.map((sale) => (
-                                          <tr key={sale.id} className="hover:bg-white/50 transition-colors group">
+                                      {pendingSales.map((sale) => {
+                                          // 🚀 RENKLENDİRME MANTIĞI
+                                          let rowColor = "hover:bg-white/50 bg-transparent";
+                                          let statusBadge = <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[10px] font-bold">BEKLEYEN İŞ</span>;
+                                          
+                                          if (sale.status === 'ONAYLANDI') {
+                                              rowColor = "bg-emerald-50/50 hover:bg-emerald-50";
+                                              statusBadge = <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-emerald-200 flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3"/> ONAYLANDI</span>;
+                                          } else if (sale.status === 'IPTAL') {
+                                              rowColor = "bg-rose-50/50 hover:bg-rose-50";
+                                              statusBadge = <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-rose-200 flex items-center justify-center gap-1"><XCircle className="h-3 w-3"/> İPTAL / RED</span>;
+                                          }
+
+                                          return (
+                                          <tr key={sale.id} className={`transition-colors group ${rowColor}`}>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-500">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-slate-800">{sale.customer_name}</td>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-indigo-700 max-w-[200px] truncate">{sale.tracking_products?.brand} - {sale.tracking_products?.model}</td>
-                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-slate-800 text-center"><span className="bg-white/80 shadow-sm border border-slate-100 px-3 py-1 rounded-lg">{sale.quantity}</span></td>
-                                              <td className="py-4 md:py-5 px-4 text-right">
-                                                  <Button onClick={() => startWorkOrderFromSale(sale)} className="h-9 md:h-10 text-xs md:text-sm rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 group/btn">
-                                                      İş Emrine Çevir <ArrowRight className="ml-1.5 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover/btn:translate-x-1 transition-transform" />
-                                                  </Button>
+                                              <td className="py-4 md:py-5 px-4 text-center">{statusBadge}</td>
+                                              <td className="py-4 md:py-5 px-4 text-right flex items-center justify-end gap-2">
+                                                  {sale.status !== 'ONAYLANDI' && sale.status !== 'IPTAL' && (
+                                                      <>
+                                                          <Button variant="outline" size="sm" onClick={() => updateSaleStatus(sale.id, 'IPTAL')} className="h-9 md:h-10 text-xs md:text-sm rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50">
+                                                              Reddet
+                                                          </Button>
+                                                          <Button onClick={() => startWorkOrderFromSale(sale)} className="h-9 md:h-10 text-xs md:text-sm rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 group/btn">
+                                                              İş Emrine Çevir <ArrowRight className="ml-1.5 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover/btn:translate-x-1 transition-transform" />
+                                                          </Button>
+                                                      </>
+                                                  )}
+                                                  {sale.status === 'ONAYLANDI' && <span className="text-xs font-bold text-emerald-600">İş Emri Açıldı</span>}
+                                                  {sale.status === 'IPTAL' && <Button variant="ghost" size="sm" onClick={() => updateSaleStatus(sale.id, 'BEKLIYOR')} className="h-9 text-xs text-slate-500">Geri Al</Button>}
                                               </td>
                                           </tr>
-                                      ))}
-                                      {pendingSales.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm font-bold text-slate-400">Satıştan gelen bekleyen iş bulunmuyor.</td></tr>}
+                                      )})}
+                                      {pendingSales.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm font-bold text-slate-400">Satıştan gelen iş bulunmuyor.</td></tr>}
                                   </tbody>
                               </table>
                           </div>
@@ -280,11 +323,11 @@ export default function ProjectPanelPage() {
                               </div>
                           </div>
 
-                          {/* DOSYA YÜKLEME ALANI */}
+                          {/* 🚀 GÜNCELLENDİ: DOSYA YÜKLEME ALANI */}
                           <div className="mt-2 md:mt-4">
                               <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 block">Resmi Evraklar ve Teknik Çizimler (PDF)</Label>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-                                  {['IS_EMRI', 'FATURA', 'KOPRU', 'YURUYUS', 'KEDI', 'DIREK'].map((type) => {
+                              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 md:gap-4">
+                                  {['IS_EMRI', 'FATURA', 'KOPRU', 'YURUYUS', 'KEDI', 'CELIK_KONSTRUKSIYON', 'GENEL_MONTAJ'].map((type) => {
                                       const fileKey = type.toLowerCase();
                                       const file = files[fileKey];
                                       const isEmriColor = type === 'IS_EMRI' ? 'blue' : type === 'FATURA' ? 'amber' : 'emerald';
