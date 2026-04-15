@@ -19,7 +19,6 @@ export function DashboardNotes() {
   const [activeView, setActiveView] = useState<"list" | "chat">("list") 
   const [activeChat, setActiveChat] = useState<string | "genel" | null>(null) 
   
-  // 🚀 EMOJİ VE YANITLAMA SABİTLEYİCİ STATELERİ (YENİ EKLENDİ)
   const [activeEmojiNoteId, setActiveEmojiNoteId] = useState<number | null>(null) 
   const [replyTo, setReplyTo] = useState<any>(null) 
 
@@ -57,15 +56,23 @@ export function DashboardNotes() {
       if (data) setUsers(data)
   }
 
+  // 🚀 MESAJLARI ÇEK (YENİ VE KUSURSUZ SİSTEM)
   const fetchNotes = async () => {
     if (!currentUser) return;
     
+    // Güvenli ve basit Supabase Join Mantığı
     let query = supabase
         .from('notes')
-        .select(`*, profiles!notes_user_id_fkey(first_name, last_name, department), projects(project_code), reply_to:notes!notes_reply_to_id_fkey( content, profiles!notes_user_id_fkey(first_name) )`)
+        .select(`
+            *,
+            profiles (first_name, last_name, department),
+            projects (project_code),
+            reply_to:notes!reply_to_id ( content, profiles (first_name) )
+        `)
         .order('created_at', { ascending: false })
         .limit(50)
 
+    // Filtreler
     if (activeChat === "genel") {
         query = query.is('receiver_id', null)
     } else {
@@ -73,7 +80,13 @@ export function DashboardNotes() {
     }
 
     const { data, error } = await query
-    if (error) console.error("Mesajlar çekilemedi:", error)
+    
+    // 🚨 HATA YAKALAYICI (Mesajlar giderse neden gittiğini söyler)
+    if (error) {
+        console.error("Mesaj Çekme Hatası:", error)
+        alert("SİSTEM UYARISI: Mesajlar Supabase'den çekilemedi!\n\nHata: " + error.message)
+    }
+    
     if (data) setNotes(data.reverse())
   }
 
@@ -99,7 +112,7 @@ export function DashboardNotes() {
         setReplyTo(null)
         fetchNotes()   
     } catch (error: any) {
-        alert("❌ MESAJ GİTMEDİ! \nLütfen Supabase'de receiver_id (text), reply_to_id (bigint) ve reactions (jsonb) sütunlarını açtığınıza emin olun.\n\nHata: " + error.message)
+        alert("❌ MESAJ GİTMEDİ! \nSupabase SQL kodunu çalıştırdığınıza emin olun.\n\nHata: " + error.message)
     } finally {
         setLoading(false)
     }
@@ -125,7 +138,7 @@ export function DashboardNotes() {
       if (reactions[emoji].length === 0) delete reactions[emoji] 
 
       await supabase.from('notes').update({ reactions }).eq('id', noteId)
-      setActiveEmojiNoteId(null) // Emoji menüsünü kapat
+      setActiveEmojiNoteId(null) 
       fetchNotes()
   }
 
@@ -191,7 +204,7 @@ export function DashboardNotes() {
               <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 custom-scrollbar bg-cover bg-center bg-[#e5ddd5]/30 relative" style={{backgroundImage: `url('https://i.pinimg.com/1200x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')`, backgroundBlendMode: 'soft-light'}}>
                   {notes.map((note: any) => {
                       const isMe = note.user_id === currentUser?.id;
-                      const isEmojiMenuOpen = activeEmojiNoteId === note.id; // Bu mesaja ait menü açık mı?
+                      const isEmojiMenuOpen = activeEmojiNoteId === note.id; 
                       
                       return (
                       <div key={note.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} w-full`}>
@@ -231,10 +244,9 @@ export function DashboardNotes() {
                                   </div>
                               )}
 
-                              {/* 🚀 EMOJİ, YANITLA & SİLME BUTONLARI (Hover ve Tıklama Fix'i) */}
+                              {/* EMOJİ & YANITLA MENÜSÜ */}
                               <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity ${isEmojiMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isMe ? '-left-[5.5rem]' : '-right-[5.5rem]'} z-20`}>
                                   
-                                  {/* YANITLA BUTONU */}
                                   <button onClick={() => setReplyTo(note)} className="p-1.5 bg-white text-slate-500 hover:text-blue-500 rounded-full shadow-sm border border-slate-200 transition-colors" title="Yanıtla">
                                       <Reply className="h-3.5 w-3.5" />
                                   </button>
@@ -244,7 +256,6 @@ export function DashboardNotes() {
                                           <Smile className="h-3.5 w-3.5" />
                                       </button>
                                       
-                                      {/* EMOJİ AÇILIR MENÜSÜ (Tıklayınca sabitlenir) */}
                                       {isEmojiMenuOpen && (
                                           <div className={`absolute top-full mt-1 flex bg-white p-1.5 rounded-2xl shadow-xl border border-slate-100 gap-1 z-50 ${isMe ? 'right-0' : 'left-0'}`}>
                                               {EMOJIS.map(e => (
@@ -271,7 +282,6 @@ export function DashboardNotes() {
               {/* Mesaj Kutusu */}
               <div className="p-2 bg-[#f0f2f5] border-t border-slate-200 shrink-0 relative">
                   
-                  {/* 🚀 YANITLANAN MESAJ ÖNİZLEMESİ */}
                   {replyTo && (
                       <div className="absolute bottom-full left-0 right-0 p-2 bg-[#f0f2f5]">
                           <div className="bg-white p-2 rounded-xl border-l-4 border-blue-500 flex items-start justify-between shadow-sm mx-1">
