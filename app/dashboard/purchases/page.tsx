@@ -54,17 +54,31 @@ export default function PurchasesPage() {
     }
   }
 
+  // 🚀 İSTEKLERİ ÇEKEN KISIM (GÜÇLENDİRİLDİ VE HATA YAKALAYICI EKLENDİ)
   const fetchRequests = async () => {
-      const { data } = await supabase
-          .from('material_requests')
-          .select(`*, profiles ( first_name, last_name, department )`)
-          .order('created_at', { ascending: false })
-      if (data) setRequests(data)
+      try {
+          const { data, error } = await supabase
+              .from('material_requests')
+              .select(`*, profiles ( first_name, last_name, department )`)
+              .order('created_at', { ascending: false })
+          
+          if (error) throw error;
+          if (data) setRequests(data)
+      } catch (error: any) {
+          console.error("İstek Çekme Hatası:", error);
+          alert("DİKKAT: Mühendislik istekleri çekilemedi!\nLütfen Supabase'den SQL kodunu çalıştırdığınıza emin olun.\n\nHata: " + error.message);
+      }
   }
 
+  // 🚀 İSTEK DURUMUNU GÜNCELLE (Bu yapıldığında kullanıcının takip ekranına anında yansır)
   const updateRequestStatus = async (id: number, newStatus: string) => {
-      await supabase.from('material_requests').update({ status: newStatus }).eq('id', id)
-      fetchRequests()
+      try {
+          const { error } = await supabase.from('material_requests').update({ status: newStatus }).eq('id', id)
+          if (error) throw error;
+          fetchRequests() // Listeyi anında yenile
+      } catch (error: any) {
+          alert("Durum güncellenirken hata oluştu: " + error.message)
+      }
   }
 
   const formatOrderNumber = (id: number) => `SAS${String(id).padStart(5, '0')}`;
