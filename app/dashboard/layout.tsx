@@ -9,8 +9,15 @@ import {
   Package2, Home, Package, ClipboardList, Tag, Users, Truck, 
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
   LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront,
-  Wallet, FileText, Archive, ScanLine, History, Menu, X // 🚀 MENU VE X İKONLARI EKLENDİ
+  Wallet, FileText, Archive, ScanLine, History, Menu, X,
+  ShoppingCart, ListOrdered, Send, Loader2 // 🚀 FAZ 1 İÇİN EKLENEN İKONLAR
 } from "lucide-react"
+
+// 🚀 FAZ 1 İÇİN EKLENEN BİLEŞENLER
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -21,15 +28,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [unreadNotifs, setUnreadNotifs] = useState(2)
-  
-  // 🚀 MOBİL MENÜ KONTROL STATE'İ
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // 🚀 FAZ 1: GLOBAL SİPARİŞ STATELERİ
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
+  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false)
+  const [orderForm, setOrderForm] = useState({ project_code: "", material_code: "", material_name: "", current_stock: "0", quantity: "1" })
+  const [orderSubmitting, setOrderSubmitting] = useState(false)
+  const [myOrders, setMyOrders] = useState<any[]>([])
 
   useEffect(() => {
     fetchUserData()
   }, [])
 
-  // Mobil menü açıkken arkadaki sayfanın kaymasını engeller
   useEffect(() => {
       if (isMobileMenuOpen) document.body.style.overflow = 'hidden'
       else document.body.style.overflow = 'unset'
@@ -39,11 +50,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        if (data) setProfile(data)
-        else setProfile({ first_name: "Kaya", last_name: "", department: "Teknoloji Yön." }) 
+        if (data) {
+            setProfile({ ...data, id: user.id })
+            fetchMyOrders(user.id) // 🚀 Giriş yapan kişinin siparişlerini de peşinen çek
+        } else {
+            setProfile({ id: user.id, first_name: "Kaya", last_name: "", department: "Teknoloji Yön." }) 
+        }
     } else {
         router.push('/login')
     }
+  }
+
+  // 🚀 FAZ 1: KULLANICININ VERDİĞİ SİPARİŞLERİ ÇEK
+  const fetchMyOrders = async (userId: string) => {
+      if (!userId) return;
+      const { data } = await supabase.from('material_requests').select('*').eq('requested_by', userId).order('created_at', { ascending: false })
+      if (data) setMyOrders(data)
+  }
+
+  // 🚀 FAZ 1: YENİ SİPARİŞ OLUŞTUR
+  const handleOrderSubmit = async (e: React.FormEvent) => {
+      e.preventDefault()
+      setOrderSubmitting(true)
+      try {
+          const requestNo = `TLP-${Date.now().toString().slice(-6)}`
+          const { error } = await supabase.from('material_requests').insert([{
+              request_no: requestNo,
+              project_code: orderForm.project_code,
+              material_code: orderForm.material_code,
+              material_name: orderForm.material_name,
+              current_stock: Number(orderForm.current_stock),
+              quantity: Number(orderForm.quantity),
+              requested_by: profile?.id
+          }])
+          if (error) throw error
+          
+          alert(`✅ Siparişiniz Satın Almaya başarıyla iletildi! Talep No: ${requestNo}`)
+          setOrderForm({ project_code: "", material_code: "", material_name: "", current_stock: "0", quantity: "1" })
+          setIsOrderModalOpen(false) // Modalı kapat
+          fetchMyOrders(profile?.id) // Listeyi güncelle
+      } catch (err: any) { alert("Hata: " + err.message) }
+      finally { setOrderSubmitting(false) }
   }
 
   const handleLogout = async () => {
@@ -60,7 +107,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const menuGroups = [
     {
       title: "GENEL",
-      allowedRoles: ["yönetim", "admin", "satış", "satın", "muhasebe", "mühendis", "üretim", "proje"], // 🚀 DİKKAT: Buraya "depo" yazmadık!
+      // 🚀 FAZ 2 UYARISI: "depo" bilerek eklenmedi! Sadece aşağıdakiler görebilir.
+      allowedRoles: ["yönetim", "admin", "satış", "satın", "muhasebe", "mühendis", "üretim", "proje"], 
       items: [
         { href: "/dashboard", label: "Ana Sayfa", icon: Home },
         { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package },
@@ -134,7 +182,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen w-full bg-[#f4f7f9] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-[#f0f4f8] to-slate-100 flex font-sans overflow-x-hidden">
       
-      {/* 🚀 MOBİL EKRANLAR İÇİN KARARTMA EFEKTİ (Menü açıkken arkaya tıklanmasın diye) */}
       {isMobileMenuOpen && (
           <div 
               className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden animate-in fade-in" 
@@ -142,7 +189,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ></div>
       )}
 
-      {/* 🚀 SOL MENÜ (Hem Masaüstü Hem Mobil İçin Güncellendi) */}
+      {/* SOL MENÜ */}
       <aside className={`fixed inset-y-0 left-0 z-[70] w-[280px] lg:w-[300px] transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col p-4 lg:p-5 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} lg:flex`}>
         <div className="flex-1 flex flex-col bg-white/95 lg:bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)] lg:shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] overflow-hidden relative">
           
@@ -150,7 +197,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 flex-shrink-0">
               <Image src="/buvisan.png" alt="Buvisan Logo" width={160} height={50} priority className="object-contain" />
             </Link>
-            {/* Mobilde Kapatma Butonu */}
             <button className="p-2 text-slate-400 hover:text-slate-700 bg-slate-50 rounded-xl lg:hidden" onClick={() => setIsMobileMenuOpen(false)}>
                 <X className="h-5 w-5" />
             </button>
@@ -167,7 +213,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <Link 
                         key={item.href} 
                         href={item.href} 
-                        onClick={() => setIsMobileMenuOpen(false)} // Tıklayınca menü kapansın
+                        onClick={() => setIsMobileMenuOpen(false)} 
                         className={`flex items-center gap-3.5 rounded-2xl px-4 py-3.5 text-sm font-semibold transition-all duration-300 relative overflow-hidden group ${isActive ? "text-white shadow-lg shadow-blue-500/30" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50 lg:hover:bg-white/80"}`}
                       >
                         {isActive && <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 opacity-100 z-0 transition-opacity"></div>}
@@ -184,7 +230,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="p-4 mt-auto border-t border-slate-100 lg:border-white/40 bg-slate-50 lg:bg-white/20">
              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-100 lg:bg-white/50 lg:border-white/60 shadow-sm">
                 <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 flex items-center justify-center text-blue-700 font-black border border-white shadow-inner">
-                  {profile?.first_name?.charAt(0) || "K"}
+                  {profile?.first_name?.charAt(0) || "U"}
                 </div>
                 <div className="flex flex-col overflow-hidden">
                   <span className="text-sm font-bold text-slate-800 truncate">{profile?.first_name} {profile?.last_name}</span>
@@ -197,23 +243,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       
       <main className="flex-1 lg:pl-[300px] flex flex-col min-h-screen relative w-full overflow-x-hidden">
         
-        {/* 🚀 MOBİL İÇİN YENİ ÜST SABİT BAR (Sadece mobilde görünür) */}
+        {/* 🚀 MOBİL İÇİN YENİ ÜST SABİT BAR (Sipariş Butonları Eklendi) */}
         <div className="lg:hidden flex items-center justify-between p-4 bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 shadow-sm">
             <div className="flex items-center gap-3">
                 <button onClick={() => setIsMobileMenuOpen(true)} className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-600 hover:bg-indigo-100 transition-colors">
                     <Menu className="h-6 w-6" />
                 </button>
-                <Image src="/buvisan.png" alt="Logo" width={120} height={40} className="object-contain" />
+                <Image src="/buvisan.png" alt="Logo" width={100} height={30} className="object-contain" />
             </div>
             
-            {/* Mobil Bildirim Zili */}
-            <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false)}} className="relative p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-500">
-                <Bell className="h-5 w-5" />
-                {unreadNotifs > 0 && <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-rose-500 border-2 border-white animate-bounce"></span>}
-            </button>
+            <div className="flex items-center gap-2">
+                {/* Mobilde Sadece İkon Olarak Görünür */}
+                <button onClick={() => setIsOrderModalOpen(true)} className="p-2.5 bg-blue-600 text-white rounded-xl shadow-md active:scale-95 transition-transform" title="Sipariş Ver">
+                    <ShoppingCart className="h-5 w-5" />
+                </button>
+                <button onClick={() => { fetchMyOrders(profile?.id); setIsTrackingModalOpen(true); }} className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl shadow-sm active:scale-95 transition-transform" title="Sipariş Takip">
+                    <ListOrdered className="h-5 w-5" />
+                </button>
+
+                <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false)}} className="relative p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-500">
+                    <Bell className="h-5 w-5" />
+                    {unreadNotifs > 0 && <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-rose-500 border-2 border-white animate-bounce"></span>}
+                </button>
+            </div>
         </div>
 
-        {/* 🚀 MASAÜSTÜ HEADER VE MOBİL AYARLARI KARIŞIK */}
+        {/* 🚀 MASAÜSTÜ HEADER (Sipariş Butonları Eklendi) */}
         <header className="hidden lg:flex h-20 items-center justify-between px-8 mt-5 mx-8 bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-[2rem] sticky top-5 z-30">
           
           <div className="flex items-center gap-4">
@@ -222,6 +277,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-5">
+             
+             {/* 🚀 FAZ 1: SİPARİŞ VER VE SİPARİŞ TAKİP BUTONLARI (GLOBAL) */}
+             <div className="flex items-center gap-3 mr-2 border-r border-slate-200 pr-6">
+                 <Button onClick={() => setIsOrderModalOpen(true)} className="h-12 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md shadow-blue-500/20 text-sm transition-transform active:scale-95">
+                     <ShoppingCart className="h-4 w-4 mr-2" /> Sipariş Ver
+                 </Button>
+                 <Button variant="outline" onClick={() => { fetchMyOrders(profile?.id); setIsTrackingModalOpen(true); }} className="h-12 px-5 font-bold rounded-xl border-2 border-slate-200 text-slate-600 hover:bg-slate-50 text-sm transition-transform active:scale-95">
+                     <ListOrdered className="h-4 w-4 mr-2" /> Sipariş Takip
+                 </Button>
+             </div>
+
              <div className="relative">
                  <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false)}} className={`h-12 w-12 rounded-2xl border flex items-center justify-center transition-all relative ${isNotifOpen ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-inner' : 'bg-white/80 border-white text-slate-500 hover:text-blue-600 hover:shadow-md'}`}>
                     <Bell className="h-5 w-5" />
@@ -282,6 +348,100 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
       </main>
+
+      {/* 🚀 MODALLAR (TÜM SAYFALARIN ÜZERİNDE GÖRÜNÜR) */}
+      
+      {/* 1. SİPARİŞ VER MODALI */}
+      <Dialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen}>
+          <DialogContent className="rounded-[2rem] p-6 max-w-lg border-none shadow-2xl z-[100]">
+              <DialogHeader>
+                  <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ShoppingCart className="text-blue-500"/> Yeni Sipariş İsteği</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleOrderSubmit} className="flex flex-col gap-4 mt-2">
+                  <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tarih</Label>
+                          <Input disabled value={new Date().toLocaleDateString('tr-TR')} className="bg-slate-50 font-bold text-slate-600" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Siparişi Veren</Label>
+                          <Input disabled value={profile?.first_name ? `${profile.first_name} ${profile.last_name}` : "Yükleniyor..."} className="bg-slate-50 font-bold text-slate-600" />
+                      </div>
+                  </div>
+                  <div className="space-y-2">
+                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proje No / Kodu (Varsa)</Label>
+                      <Input placeholder="Örn: 26-092" value={orderForm.project_code} onChange={e=>setOrderForm({...orderForm, project_code: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Malzeme Kodu</Label>
+                          <Input placeholder="Örn: RLM-6204" value={orderForm.material_code} onChange={e=>setOrderForm({...orderForm, material_code: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Malzeme Adı</Label>
+                          <Input required placeholder="Örn: 6204 Rulman" value={orderForm.material_name} onChange={e=>setOrderForm({...orderForm, material_name: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500" />
+                      </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mevcut Stok</Label>
+                          <Input type="number" value={orderForm.current_stock} onChange={e=>setOrderForm({...orderForm, current_stock: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">İstenen Miktar</Label>
+                          <Input required type="number" min="1" value={orderForm.quantity} onChange={e=>setOrderForm({...orderForm, quantity: e.target.value})} className="font-black text-blue-600 border-blue-200 focus:ring-blue-500" />
+                      </div>
+                  </div>
+                  <Button type="submit" disabled={orderSubmitting} className="w-full h-14 mt-4 bg-slate-900 hover:bg-slate-800 text-white font-black text-lg rounded-xl shadow-xl">
+                      {orderSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Send className="h-5 w-5 mr-2" />} 
+                      {orderSubmitting ? "GÖNDERİLİYOR..." : "SATIN ALMAYA İLET"}
+                  </Button>
+              </form>
+          </DialogContent>
+      </Dialog>
+
+      {/* 2. SİPARİŞ TAKİP MODALI */}
+      <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
+          <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none shadow-2xl overflow-hidden max-h-[85vh] flex flex-col z-[100]">
+              <DialogHeader className="shrink-0">
+                  <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ListOrdered className="text-blue-500"/> Verdiğim Siparişler</DialogTitle>
+              </DialogHeader>
+              <div className="overflow-y-auto custom-scrollbar flex-1 mt-4 border border-slate-100 rounded-xl">
+                  <table className="w-full text-left border-collapse text-sm">
+                      <thead className="bg-slate-50 sticky top-0">
+                          <tr>
+                              <th className="px-4 py-3 font-bold text-slate-500">Talep No</th>
+                              <th className="px-4 py-3 font-bold text-slate-500">Malzeme</th>
+                              <th className="px-4 py-3 font-bold text-slate-500">Miktar</th>
+                              <th className="px-4 py-3 font-bold text-slate-500">Proje</th>
+                              <th className="px-4 py-3 font-bold text-slate-500">Durum</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                          {myOrders.map(o => (
+                              <tr key={o.id} className="hover:bg-slate-50/50">
+                                  <td className="px-4 py-3 font-mono font-bold text-slate-400">{o.request_no}</td>
+                                  <td className="px-4 py-3 font-bold text-slate-700">{o.material_name} <span className="text-xs text-slate-400 block">{o.material_code}</span></td>
+                                  <td className="px-4 py-3 font-black text-blue-600">{o.quantity}</td>
+                                  <td className="px-4 py-3 font-bold text-slate-600">{o.project_code || "-"}</td>
+                                  <td className="px-4 py-3">
+                                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${
+                                          o.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' :
+                                          o.status === 'SIPARIS_VERILDI' ? 'bg-blue-100 text-blue-700' :
+                                          o.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                      }`}>
+                                          {o.status.replace('_', ' ')}
+                                      </span>
+                                  </td>
+                              </tr>
+                          ))}
+                          {myOrders.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-slate-400 font-medium">Henüz verdiğiniz bir sipariş yok.</td></tr>}
+                      </tbody>
+                  </table>
+              </div>
+          </DialogContent>
+      </Dialog>
+
     </div>
   )
 }
