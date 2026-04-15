@@ -10,7 +10,7 @@ import {
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
   LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront,
   Wallet, FileText, Archive, ScanLine, History, Menu, X,
-  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore
+  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -30,9 +30,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [unreadNotifs, setUnreadNotifs] = useState(2)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // 🚀 FAZ 1: GLOBAL SİPARİŞ STATELERİ (Öncelik ve Açıklama eklendi)
+  // 🚀 SİPARİŞ SEPETİ STATELERİ
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false)
+  const [orderItems, setOrderItems] = useState<any[]>([]) // Sepetteki Ürünler
   const [orderForm, setOrderForm] = useState({ project_code: "", material_code: "", material_name: "", current_stock: "0", quantity: "1", priority: "NORMAL", description: "" })
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [myOrders, setMyOrders] = useState<any[]>([])
@@ -67,27 +68,60 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (data) setMyOrders(data)
   }
 
-  // 🚀 YENİ EKLENEN SÜTUNLARLA BİRLİKTE GÖNDER
-  const handleOrderSubmit = async (e: React.FormEvent) => {
-      e.preventDefault()
+  // 🚀 YENİ: SEPETE ÜRÜN EKLEME
+  const handleAddOrderItem = () => {
+      if (!orderForm.material_name.trim()) { alert("Lütfen malzeme adı giriniz!"); return; }
+      if (Number(orderForm.quantity) < 1) { alert("İstenen miktar en az 1 olmalıdır!"); return; }
+
+      // Formdaki veriyi sepete at
+      setOrderItems([...orderItems, { ...orderForm }])
+
+      // Formu temizle (Kullanıcıya kolaylık olsun diye Proje No ve Önceliği silmiyoruz, devam etsin diye)
+      setOrderForm({ 
+          ...orderForm, 
+          material_code: "", 
+          material_name: "", 
+          current_stock: "0", 
+          quantity: "1", 
+          description: "" 
+      })
+  }
+
+  // 🚀 YENİ: SEPETTEN ÜRÜN SİLME
+  const handleRemoveOrderItem = (index: number) => {
+      const newItems = [...orderItems];
+      newItems.splice(index, 1);
+      setOrderItems(newItems);
+  }
+
+  // 🚀 SEPETİ TOPLUCA GÖNDER (BULK INSERT)
+  const handleOrderSubmit = async () => {
+      if (orderItems.length === 0) { alert("Lütfen önce listeye en az 1 adet malzeme ekleyin!"); return; }
+      
       setOrderSubmitting(true)
       try {
           const requestNo = `TLP-${Date.now().toString().slice(-6)}`
-          const { error } = await supabase.from('material_requests').insert([{
+          
+          // Sepetteki her bir ürünü veritabanı formatına çeviriyoruz
+          const payloads = orderItems.map(item => ({
               request_no: requestNo,
-              project_code: orderForm.project_code,
-              material_code: orderForm.material_code,
-              material_name: orderForm.material_name,
-              current_stock: Number(orderForm.current_stock),
-              quantity: Number(orderForm.quantity),
-              priority: orderForm.priority, // ACİL veya NORMAL
-              description: orderForm.description, // Açıklama
+              project_code: item.project_code,
+              material_code: item.material_code,
+              material_name: item.material_name,
+              current_stock: Number(item.current_stock),
+              quantity: Number(item.quantity),
+              priority: item.priority,
+              description: item.description,
               requested_by: profile?.id
-          }])
+          }))
+
+          // Tek seferde hepsini yolluyoruz (Bulk Insert)
+          const { error } = await supabase.from('material_requests').insert(payloads)
+          
           if (error) throw error
           
-          alert(`✅ Siparişiniz Satın Almaya başarıyla iletildi! Talep No: ${requestNo}`)
-          setOrderForm({ project_code: "", material_code: "", material_name: "", current_stock: "0", quantity: "1", priority: "NORMAL", description: "" })
+          alert(`✅ ${orderItems.length} kalem siparişiniz Satın Almaya başarıyla iletildi! \nTalep No: ${requestNo}`)
+          setOrderItems([]) // Sepeti boşalt
           setIsOrderModalOpen(false) 
           fetchMyOrders(profile?.id) 
       } catch (err: any) { alert("Hata: " + err.message) }
@@ -347,75 +381,120 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       </main>
 
-      {/* SİPARİŞ VER MODALI (YENİ ALANLAR EKLENDİ) */}
+      {/* 🚀 ÇOKLU SİPARİŞ VER MODALI (SEPET SİSTEMİ) */}
       <Dialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen}>
-          <DialogContent className="rounded-[2rem] p-6 max-w-lg border-none shadow-2xl z-[100]">
-              <DialogHeader>
-                  <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ShoppingCart className="text-blue-500"/> Yeni Sipariş İsteği</DialogTitle>
+          <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none shadow-2xl z-[100] flex flex-col max-h-[95vh] md:max-h-[90vh]">
+              <DialogHeader className="shrink-0 mb-4">
+                  <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ShoppingCart className="text-blue-500"/> Çoklu Sipariş İsteği</DialogTitle>
+                  <p className="text-xs font-bold text-slate-500 mt-1">Malzemeleri listeye ekleyin, işiniz bitince topluca satın almaya iletin.</p>
               </DialogHeader>
-              <form onSubmit={handleOrderSubmit} className="flex flex-col gap-4 mt-2">
-                  <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tarih</Label>
-                          <Input disabled value={new Date().toLocaleDateString('tr-TR')} className="bg-slate-50 font-bold text-slate-600 h-11" />
-                      </div>
-                      <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Siparişi Veren</Label>
-                          <Input disabled value={profile?.first_name ? `${profile.first_name} ${profile.last_name}` : "Yükleniyor..."} className="bg-slate-50 font-bold text-slate-600 h-11" />
-                      </div>
-                  </div>
+              
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6">
                   
-                  <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proje No / Kodu (Varsa)</Label>
-                          <Input placeholder="Örn: 26-092" value={orderForm.project_code} onChange={e=>setOrderForm({...orderForm, project_code: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11" />
-                      </div>
-                      {/* YENİ: TEDARİK SÜRESİ */}
-                      <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tedarik Süresi</Label>
-                          <div className="flex bg-slate-100 p-1 rounded-xl">
-                              <button type="button" onClick={() => setOrderForm({...orderForm, priority: 'NORMAL'})} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${orderForm.priority === 'NORMAL' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Normal</button>
-                              <button type="button" onClick={() => setOrderForm({...orderForm, priority: 'ACIL'})} className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all ${orderForm.priority === 'ACIL' ? 'bg-rose-500 shadow text-white' : 'text-slate-500'}`}>ACİL</button>
+                  {/* FORMU DOLDURMA ALANI */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 md:p-5 flex flex-col gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Proje No / Kodu (Varsa)</Label>
+                              <Input placeholder="Örn: 26-092" value={orderForm.project_code} onChange={e=>setOrderForm({...orderForm, project_code: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11 bg-white" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tedarik Süresi</Label>
+                              <div className="flex bg-slate-200/50 p-1 rounded-xl">
+                                  <button type="button" onClick={() => setOrderForm({...orderForm, priority: 'NORMAL'})} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${orderForm.priority === 'NORMAL' ? 'bg-white shadow text-slate-800' : 'text-slate-500'}`}>Normal</button>
+                                  <button type="button" onClick={() => setOrderForm({...orderForm, priority: 'ACIL'})} className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all ${orderForm.priority === 'ACIL' ? 'bg-rose-500 shadow text-white' : 'text-slate-500'}`}>ACİL</button>
+                              </div>
                           </div>
                       </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="space-y-2 col-span-2 md:col-span-1">
+                              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Malzeme Kodu</Label>
+                              <Input placeholder="Örn: RLM-6204" value={orderForm.material_code} onChange={e=>setOrderForm({...orderForm, material_code: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11 bg-white" />
+                          </div>
+                          <div className="space-y-2 col-span-2 md:col-span-1">
+                              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Malzeme Adı</Label>
+                              <Input placeholder="Örn: 6204 Rulman" value={orderForm.material_name} onChange={e=>setOrderForm({...orderForm, material_name: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11 bg-white" />
+                          </div>
+                          <div className="space-y-2 col-span-1">
+                              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mevcut Stok</Label>
+                              <Input type="number" value={orderForm.current_stock} onChange={e=>setOrderForm({...orderForm, current_stock: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11 bg-white" />
+                          </div>
+                          <div className="space-y-2 col-span-1">
+                              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">İstenen Miktar</Label>
+                              <Input type="number" min="1" value={orderForm.quantity} onChange={e=>setOrderForm({...orderForm, quantity: e.target.value})} className="font-black text-blue-600 border-blue-200 focus:ring-blue-500 h-11 bg-white" />
+                          </div>
+                      </div>
+
+                      <div className="space-y-2">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sipariş Açıklaması / Not</Label>
+                          <Textarea placeholder="Malzemeyi nerede kullanacağınızı veya özelliklerini yazın..." value={orderForm.description} onChange={e=>setOrderForm({...orderForm, description: e.target.value})} className="font-medium border-blue-200 focus:ring-blue-500 min-h-[50px] resize-none bg-white" />
+                      </div>
+
+                      <Button type="button" onClick={handleAddOrderItem} className="w-full h-12 bg-blue-100 hover:bg-blue-200 text-blue-700 font-black text-sm rounded-xl transition-all flex items-center justify-center gap-2 mt-2">
+                          <Plus className="h-5 w-5" /> LİSTEYE (SEPETE) EKLE
+                      </Button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Malzeme Kodu</Label>
-                          <Input placeholder="Örn: RLM-6204" value={orderForm.material_code} onChange={e=>setOrderForm({...orderForm, material_code: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11" />
+                  {/* 🚀 EKLENEN ÜRÜNLER (SEPET LİSTESİ) */}
+                  {orderItems.length > 0 && (
+                      <div className="flex flex-col gap-2">
+                          <h3 className="font-black text-slate-700 text-sm flex items-center gap-2">
+                              Eklenen Malzemeler <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs">{orderItems.length}</span>
+                          </h3>
+                          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                              <table className="w-full text-left text-xs md:text-sm">
+                                  <thead className="bg-slate-100 border-b border-slate-200 text-slate-500 font-bold">
+                                      <tr>
+                                          <th className="px-3 py-3">Malzeme</th>
+                                          <th className="px-3 py-3">Proje</th>
+                                          <th className="px-3 py-3">Miktar</th>
+                                          <th className="px-3 py-3">Öncelik</th>
+                                          <th className="px-3 py-3 text-right">Sil</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                      {orderItems.map((item, index) => (
+                                          <tr key={index} className="bg-white hover:bg-slate-50">
+                                              <td className="px-3 py-3 font-bold text-slate-800">
+                                                  {item.material_name} <span className="text-[10px] text-slate-400 block">{item.material_code}</span>
+                                              </td>
+                                              <td className="px-3 py-3 font-medium text-slate-600">{item.project_code || "-"}</td>
+                                              <td className="px-3 py-3 font-black text-blue-600">{item.quantity}</td>
+                                              <td className="px-3 py-3">
+                                                  {item.priority === 'ACIL' ? <span className="text-[10px] font-black bg-rose-100 text-rose-600 px-2 py-1 rounded">ACİL</span> : <span className="text-[10px] font-bold text-slate-500">Normal</span>}
+                                              </td>
+                                              <td className="px-3 py-3 text-right">
+                                                  <button onClick={() => handleRemoveOrderItem(index)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                                                      <Trash2 className="h-4 w-4" />
+                                                  </button>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
                       </div>
-                      <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Malzeme Adı</Label>
-                          <Input required placeholder="Örn: 6204 Rulman" value={orderForm.material_name} onChange={e=>setOrderForm({...orderForm, material_name: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11" />
-                      </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mevcut Stok</Label>
-                          <Input type="number" value={orderForm.current_stock} onChange={e=>setOrderForm({...orderForm, current_stock: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11" />
-                      </div>
-                      <div className="space-y-2">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">İstenen Miktar</Label>
-                          <Input required type="number" min="1" value={orderForm.quantity} onChange={e=>setOrderForm({...orderForm, quantity: e.target.value})} className="font-black text-blue-600 border-blue-200 focus:ring-blue-500 h-11" />
-                      </div>
-                  </div>
+                  )}
 
-                  {/* YENİ: AÇIKLAMA KUTUSU */}
-                  <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sipariş Açıklaması / Not</Label>
-                      <Textarea placeholder="Malzemeyi nerede kullanacağınızı veya özelliklerini yazın..." value={orderForm.description} onChange={e=>setOrderForm({...orderForm, description: e.target.value})} className="font-medium border-blue-200 focus:ring-blue-500 min-h-[60px] resize-none" />
-                  </div>
+              </div>
 
-                  <Button type="submit" disabled={orderSubmitting} className="w-full h-12 mt-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-base rounded-xl shadow-xl">
+              {/* 🚀 TOPLU GÖNDERME BUTONU */}
+              <div className="shrink-0 pt-4 mt-2 border-t border-slate-100">
+                  <Button 
+                      onClick={handleOrderSubmit} 
+                      disabled={orderSubmitting || orderItems.length === 0} 
+                      className="w-full h-14 md:h-16 bg-slate-900 hover:bg-slate-800 text-white font-black text-base md:text-lg rounded-xl shadow-xl transition-all"
+                  >
                       {orderSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Send className="h-5 w-5 mr-2" />} 
-                      {orderSubmitting ? "GÖNDERİLİYOR..." : "SATIN ALMAYA İLET"}
+                      {orderSubmitting ? "GÖNDERİLİYOR..." : `TÜM LİSTEYİ SATIN ALMAYA İLET (${orderItems.length} Kalem)`}
                   </Button>
-              </form>
+              </div>
+
           </DialogContent>
       </Dialog>
 
-      {/* SİPARİŞ TAKİP MODALI (SADECE ONA İHTİYACIN VARSA) */}
+      {/* SİPARİŞ TAKİP MODALI */}
       <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
           <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none shadow-2xl overflow-hidden max-h-[85vh] flex flex-col z-[100]">
               <DialogHeader className="shrink-0">
