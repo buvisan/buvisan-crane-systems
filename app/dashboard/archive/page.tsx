@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { 
     ArchiveRestore, Search, Loader2, CheckCircle2, 
-    AlertTriangle, PackageMinus, Clock, Hammer, CalendarDays, ArrowRight
+    AlertTriangle, PackageMinus, Clock, Hammer, CalendarDays, ArrowRight, Trash2
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -34,7 +34,7 @@ export default function ArchivePage() {
                 .from('projects')
                 .select('*, customers(name)')
                 .eq('status', 'TAMAMLANDI') 
-                .order('created_at', { ascending: false }) // 🚀 HATA BURADAYDI! updated_at yerine created_at yapıldı.
+                .order('created_at', { ascending: false }) 
             
             if (error) throw error
             if (data) setProjects(data)
@@ -43,6 +43,23 @@ export default function ArchivePage() {
             alert("Sistem Hatası: Arşiv verileri çekilemedi! \n\n" + error.message)
         } finally {
             setLoading(false)
+        }
+    }
+
+    // 🚀 ARŞİVDEN KALICI SİLME FONKSİYONU
+    const deleteArchivedProject = async (e: React.MouseEvent, id: number) => {
+        e.stopPropagation() // Satıra tıklama olayını durdurur, şecere açılmaz.
+        
+        if (!confirm("⚠️ DİKKAT!\n\nBu projeyi arşivden KALICI OLARAK silmek istediğinize emin misiniz? Bu işlem bir daha geri alınamaz!")) return;
+
+        try {
+            const { error } = await supabase.from('projects').delete().eq('id', id)
+            if (error) throw error
+            
+            alert("✅ Proje arşivden başarıyla silindi.")
+            fetchCompletedProjects() // Listeyi yenile
+        } catch (error: any) {
+            alert("Silme işlemi sırasında hata oluştu: " + error.message)
         }
     }
 
@@ -95,7 +112,6 @@ export default function ArchivePage() {
             })
         }
 
-        // Bitiş tarihi olarak şimdilik created_at + 1 dakika koyalım ki sıralama bozulmasın (çünkü updated_at yok)
         const endDate = new Date(project.created_at)
         endDate.setMinutes(endDate.getMinutes() + 1)
 
@@ -148,7 +164,7 @@ export default function ArchivePage() {
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest">İş Emri No</th>
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest">Firma / Müşteri</th>
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest">Kapasite</th>
-                                <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-right rounded-tr-2xl">Arşivi İncele</th>
+                                <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black uppercase tracking-widest text-right rounded-tr-2xl">İşlemler</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -158,9 +174,20 @@ export default function ArchivePage() {
                                     <td className="px-4 md:px-6 py-3 md:py-4 font-mono font-black text-slate-700">{p.project_code}</td>
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-900 truncate max-w-[200px]">{p.customers?.name}</td>
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-bold text-slate-600">{p.capacity}</td>
-                                    <td className="px-4 md:px-6 py-3 md:py-4 text-right">
+                                    <td className="px-4 md:px-6 py-3 md:py-4 text-right flex justify-end gap-2 items-center">
                                         <Button variant="outline" size="sm" className="h-9 md:h-10 text-xs font-bold text-slate-700 border-slate-200 hover:bg-slate-100 group-hover:bg-slate-900 group-hover:text-white transition-all">
                                             Şecereyi Gör <ArrowRight className="ml-2 h-4 w-4" />
+                                        </Button>
+                                        
+                                        {/* 🚀 İŞTE YENİ SİLME BUTONU BURADA */}
+                                        <Button 
+                                            variant="outline" 
+                                            size="icon" 
+                                            onClick={(e) => deleteArchivedProject(e, p.id)} 
+                                            className="h-9 w-9 md:h-10 md:w-10 border-rose-200 text-rose-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                                            title="Arşivden Kalıcı Sil"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
                                         </Button>
                                     </td>
                                 </tr>
