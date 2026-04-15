@@ -88,22 +88,22 @@ export default function ProductionScreenPage() {
     }
   }
 
+  // 🚀 BURASI DÜZELTİLDİ: Eski Sales_orders tablosuna gitmeye çalışıp sistemi bozan kod silindi!
   const completeProject = async (project: any) => {
-    if(!confirm("⚠️ DİKKAT!\n\nBu işin üretimi bitti mi? Proje Satışlar ekranına aktarılacak.")) return;
+    if(!confirm("⚠️ DİKKAT!\n\nBu işin üretimi bitti mi? Proje Üretim Arşivi ekranına aktarılacak.")) return;
     
     setSubmitting(true)
-    await supabase.from('projects').update({ status: 'TAMAMLANDI' }).eq('id', project.id)
+    try {
+        const { error } = await supabase.from('projects').update({ status: 'TAMAMLANDI' }).eq('id', project.id)
+        if (error) throw error
 
-    await supabase.from('sales_orders').insert([{
-        customer_id: project.customer_id,
-        sale_date: new Date().toISOString(),
-        status: 'BEKLIYOR', 
-        total_amount: 0 
-    }])
-
-    alert("✅ Proje tamamlandı ve Satışlar ekranına düştü! 🚀")
-    setSubmitting(false)
-    fetchProjects()
+        alert("✅ Proje başarıyla tamamlandı ve 'Üretim Arşivi' ekranına düştü! 🚀")
+        fetchProjects()
+    } catch (e: any) {
+        alert("Proje tamamlanırken hata oluştu: " + e.message)
+    } finally {
+        setSubmitting(false)
+    }
   }
 
   if (loading) return <div className="flex h-[80vh] items-center justify-center"><Loader2 className="animate-spin h-10 w-10 md:h-14 md:w-14 text-blue-600" /></div>
@@ -111,7 +111,7 @@ export default function ProductionScreenPage() {
   return (
     <div className="flex flex-col gap-6 md:gap-8 pb-10 md:pb-20 font-sans max-w-[1600px] mx-auto w-full">
       
-      {/* 🚀 DOKUNMATİK EKRAN ÜST BAŞLIĞI */}
+      {/* DOKUNMATİK EKRAN ÜST BAŞLIĞI */}
       <div className="flex flex-col md:flex-row items-center justify-between bg-slate-900 p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] shadow-2xl shadow-blue-900/20 text-white relative overflow-hidden text-center md:text-left gap-6 md:gap-0">
         <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="relative z-10 flex flex-col md:flex-row items-center gap-4 md:gap-6">
@@ -132,7 +132,7 @@ export default function ProductionScreenPage() {
         </div>
       </div>
 
-      {/* 🚀 KART LİSTESİ */}
+      {/* KART LİSTESİ */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 md:gap-8">
         {projects.map((project) => (
             <div key={project.id} className="relative bg-white/70 backdrop-blur-2xl border border-white/60 shadow-xl shadow-slate-200/50 rounded-[2rem] md:rounded-[3rem] p-5 sm:p-6 md:p-10 flex flex-col group transition-all duration-300 hover:shadow-2xl hover:border-blue-200">
@@ -160,7 +160,6 @@ export default function ProductionScreenPage() {
                     </div>
                 </div>
 
-                {/* DOKUNMATİK AKSİYON BUTONLARI (2x2 GRID) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mt-auto">
                     
                     {/* DOSYALAR */}
@@ -175,7 +174,6 @@ export default function ProductionScreenPage() {
                             <div className="grid gap-3 md:gap-4 py-2 md:py-4 overflow-y-auto max-h-[60vh] custom-scrollbar">
                                 {project.project_files?.map((file: any) => (
                                     <a key={file.id} href={file.file_url} target="_blank" className="flex items-center justify-between p-4 md:p-6 bg-slate-50 rounded-xl md:rounded-2xl border-2 border-slate-100 hover:border-blue-400 hover:bg-blue-50 transition-all group">
-                                        {/* 🚀 DOSYA ADI DÜZELTİLDİ (Alt tireler silindi) */}
                                         <span className="font-bold text-sm md:text-xl text-slate-700 group-hover:text-blue-700 uppercase">
                                             {file.file_type.replace('_', ' ')}
                                         </span>
@@ -239,8 +237,9 @@ export default function ProductionScreenPage() {
                     </Dialog>
 
                     {/* İŞİ BİTİR (Ana Aksiyon) */}
-                    <Button onClick={() => completeProject(project)} className="h-16 md:h-20 text-xl md:text-2xl font-black rounded-xl md:rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/30 transition-all border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 sm:col-span-2">
-                        <CheckCircle2 className="mr-2 md:mr-3 h-6 w-6 md:h-8 md:w-8" /> İŞİ BİTİR
+                    <Button onClick={() => completeProject(project)} disabled={submitting} className="h-16 md:h-20 text-xl md:text-2xl font-black rounded-xl md:rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-xl shadow-emerald-500/30 transition-all border-b-4 border-emerald-700 active:border-b-0 active:translate-y-1 sm:col-span-2">
+                        {submitting ? <Loader2 className="animate-spin mr-3 h-8 w-8" /> : <CheckCircle2 className="mr-2 md:mr-3 h-6 w-6 md:h-8 md:w-8" />} 
+                        {submitting ? "BİTİRİLİYOR..." : "İŞİ BİTİR"}
                     </Button>
 
                 </div>

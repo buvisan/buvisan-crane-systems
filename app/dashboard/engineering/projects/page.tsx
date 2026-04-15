@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { 
   UploadCloud, FileCog, Loader2, CheckCircle2, AlertTriangle, 
-  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2
+  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2, Trash2
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -23,7 +23,6 @@ export default function ProjectPanelPage() {
   const [pendingSales, setPendingSales] = useState<any[]>([]) 
   const [formData, setFormData] = useState({ customer_id: "", project_code: "", capacity: "" })
   
-  // 🚀 DOSYA TİPLERİ GÜNCELLENDİ (Çelik Konstrüksiyon ve Genel Montaj eklendi)
   const [files, setFiles] = useState<{ [key: string]: File | null }>({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, celik_konstruksiyon: null, genel_montaj: null })
   const [uploading, setUploading] = useState(false)
 
@@ -32,7 +31,6 @@ export default function ProjectPanelPage() {
   const [addingCustomer, setAddingCustomer] = useState(false)
   const [activeSaleId, setActiveSaleId] = useState<number | null>(null)
 
-  // 🚀 DÜZENLEME (EDIT) MODAL STATELERİ
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editProjectData, setEditProjectData] = useState<any>(null)
   const [editFiles, setEditFiles] = useState<{ [key: string]: File | null }>({})
@@ -60,6 +58,12 @@ export default function ProjectPanelPage() {
       const { data } = await supabase.from('tracking_sales').select('*, tracking_products(brand, model)').order('created_at', { ascending: false })
       if (data) setPendingSales(data)
       setLoading(false)
+  }
+
+  const updateSaleStatus = async (id: number, newStatus: string) => {
+      if(!confirm(`Bu satışın durumunu ${newStatus} olarak işaretlemek istediğinize emin misiniz?`)) return;
+      await supabase.from('tracking_sales').update({ status: newStatus }).eq('id', id)
+      fetchPendingSales()
   }
 
   const startWorkOrderFromSale = (sale: any) => {
@@ -91,11 +95,36 @@ export default function ProjectPanelPage() {
     setLoading(false)
   }
 
+  // 🚀 BURASI DÜZELTİLDİ: Olası Supabase hatalarını yakalayıp sana kırmızı ile gösterecek!
   const fetchProjectsByStatus = async (status: string) => {
     setLoading(true)
-    const { data } = await supabase.from('projects').select('*, customers(name), project_files(file_type, file_url)').eq('status', status).order('created_at', { ascending: false })
-    if (data) setDataList(data)
-    setLoading(false)
+    try {
+        const { data, error } = await supabase
+            .from('projects')
+            .select('*, customers(name), project_files(file_type, file_url)')
+            .eq('status', status)
+            .order('created_at', { ascending: false })
+            
+        if (error) throw error
+        
+        if (data) setDataList(data)
+    } catch (error: any) {
+        console.error("Proje çekme hatası:", error)
+        alert("SİSTEM HATASI: Projeler yüklenemedi. Lütfen Supabase tablolarını kontrol edin. \nHata: " + error.message)
+    } finally {
+        setLoading(false)
+    }
+  }
+
+  const deleteProject = async (id: number) => {
+      if(!confirm("Bu projeyi tamamen SİLMEK istediğinize emin misiniz? Tüm dosyalarıyla birlikte yok olacak!")) return;
+      
+      const { error } = await supabase.from('projects').delete().eq('id', id)
+      if (error) alert("Silinirken hata oluştu: " + error.message)
+      else {
+          alert("Proje başarıyla kaldırıldı.")
+          fetchProjectsByStatus('ONAY_BEKLIYOR') 
+      }
   }
 
   const completeRevision = async (id: number) => {
@@ -121,7 +150,6 @@ export default function ProjectPanelPage() {
     return data.publicUrl
   }
 
-  // YENİ İŞ EMRİ OLUŞTURMA
   const handleSubmit = async () => {
     if (!formData.customer_id || !formData.project_code) { alert("Lütfen firma ve iş emri numarasını giriniz."); return; }
     setUploading(true)
@@ -158,7 +186,6 @@ export default function ProjectPanelPage() {
     finally { setUploading(false) }
   }
 
-  // 🚀 MEVCUT İŞ EMRİNİ DÜZENLEME MODALINI AÇ
   const openEditModal = (project: any) => {
       setEditProjectData({
           id: project.id,
@@ -170,13 +197,11 @@ export default function ProjectPanelPage() {
       setIsEditModalOpen(true)
   }
 
-  // 🚀 MEVCUT İŞ EMRİNİ GÜNCELLE
   const handleEditSubmit = async () => {
       if (!editProjectData.project_code) return alert("Proje No zorunludur.")
       setEditUploading(true)
 
       try {
-          // 1. Proje ana bilgilerini güncelle
           const { error: projError } = await supabase.from('projects').update({
               project_code: editProjectData.project_code,
               capacity: editProjectData.capacity
@@ -184,15 +209,12 @@ export default function ProjectPanelPage() {
           
           if (projError) throw projError
 
-          // 2. Yeni yüklenen dosyalar varsa onları güncelle/ekle
           const fileTypes = ['is_emri', 'fatura', 'kopru', 'yuruyus', 'kedi', 'celik_konstruksiyon', 'genel_montaj']
           
           for (const type of fileTypes) {
               const file = editFiles[type]
               if (file) {
                   const publicUrl = await uploadFileToSupabase(file, editProjectData.project_code)
-                  
-                  // Dosya tipi önceden var mı kontrol et
                   const existingFile = editProjectData.existingFiles.find((f:any) => f.file_type === type.toUpperCase())
                   
                   if (existingFile) {
@@ -205,8 +227,6 @@ export default function ProjectPanelPage() {
 
           alert("✅ İş Emri başarıyla güncellendi!")
           setIsEditModalOpen(false)
-          
-          // Hangi sekmedeysek onu yenile
           if (activeTab === "onay_listesi") fetchProjectsByStatus('ONAY_BEKLIYOR')
           if (activeTab === "gonderilenler") fetchProjectsByStatus('URETIMDE')
 
@@ -263,7 +283,6 @@ export default function ProjectPanelPage() {
                   
                   <div className="absolute top-0 right-0 -mr-20 -mt-20 w-48 h-48 md:w-64 md:h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
-                  {/* 🚀 SATIŞTAN GELENLER (RENKLENDİRİLMİŞ) */}
                   {activeTab === "bekleyen_satislar" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in w-full">
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2"><TrendingUp className="text-indigo-500 h-5 w-5 md:h-6 md:w-6"/> Satıştan Gelen İşler</h2>
@@ -280,7 +299,6 @@ export default function ProjectPanelPage() {
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 bg-white/40">
                                       {pendingSales.map((sale) => {
-                                          // 🚀 YENİ RENKLENDİRME MANTIĞI
                                           let rowColor = "hover:bg-white/60 bg-transparent";
                                           let statusBadge = <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[10px] font-bold border border-slate-200">GÖNDERİLMEDİ</span>;
                                           
@@ -316,7 +334,6 @@ export default function ProjectPanelPage() {
                       </div>
                   )}
 
-                  {/* 1. İŞ EMRİ OLUŞTURMA EKRANI */}
                   {activeTab === "is_emri" && (
                       <div className="flex flex-col gap-6 md:gap-8 relative z-10 animate-in fade-in">
                           <div className="flex items-center gap-2 md:gap-3 mb-2">
@@ -397,7 +414,6 @@ export default function ProjectPanelPage() {
                       </div>
                   )}
 
-                  {/* REVİZE TALEPLERİ */}
                   {activeTab === "revize_talepleri" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2"><AlertTriangle className="text-rose-500 h-5 w-5 md:h-6 md:w-6"/> Sahadan Gelen Revizeler</h2>
@@ -427,7 +443,7 @@ export default function ProjectPanelPage() {
                       </div>
                   )}
 
-                  {/* 🚀 ONAY LİSTESİ VE ÜRETİME İNENLER (DÜZENLEME BUTONU EKLENDİ) */}
+                  {/* 🚀 ONAY LİSTESİ VE ÜRETİME İNENLER */}
                   {(activeTab === "onay_listesi" || activeTab === "gonderilenler") && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2">
@@ -447,7 +463,7 @@ export default function ProjectPanelPage() {
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 bg-white/20">
                                       {dataList.map((item) => (
-                                          <tr key={item.id} className="hover:bg-white/50 transition-colors">
+                                          <tr key={item.id} className="hover:bg-white/50 transition-colors group">
                                               <td className="py-4 md:py-5 px-4 font-mono text-xs md:text-sm font-bold text-slate-800">{item.project_code}</td>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-600 truncate max-w-[150px]">{item.customers?.name}</td>
                                               <td className="py-4 md:py-5 px-4">
@@ -471,10 +487,15 @@ export default function ProjectPanelPage() {
                                                       {activeTab === "onay_listesi" ? <><span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-amber-500 animate-pulse"></span> Onay Bekliyor</> : <><Factory className="h-3 w-3 md:h-3.5 md:w-3.5" /> Üretimde</>}
                                                   </span>
                                               </td>
-                                              <td className="py-4 md:py-5 px-4 text-right">
+                                              <td className="py-4 md:py-5 px-4 text-right flex justify-end gap-2 items-center">
                                                   <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-8 md:h-9 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50">
-                                                      <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Düzenle
+                                                      <Edit2 className="h-3.5 w-3.5 md:mr-1.5" /> <span className="hidden md:inline">Düzenle</span>
                                                   </Button>
+                                                  {activeTab === "onay_listesi" && (
+                                                      <Button variant="outline" size="icon" onClick={() => deleteProject(item.id)} className="h-8 w-8 md:h-9 md:w-9 border-rose-200 text-rose-500 hover:bg-rose-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                          <Trash2 className="h-4 w-4" />
+                                                      </Button>
+                                                  )}
                                               </td>
                                           </tr>
                                       ))}
@@ -488,7 +509,6 @@ export default function ProjectPanelPage() {
           )}
       </div>
 
-      {/* 🚀 MEVCUT İŞ EMRİNİ DÜZENLEME MODALI */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent className="rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 max-w-[90vw] md:max-w-[700px] border-none shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
               <DialogHeader className="shrink-0"><DialogTitle className="text-xl md:text-3xl font-black text-slate-800 flex items-center gap-2 md:gap-3"><Edit2 className="h-5 w-5 md:h-6 md:w-6 text-indigo-500" /> İş Emrini Düzenle</DialogTitle></DialogHeader>
