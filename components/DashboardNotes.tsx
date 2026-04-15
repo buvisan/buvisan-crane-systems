@@ -22,6 +22,9 @@ export function DashboardNotes() {
   const [activeEmojiNoteId, setActiveEmojiNoteId] = useState<number | null>(null) 
   const [replyTo, setReplyTo] = useState<any>(null) 
 
+  // 🚀 BİLDİRİM SAYILARI STATELERİ
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
 
@@ -34,8 +37,17 @@ export function DashboardNotes() {
   }, [])
 
   useEffect(() => {
-    if (activeView === "chat" && activeChat) fetchNotes()
+    if (activeView === "chat" && activeChat) {
+        fetchNotes()
+        markAsRead(activeChat) // Sohbete girince okundu işaretle
+    } else if (activeView === "list") {
+        loadUnreadCounts() // Listeye dönünce bildirimleri güncelle
+    }
   }, [activeView, activeChat])
+
+  useEffect(() => {
+      if (currentUser) loadUnreadCounts()
+  }, [currentUser])
 
   useEffect(() => {
       if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -56,7 +68,43 @@ export function DashboardNotes() {
       if (data) setUsers(data)
   }
 
-  // 🚀 İÇ İÇE SORGULAR (REPLY) KUSURSUZLAŞTIRILDI
+  // 🚀 BİLDİRİMLERİ (OKUNMAMIŞ MESAJ SAYILARINI) HESAPLA
+  const loadUnreadCounts = async () => {
+      if (!currentUser) return;
+      const counts: Record<string, number> = {};
+
+      // 1. Özel Mesajları Hesapla (is_read = false olanlar)
+      const { data: dms } = await supabase.from('notes').select('user_id').eq('receiver_id', currentUser.id).eq('is_read', false);
+      if (dms) {
+          dms.forEach(dm => {
+              counts[dm.user_id] = (counts[dm.user_id] || 0) + 1;
+          });
+      }
+
+      // 2. Genel Pano Hesapla (Local Storage ile son giriş tarihine göre)
+      const lastReadGenel = localStorage.getItem(`lastReadGenel_${currentUser.id}`);
+      let genelQuery = supabase.from('notes').select('id', { count: 'exact' }).is('receiver_id', null);
+      if (lastReadGenel) genelQuery = genelQuery.gt('created_at', lastReadGenel);
+      
+      const { count: genelCount } = await genelQuery;
+      if (genelCount) counts["genel"] = genelCount;
+
+      setUnreadCounts(counts);
+  }
+
+  // 🚀 MESAJLARI OKUNDU İŞARETLE
+  const markAsRead = async (chatId: string) => {
+      if (!currentUser) return;
+
+      if (chatId === "genel") {
+          localStorage.setItem(`lastReadGenel_${currentUser.id}`, new Date().toISOString());
+          setUnreadCounts(prev => ({...prev, genel: 0}));
+      } else {
+          await supabase.from('notes').update({ is_read: true }).eq('receiver_id', currentUser.id).eq('user_id', chatId).eq('is_read', false);
+          setUnreadCounts(prev => ({...prev, [chatId]: 0}));
+      }
+  }
+
   const fetchNotes = async () => {
     if (!currentUser) return;
     
@@ -66,10 +114,7 @@ export function DashboardNotes() {
             *,
             profiles (first_name, last_name, department),
             projects (project_code),
-            reply_to:reply_to_id (
-                content,
-                profiles (first_name, last_name)
-            )
+            reply_to:reply_to_id ( content, profiles (first_name, last_name) )
         `)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -81,7 +126,6 @@ export function DashboardNotes() {
     }
 
     const { data, error } = await query
-    
     if (error) {
         console.error("Mesaj Çekme Hatası:", error)
         alert("SİSTEM UYARISI: Mesajlar çekilemedi!\n\nHata: " + error.message)
@@ -100,7 +144,8 @@ export function DashboardNotes() {
             user_id: currentUser?.id,
             project_id: selectedProjectId ? Number(selectedProjectId) : null,
             receiver_id: activeChat === "genel" ? null : activeChat,
-            reply_to_id: replyTo ? replyTo.id : null 
+            reply_to_id: replyTo ? replyTo.id : null,
+            is_read: false // Yeni mesaj okunmadı
         }
 
         const { error } = await supabase.from('notes').insert([payload])
@@ -145,6 +190,16 @@ export function DashboardNotes() {
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
   const activeChatUser = users.find(u => u.id === activeChat)
 
+  // 🚀 BİLDİRİM BALONCUĞU YARDIMCI COMPONENT
+  const UnreadBadge = ({ count }: { count: number }) => {
+      if (!count || count === 0) return null;
+      return (
+          <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm ml-auto shrink-0">
+              {count > 9 ? '9+' : count}
+          </span>
+      )
+  }
+
   return (
     <div className="flex flex-col h-[500px] md:h-[600px] font-sans bg-white border border-slate-200 rounded-[1.5rem] shadow-sm overflow-hidden w-full relative">
       
@@ -158,27 +213,31 @@ export function DashboardNotes() {
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                   
+                  {/* Genel Pano Butonu */}
                   <button onClick={() => { setActiveChat("genel"); setActiveView("chat"); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-200/50 transition-all border border-transparent hover:border-slate-200">
                       <div className="h-12 w-12 bg-emerald-500 rounded-full flex items-center justify-center shrink-0 shadow-inner"><Users className="h-6 w-6 text-white" /></div>
                       <div className="flex flex-col items-start">
                           <span className="font-bold text-slate-800 text-sm">Genel Pano</span>
                           <span className="text-[10px] text-slate-500 font-medium">Tüm şirkete açık duyurular</span>
                       </div>
+                      <UnreadBadge count={unreadCounts["genel"]} />
                   </button>
 
                   <div className="pt-4 pb-2 px-3 border-t border-slate-200/50 mt-2">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Çalışma Arkadaşları</span>
                   </div>
 
+                  {/* Kişiler Listesi */}
                   {users.filter(u => u.id !== currentUser?.id).map((u) => (
                       <button key={u.id} onClick={() => { setActiveChat(u.id); setActiveView("chat"); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-200/50 transition-all border border-transparent hover:border-slate-200">
                           <div className="h-12 w-12 bg-slate-800 rounded-full flex items-center justify-center shrink-0 text-white font-black text-sm shadow-inner">
                               {u.first_name?.charAt(0)}{u.last_name?.charAt(0)}
                           </div>
-                          <div className="flex flex-col items-start overflow-hidden">
+                          <div className="flex flex-col items-start overflow-hidden flex-1">
                               <span className="font-bold text-slate-800 text-sm truncate w-full text-left">{u.first_name} {u.last_name}</span>
                               <span className="text-[10px] text-slate-500 font-bold truncate w-full text-left">{u.department || "Personel"}</span>
                           </div>
+                          <UnreadBadge count={unreadCounts[u.id]} />
                       </button>
                   ))}
               </div>
@@ -214,7 +273,7 @@ export function DashboardNotes() {
 
                           <div className={`relative max-w-[85%] p-2.5 rounded-2xl shadow-sm border group ${isMe ? 'bg-[#dcf8c6] border-[#c0e8a8] rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
                               
-                              {/* 🚀 AKILLI YANIT KUTUSU (Artık 'Biri' yazmaz) */}
+                              {/* YANITLANAN MESAJ */}
                               {note.reply_to && (() => {
                                   const rProfile = Array.isArray(note.reply_to.profiles) ? note.reply_to.profiles[0] : note.reply_to.profiles;
                                   const rName = rProfile?.first_name ? `${rProfile.first_name} ${rProfile.last_name || ''}` : "Silinmiş Mesaj";
@@ -227,6 +286,7 @@ export function DashboardNotes() {
                                   );
                               })()}
 
+                              {/* PROJE ETİKETİ */}
                               {note.projects && (
                                   <div className={`flex items-center gap-1 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded mb-1.5 w-max ${isMe ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-blue-700'}`}>
                                       <LinkIcon className="h-2.5 w-2.5" /> PROJE: {note.projects.project_code}
@@ -236,40 +296,40 @@ export function DashboardNotes() {
                               <p className="text-xs text-slate-800 whitespace-pre-wrap font-medium pr-10">{note.content}</p>
                               <span className="absolute bottom-1 right-1.5 text-[8px] font-bold text-slate-400 mix-blend-multiply">{formatTime(note.created_at)}</span>
 
-                              {/* Görünür Emojiler */}
+                              {/* 🚀 EMOJİLER (KİMİN ATTIĞI EKLENDİ) */}
                               {note.reactions && Object.keys(note.reactions).length > 0 && (
                                   <div className="absolute -bottom-3 left-2 flex gap-1 bg-white p-0.5 rounded-full shadow-sm border border-slate-200 z-10">
-                                      {Object.entries(note.reactions).map(([emoji, users]: [string, any]) => (
-                                          users.length > 0 && (
-                                              <button key={emoji} onClick={() => addReaction(note.id, emoji, note.reactions)} className="text-[9px] bg-slate-50 hover:bg-slate-200 rounded-full px-1.5 flex items-center gap-1 cursor-pointer transition-colors">
-                                                  {emoji} <span className="text-slate-400 font-bold">{users.length}</span>
+                                      {Object.entries(note.reactions).map(([emoji, userIds]: [string, any]) => {
+                                          if (!userIds || userIds.length === 0) return null;
+                                          
+                                          // Emojiyi atanların isimlerini bul ve virgülle birleştir
+                                          const reactorNames = userIds.map((uid: string) => users.find(u => u.id === uid)?.first_name || "Biri").join(", ");
+
+                                          return (
+                                              <button 
+                                                  key={emoji} 
+                                                  onClick={() => addReaction(note.id, emoji, note.reactions)} 
+                                                  title={reactorNames} // 👈 İşte Mouse ile üzerine gelince isimleri çıkaran kod!
+                                                  className="text-[9px] bg-slate-50 hover:bg-slate-200 rounded-full px-1.5 flex items-center gap-1 cursor-pointer transition-colors"
+                                              >
+                                                  {emoji} <span className="text-slate-400 font-bold">{userIds.length}</span>
                                               </button>
                                           )
-                                      ))}
+                                      })}
                                   </div>
                               )}
 
                               {/* Emoji & Yanıtla Menüsü */}
                               <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity ${isEmojiMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isMe ? '-left-[5.5rem]' : '-right-[5.5rem]'} z-20`}>
-                                  
-                                  <button onClick={() => setReplyTo(note)} className="p-1.5 bg-white text-slate-500 hover:text-blue-500 rounded-full shadow-sm border border-slate-200 transition-colors" title="Yanıtla">
-                                      <Reply className="h-3.5 w-3.5" />
-                                  </button>
-
+                                  <button onClick={() => setReplyTo(note)} className="p-1.5 bg-white text-slate-500 hover:text-blue-500 rounded-full shadow-sm border border-slate-200 transition-colors" title="Yanıtla"><Reply className="h-3.5 w-3.5" /></button>
                                   <div className="relative">
-                                      <button onClick={() => setActiveEmojiNoteId(isEmojiMenuOpen ? null : note.id)} className={`p-1.5 bg-white text-slate-500 hover:text-amber-500 rounded-full shadow-sm border border-slate-200 transition-colors ${isEmojiMenuOpen ? 'bg-amber-50 text-amber-500' : ''}`} title="Emoji Bırak">
-                                          <Smile className="h-3.5 w-3.5" />
-                                      </button>
-                                      
+                                      <button onClick={() => setActiveEmojiNoteId(isEmojiMenuOpen ? null : note.id)} className={`p-1.5 bg-white text-slate-500 hover:text-amber-500 rounded-full shadow-sm border border-slate-200 transition-colors ${isEmojiMenuOpen ? 'bg-amber-50 text-amber-500' : ''}`} title="Emoji Bırak"><Smile className="h-3.5 w-3.5" /></button>
                                       {isEmojiMenuOpen && (
                                           <div className={`absolute top-full mt-1 flex bg-white p-1.5 rounded-2xl shadow-xl border border-slate-100 gap-1 z-50 ${isMe ? 'right-0' : 'left-0'}`}>
-                                              {EMOJIS.map(e => (
-                                                  <button key={e} onClick={() => addReaction(note.id, e, note.reactions)} className="hover:bg-slate-100 p-1.5 rounded-xl text-lg transition-transform hover:scale-125">{e}</button>
-                                              ))}
+                                              {EMOJIS.map(e => <button key={e} onClick={() => addReaction(note.id, e, note.reactions)} className="hover:bg-slate-100 p-1.5 rounded-xl text-lg transition-transform hover:scale-125">{e}</button>)}
                                           </div>
                                       )}
                                   </div>
-
                                   {isMe && <button onClick={() => deleteNote(note.id)} className="p-1.5 bg-white text-slate-500 hover:text-rose-500 rounded-full shadow-sm border border-slate-200 transition-colors" title="Sil"><Trash2 className="h-3.5 w-3.5" /></button>}
                               </div>
                           </div>
@@ -287,7 +347,6 @@ export function DashboardNotes() {
               {/* Mesaj Kutusu */}
               <div className="p-2 bg-[#f0f2f5] border-t border-slate-200 shrink-0 relative">
                   
-                  {/* YANITLAMA ÖNİZLEMESİ */}
                   {replyTo && (
                       <div className="absolute bottom-full left-0 right-0 p-2 bg-[#f0f2f5] z-10">
                           <div className="bg-white p-2 rounded-xl border-l-4 border-blue-500 flex items-start justify-between shadow-sm mx-1">
