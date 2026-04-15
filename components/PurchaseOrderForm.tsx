@@ -2,264 +2,258 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/utils/supabase/client"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent } from "@/components/ui/card"
-import { Trash2, Plus, Save, Loader2 } from "lucide-react"
-import { useRouter } from "next/navigation"
-
-// Sipariş satırı tipi (TypeScript için)
-type OrderItem = {
-  product_id: string
-  quantity: number
-  unit_price: number
-}
+import { Textarea } from "@/components/ui/textarea" // 🚀 İŞTE EKSİK OLAN KOD BURASIYDI!
+import { Plus, Trash2, Save, ShoppingCart, Loader2, AlertCircle, Flame, Building2, Info } from "lucide-react"
 
 export function PurchaseOrderForm() {
-  const router = useRouter()
-  const supabase = createClient()
-  const [loading, setLoading] = useState(false)
-
-  // Veritabanından gelecek listeler
   const [suppliers, setSuppliers] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
-
-  // Form Verileri
-  const [supplierId, setSupplierId] = useState("")
-  const [items, setItems] = useState<OrderItem[]>([
-    { product_id: "", quantity: 1, unit_price: 0 } // Başlangıçta 1 boş satır olsun
+  const [requests, setRequests] = useState<any[]>([]) 
+  const [selectedSupplier, setSelectedSupplier] = useState("")
+  
+  const [items, setItems] = useState([
+      { request_id: "", product_name: "", quantity: 1, unit_price: 0, description: "" }
   ])
+  
+  const [description, setDescription] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
 
-  // Sayfa açılınca Tedarikçi ve Ürünleri çek
+  const supabase = createClient()
+  const router = useRouter()
+
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: supData } = await supabase.from("suppliers").select("*")
-      const { data: prodData } = await supabase.from("products").select("*")
-      if (supData) setSuppliers(supData)
-      if (prodData) setProducts(prodData)
-    }
-    fetchData()
+      fetchInitialData()
   }, [])
 
-  // Yeni Satır Ekle
-  const addItem = () => {
-    setItems([...items, { product_id: "", quantity: 1, unit_price: 0 }])
+  const fetchInitialData = async () => {
+      setFetching(true)
+      try {
+          const { data: supData } = await supabase.from('suppliers').select('id, name').order('name')
+          if (supData) setSuppliers(supData)
+
+          const { data: reqData } = await supabase
+              .from('material_requests')
+              .select('*, profiles(first_name, last_name)')
+              .eq('status', 'BEKLIYOR') 
+              .order('priority', { ascending: true }) 
+              .order('created_at', { ascending: false })
+          
+          if (reqData) setRequests(reqData)
+      } catch (error) {
+          console.error(error)
+      } finally {
+          setFetching(false)
+      }
   }
 
-  // Satır Sil
-  const removeItem = (index: number) => {
-    const newItems = [...items]
-    newItems.splice(index, 1)
-    setItems(newItems)
+  const handleAddItem = () => {
+      setItems([...items, { request_id: "", product_name: "", quantity: 1, unit_price: 0, description: "" }])
   }
 
-  // Satırdaki veriyi güncelle (Ürün, Miktar veya Fiyat değişince)
-  const updateItem = (index: number, field: keyof OrderItem, value: any) => {
-    const newItems = [...items]
-    // @ts-ignore
-    newItems[index][field] = value
-
-    // Eğer ürün seçildiyse, o ürünün alış fiyatını otomatik getir (Kolaylık olsun)
-    if (field === "product_id") {
-        const selectedProduct = products.find(p => p.id == value)
-        if (selectedProduct) {
-            newItems[index].unit_price = selectedProduct.purchase_price
-        }
-    }
-    
-    setItems(newItems)
+  const handleRemoveItem = (index: number) => {
+      const newItems = [...items]
+      newItems.splice(index, 1)
+      setItems(newItems.length > 0 ? newItems : [{ request_id: "", product_name: "", quantity: 1, unit_price: 0, description: "" }])
   }
 
-  // Genel Toplamı Hesapla
-  const calculateTotal = () => {
-    return items.reduce((total, item) => total + (item.quantity * item.unit_price), 0)
+  const handleItemChange = (index: number, field: string, value: any) => {
+      const newItems = [...items]
+      newItems[index] = { ...newItems[index], [field]: value }
+      setItems(newItems)
   }
 
-  // KAYDET BUTONUNA BASINCA
+  const handleRequestSelect = (index: number, reqId: string) => {
+      const req = requests.find(r => r.id.toString() === reqId)
+      const newItems = [...items]
+      
+      if (req) {
+          newItems[index].request_id = req.id.toString()
+          newItems[index].product_name = `${req.material_name} (${req.material_code || 'Kodsuz'})`
+          newItems[index].quantity = req.quantity
+          newItems[index].description = req.description || "" 
+      } else {
+          newItems[index].request_id = ""
+          newItems[index].product_name = ""
+          newItems[index].description = ""
+      }
+      setItems(newItems)
+  }
+
+  const totalAmount = items.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unit_price)), 0)
+
   const handleSubmit = async () => {
-    if (!supplierId) { alert("Lütfen tedarikçi seçiniz!"); return; }
-    // Boş satır var mı kontrol et
-    if (items.some(i => !i.product_id || i.quantity <= 0)) { 
-        alert("Lütfen tüm satırları eksiksiz doldurunuz."); return; 
-    }
+      if (!selectedSupplier) return alert("Lütfen tedarikçi firma seçin!")
+      if (items.some(i => !i.product_name.trim())) return alert("Lütfen ürün adlarını boş bırakmayın!")
 
-    setLoading(true)
+      setLoading(true)
+      try {
+          const { data: po, error: poError } = await supabase.from('purchase_orders').insert([{
+              supplier_id: Number(selectedSupplier),
+              total_amount: totalAmount,
+              description: description,
+              status: 'BEKLIYOR'
+          }]).select().single()
 
-    try {
-        // 1. Önce Sipariş Başlığını (Purchase Order) Oluştur
-        const { data: orderData, error: orderError } = await supabase
-            .from("purchase_orders")
-            .insert([{
-                supplier_id: Number(supplierId),
-                total_amount: calculateTotal(),
-                status: "TAMAMLANDI", // Direkt tamamlandı yapıyoruz, stoklara işlesin diye
-                order_date: new Date().toISOString()
-            }])
-            .select()
-            .single()
+          if (poError) throw poError
 
-        if (orderError) throw orderError
+          const requestIds = items.map(i => i.request_id).filter(id => id !== "")
+          
+          if (requestIds.length > 0) {
+              await supabase.from('material_requests')
+                  .update({ 
+                      status: 'SIPARIS_VERILDI', 
+                      purchase_order_id: po.id 
+                  })
+                  .in('id', requestIds)
+          }
 
-        // 2. Şimdi Sipariş Detaylarını (Kalemleri) Oluştur
-        const orderItemsData = items.map(item => ({
-            order_id: orderData.id,
-            product_id: Number(item.product_id),
-            quantity: item.quantity,
-            unit_price: item.unit_price
-        }))
+          alert("✅ Satın Alma Fişi başarıyla oluşturuldu! Bağlı talepleri olan kullanıcılara anında bildirim gitti.")
+          router.push('/dashboard/purchases')
 
-        const { error: itemsError } = await supabase.from("purchase_order_items").insert(orderItemsData)
-        if (itemsError) throw itemsError
-
-        // 3. VE FİNAL: Ürünlerin Stoklarını Artır! (Stok Hareketi + Güncelleme)
-        for (const item of items) {
-            const currentProduct = products.find(p => p.id == item.product_id)
-            if (currentProduct) {
-                // a. Stok Hareketi Ekle (Log)
-                await supabase.from("stock_movements").insert({
-                    product_id: Number(item.product_id),
-                    movement_type: "GIRIS",
-                    quantity: item.quantity,
-                    related_id: orderData.id,
-                    description: `Sipariş No: PO-${orderData.id} ile giriş`
-                })
-
-                // b. Ana Stoğu Güncelle
-                await supabase.from("products").update({
-                    current_stock: currentProduct.current_stock + Number(item.quantity),
-                    purchase_price: Number(item.unit_price) // Son alış fiyatını da güncelle
-                }).eq("id", item.product_id)
-            }
-        }
-
-        alert("Sipariş başarıyla oluşturuldu ve stoklara işlendi!")
-        router.push("/dashboard/purchases") // Listeye geri dön
-        router.refresh()
-
-    } catch (error: any) {
-        alert("Hata oluştu: " + error.message)
-    } finally {
-        setLoading(false)
-    }
+      } catch (error: any) {
+          alert("Kayıt sırasında hata oluştu: " + error.message)
+      } finally {
+          setLoading(false)
+      }
   }
 
-  // Ortak Input Stili
-  const inputStyle = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+  if (fetching) return <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin h-10 w-10 text-blue-500" /></div>
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-        {/* Üst Kart: Tedarikçi Seçimi */}
-        <Card>
-            <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label>Tedarikçi Firma</Label>
-                        <select 
-                            className={inputStyle}
-                            value={supplierId}
-                            onChange={(e) => setSupplierId(e.target.value)}
-                        >
-                            <option value="">Seçiniz...</option>
-                            {suppliers.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="flex items-end justify-end">
-                        <div className="text-right">
-                            <span className="text-sm text-gray-500">Genel Toplam</span>
-                            <div className="text-3xl font-bold text-blue-700">
-                                {calculateTotal().toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+      <div className="flex flex-col gap-6 md:gap-8">
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-sm gap-6">
+              <div className="flex-1 w-full max-w-md space-y-2">
+                  <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                      <Building2 className="h-3 w-3" /> Tedarikçi Firma
+                  </span>
+                  <select 
+                      className="w-full h-12 md:h-14 bg-slate-50 border border-slate-200 rounded-xl px-4 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                      value={selectedSupplier}
+                      onChange={(e: any) => setSelectedSupplier(e.target.value)}
+                  >
+                      <option value="">Seçiniz...</option>
+                      {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+              </div>
+              <div className="flex flex-col items-start md:items-end bg-blue-50/50 md:bg-transparent p-4 md:p-0 rounded-2xl md:rounded-none">
+                  <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Genel Toplam</span>
+                  <span className="text-3xl md:text-4xl font-black text-blue-600 tracking-tight">
+                      {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(totalAmount)}
+                  </span>
+              </div>
+          </div>
 
-        {/* Alt Kart: Ürün Listesi */}
-        <Card>
-            <CardContent className="pt-6">
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b pb-2">
-                        <h3 className="font-semibold text-lg">Sipariş Kalemleri</h3>
-                        <Button size="sm" onClick={addItem} variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50">
-                            <Plus className="mr-2 h-4 w-4" /> Satır Ekle
-                        </Button>
-                    </div>
+          <div className="bg-white border border-slate-200 rounded-2xl md:rounded-3xl shadow-sm overflow-hidden flex flex-col">
+              <div className="p-4 md:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <h3 className="font-black text-slate-800 text-sm md:text-base flex items-center gap-2">
+                      <ShoppingCart className="h-4 w-4 md:h-5 md:w-5 text-slate-400" /> Sipariş Kalemleri
+                  </h3>
+                  <Button onClick={handleAddItem} variant="outline" size="sm" className="h-9 text-xs font-bold rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50">
+                      <Plus className="h-3.5 w-3.5 mr-1" /> Satır Ekle
+                  </Button>
+              </div>
 
-                    {items.map((item, index) => (
-                        <div key={index} className="grid grid-cols-12 gap-3 items-end bg-slate-50 p-3 rounded-lg border">
-                            {/* Ürün Seçimi */}
-                            <div className="col-span-5 space-y-1">
-                                <Label className="text-xs">Ürün</Label>
-                                <select 
-                                    className={inputStyle}
-                                    value={item.product_id}
-                                    onChange={(e) => updateItem(index, "product_id", e.target.value)}
-                                >
-                                    <option value="">Ürün Seçiniz...</option>
-                                    {products.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
-                                    ))}
-                                </select>
-                            </div>
+              <div className="p-2 md:p-4 flex flex-col gap-2">
+                  <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      <div className="col-span-5">Bekleyen Talep / Ürün Adı</div>
+                      <div className="col-span-2 text-center">Miktar</div>
+                      <div className="col-span-2 text-center">Birim Fiyat (₺)</div>
+                      <div className="col-span-2 text-right">Tutar</div>
+                      <div className="col-span-1 text-center">Sil</div>
+                  </div>
 
-                            {/* Miktar */}
-                            <div className="col-span-2 space-y-1">
-                                <Label className="text-xs">Miktar</Label>
-                                <Input 
-                                    type="number" 
-                                    value={item.quantity} 
-                                    onChange={(e) => updateItem(index, "quantity", Number(e.target.value))}
-                                />
-                            </div>
+                  {items.map((item, index) => (
+                      <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 p-3 md:p-4 bg-white md:bg-transparent rounded-xl md:rounded-none border md:border-b md:border-x-0 md:border-t-0 border-slate-100 items-center transition-all hover:bg-slate-50">
+                          
+                          <div className="col-span-1 md:col-span-5 flex flex-col gap-2">
+                              <span className="md:hidden text-[10px] font-black text-slate-400 uppercase">Talep Seç veya Ürün Yaz</span>
+                              
+                              <select 
+                                  className="w-full h-10 md:h-11 bg-indigo-50/50 border border-indigo-100 rounded-lg px-3 font-bold text-xs text-indigo-900 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                                  value={item.request_id}
+                                  onChange={(e: any) => handleRequestSelect(index, e.target.value)}
+                              >
+                                  <option value="">-- Yeni / Manuel Ürün Girişi --</option>
+                                  <optgroup label="Bekleyen Sipariş İstekleri">
+                                      {requests.map(req => (
+                                          <option key={req.id} value={req.id} className={req.priority === 'ACIL' ? 'text-rose-600 font-bold' : ''}>
+                                              {req.priority === 'ACIL' ? '🔥 [ACİL] ' : ''} 
+                                              {req.material_name} - ({req.quantity} Adet) | İsteyen: {req.profiles?.first_name}
+                                          </option>
+                                      ))}
+                                  </optgroup>
+                              </select>
 
-                            {/* Birim Fiyat */}
-                            <div className="col-span-2 space-y-1">
-                                <Label className="text-xs">Birim Fiyat (₺)</Label>
-                                <Input 
-                                    type="number" 
-                                    value={item.unit_price} 
-                                    onChange={(e) => updateItem(index, "unit_price", Number(e.target.value))}
-                                />
-                            </div>
+                              <Input 
+                                  placeholder="Ürün Adı ve Özelliği" 
+                                  value={item.product_name}
+                                  onChange={(e: any) => handleItemChange(index, "product_name", e.target.value)}
+                                  className={`h-10 md:h-11 font-bold text-sm rounded-lg ${item.request_id ? 'bg-slate-100 border-transparent text-slate-600' : 'bg-white border-slate-200'}`}
+                                  readOnly={item.request_id !== ""} 
+                              />
+                          </div>
 
-                            {/* Satır Toplamı */}
-                            <div className="col-span-2 space-y-1 text-right">
-                                <Label className="text-xs text-gray-400">Tutar</Label>
-                                <div className="font-semibold pt-2 text-gray-700">
-                                    {(item.quantity * item.unit_price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
-                                </div>
-                            </div>
+                          <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
+                              <span className="md:hidden text-[10px] font-black text-slate-400 uppercase">Miktar</span>
+                              <Input 
+                                  type="number" min="1" 
+                                  value={item.quantity}
+                                  onChange={(e: any) => handleItemChange(index, "quantity", e.target.value)}
+                                  className="h-10 md:h-11 text-center font-black text-blue-600 rounded-lg border-slate-200"
+                              />
+                          </div>
 
-                            {/* Sil Butonu */}
-                            <div className="col-span-1 flex justify-end">
-                                <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="text-red-500 hover:text-red-700 hover:bg-red-100"
-                                    onClick={() => removeItem(index)}
-                                    disabled={items.length === 1} // Tek satır kaldıysa silinmesin
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
+                          <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
+                              <span className="md:hidden text-[10px] font-black text-slate-400 uppercase">Birim Fiyat</span>
+                              <Input 
+                                  type="number" min="0" step="0.01"
+                                  value={item.unit_price}
+                                  onChange={(e: any) => handleItemChange(index, "unit_price", e.target.value)}
+                                  className="h-10 md:h-11 text-center font-bold text-slate-700 rounded-lg border-slate-200"
+                              />
+                          </div>
 
-        {/* Kaydet Butonu */}
-        <div className="flex justify-end gap-4">
-             <Button variant="outline" onClick={() => router.back()}>İptal</Button>
-             <Button size="lg" className="bg-blue-600 hover:bg-blue-700 min-w-[200px]" onClick={handleSubmit} disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Siparişi Tamamla
-             </Button>
-        </div>
-    </div>
+                          <div className="col-span-1 md:col-span-2 flex flex-col items-start md:items-end justify-center">
+                              <span className="md:hidden text-[10px] font-black text-slate-400 uppercase mb-1">Tutar</span>
+                              <span className="font-black text-sm md:text-base text-slate-800">
+                                  {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(item.quantity) * Number(item.unit_price))}
+                              </span>
+                          </div>
+
+                          <div className="col-span-1 md:col-span-1 flex justify-end md:justify-center pt-2 md:pt-0 border-t border-slate-100 md:border-none mt-2 md:mt-0">
+                              <button onClick={() => handleRemoveItem(index)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Satırı Sil">
+                                  <Trash2 className="h-5 w-5" />
+                              </button>
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+
+          <div className="space-y-2">
+              <span className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1 ml-2">
+                  <Info className="h-3 w-3" /> Fiş Açıklaması / Not (İsteğe Bağlı)
+              </span>
+              <Textarea 
+                  placeholder="Tedarikçiye iletilecek notlar veya sipariş açıklaması..." 
+                  value={description}
+                  onChange={(e: any) => setDescription(e.target.value)}
+                  className="min-h-[80px] bg-white border border-slate-200 rounded-2xl p-4 text-sm font-medium resize-none shadow-sm"
+              />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 mt-4 pt-6 border-t border-slate-200">
+              <Button variant="ghost" onClick={() => router.back()} className="h-12 px-6 rounded-xl font-bold text-slate-500 hover:bg-slate-100">İptal Et</Button>
+              <Button onClick={handleSubmit} disabled={loading} className="h-12 px-8 rounded-xl font-black bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30 transition-transform active:scale-95 text-sm md:text-base">
+                  {loading ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Save className="h-5 w-5 mr-2" />} 
+                  {loading ? "KAYDEDİLİYOR..." : "SİPARİŞ FİŞİNİ TAMAMLA"}
+              </Button>
+          </div>
+
+      </div>
   )
 }

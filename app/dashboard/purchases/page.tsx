@@ -54,7 +54,6 @@ export default function PurchasesPage() {
     }
   }
 
-  // 🚀 İSTEKLERİ ÇEKEN KISIM (GÜÇLENDİRİLDİ VE HATA YAKALAYICI EKLENDİ)
   const fetchRequests = async () => {
       try {
           const { data, error } = await supabase
@@ -66,19 +65,14 @@ export default function PurchasesPage() {
           if (data) setRequests(data)
       } catch (error: any) {
           console.error("İstek Çekme Hatası:", error);
-          alert("DİKKAT: Mühendislik istekleri çekilemedi!\nLütfen Supabase'den SQL kodunu çalıştırdığınıza emin olun.\n\nHata: " + error.message);
       }
   }
 
-  // 🚀 İSTEK DURUMUNU GÜNCELLE (Bu yapıldığında kullanıcının takip ekranına anında yansır)
-  const updateRequestStatus = async (id: number, newStatus: string) => {
-      try {
-          const { error } = await supabase.from('material_requests').update({ status: newStatus }).eq('id', id)
-          if (error) throw error;
-          fetchRequests() // Listeyi anında yenile
-      } catch (error: any) {
-          alert("Durum güncellenirken hata oluştu: " + error.message)
-      }
+  // Sadece iptal/reddetme durumları için manuel fonksiyon bıraktım (Satın almacı onaylamazsa diye)
+  const rejectRequest = async (id: number) => {
+      if(!confirm("Bu sipariş talebini reddetmek/iptal etmek istediğinize emin misiniz?")) return;
+      await supabase.from('material_requests').update({ status: 'REDDEDILDI' }).eq('id', id)
+      fetchRequests()
   }
 
   const formatOrderNumber = (id: number) => `SAS${String(id).padStart(5, '0')}`;
@@ -98,11 +92,18 @@ export default function PurchasesPage() {
       return { text: `${diffDays} Gün Kaldı`, classes: "bg-blue-500 text-white shadow-blue-500/30", icon: <CalendarDays className="h-3.5 w-3.5"/> }
   }
 
+  // 🚀 OTOMASYON: FİŞ SİLİNİRSE İSTEKLERİ GERİ AL
   const deleteOrder = async (id: number) => {
-    if(!confirm("Bu siparişi tamamen silmek istediğinize emin misiniz?")) return;
+    if(!confirm("Bu fişi silerseniz, içindeki bağlı sipariş talepleri tekrar 'Bekliyor' durumuna düşer. Emin misiniz?")) return;
+    
+    // Önce bağlı talepleri serbest bırak
+    await supabase.from('material_requests').update({ status: 'BEKLIYOR', purchase_order_id: null }).eq('purchase_order_id', id)
+    
+    // Sonra fişi sil
     await supabase.from('purchase_orders').delete().eq('id', id)
     setSelectedOrder(null)
     fetchOrders()
+    fetchRequests() // Üst listeyi yenile
   }
 
   const handleRowClick = (order: any) => {
@@ -115,10 +116,15 @@ export default function PurchasesPage() {
       }
   }
 
+  // 🚀 OTOMASYON: FİŞ TAMAMLANIRSA İSTEKLERİ DE GELDİ YAP
   const markAsCompleted = async (id: number) => {
-      if(!confirm("Siparişi teslim alındı olarak işaretliyorsunuz. Onaylıyor musunuz?")) return;
+      if(!confirm("Siparişi teslim alındı olarak işaretliyorsunuz. Bu fişe bağlı tüm malzeme istekleri otomatik 'GELDİ' olarak güncellenecek. Onaylıyor musunuz?")) return;
+      
       await supabase.from('purchase_orders').update({ status: 'TAMAMLANDI' }).eq('id', id)
+      await supabase.from('material_requests').update({ status: 'GELDI' }).eq('purchase_order_id', id)
+      
       fetchOrders()
+      fetchRequests()
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,6 +230,7 @@ export default function PurchasesPage() {
           
           <div className="w-full xl:w-6/12 flex flex-col gap-6 max-h-[800px] xl:max-h-full">
               
+              {/* 🚀 GELEN İSTEKLER KARTLARI (Manuel Kontrol Kaldırıldı, Akıllı Etiket Geldi) */}
               <div className="flex flex-col bg-white/60 backdrop-blur-2xl border border-blue-200/50 shadow-lg shadow-blue-500/5 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shrink-0 transition-all">
                   <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between p-4 md:p-5 bg-blue-50/50 hover:bg-blue-50 cursor-pointer border-b border-blue-100">
                       <div className="flex items-center gap-3">
@@ -245,7 +252,6 @@ export default function PurchasesPage() {
                           ) : (
                               <div className="flex flex-col gap-2">
                                   {requests.map(req => {
-                                      // 🚀 ACİL İSTEK KONTROLÜ
                                       const isUrgent = req.priority === 'ACIL';
 
                                       return (
@@ -253,27 +259,13 @@ export default function PurchasesPage() {
                                           <div className="flex flex-col gap-1">
                                               <div className="flex items-center gap-2">
                                                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{req.request_no}</span>
-                                                  
-                                                  {/* Durum Rozeti */}
-                                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
-                                                      req.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' :
-                                                      req.status === 'SIPARIS_VERILDI' ? 'bg-blue-100 text-blue-700' :
-                                                      req.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                                                  }`}>{req.status.replace('_', ' ')}</span>
-
-                                                  {/* 🚀 ACİL ROZETİ */}
-                                                  {isUrgent && (
-                                                      <span className="flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded bg-rose-500 text-white animate-pulse shadow-sm">
-                                                          <Flame className="h-3 w-3" /> ACİL
-                                                      </span>
-                                                  )}
+                                                  {isUrgent && <span className="flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded bg-rose-500 text-white animate-pulse shadow-sm"><Flame className="h-3 w-3" /> ACİL</span>}
                                               </div>
                                               
                                               <p className={`text-sm font-black mt-1 ${isUrgent ? 'text-rose-800' : 'text-slate-800'}`}>
                                                   {req.material_name} <span className="text-xs font-bold ml-1 opacity-70">({req.material_code})</span>
                                               </p>
 
-                                              {/* 🚀 AÇIKLAMA KISMI */}
                                               {req.description && (
                                                   <div className={`text-xs font-medium p-2 rounded-lg mt-1 border ${isUrgent ? 'bg-rose-100/50 border-rose-200 text-rose-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
                                                       {req.description}
@@ -285,20 +277,25 @@ export default function PurchasesPage() {
                                                   <span>Proje: {req.project_code || "-"}</span>
                                               </div>
                                           </div>
+                                          
                                           <div className="flex flex-col sm:items-end gap-2 shrink-0">
                                               <span className={`text-xl font-black px-3 py-1 rounded-lg text-center ${isUrgent ? 'text-rose-700 bg-rose-100' : 'text-blue-600 bg-blue-50'}`}>
                                                   {req.quantity} Adet
                                               </span>
-                                              <select 
-                                                  className="text-[10px] font-bold bg-white border border-slate-300 rounded p-1.5 outline-none shadow-sm cursor-pointer hover:border-blue-400 focus:ring-2 focus:ring-blue-500"
-                                                  value={req.status}
-                                                  onChange={(e) => updateRequestStatus(req.id, e.target.value)}
-                                              >
-                                                  <option value="BEKLIYOR">Bekliyor (İşlem Yapılmadı)</option>
-                                                  <option value="SIPARIS_VERILDI">Siparişi Verildi (Yolda)</option>
-                                                  <option value="GELDI">Geldi / Teslim Edildi</option>
-                                                  <option value="REDDEDILDI">Reddedildi / İptal</option>
-                                              </select>
+                                              
+                                              {/* 🚀 MANUEL DROPDOWN KALKTI! OTOMASYON BİLGİSİ GELDİ */}
+                                              <div className="flex flex-col items-end gap-1 mt-1">
+                                                  {req.status === 'BEKLIYOR' && (
+                                                      <div className="flex items-center gap-2">
+                                                          <Button variant="ghost" size="sm" onClick={() => rejectRequest(req.id)} className="h-7 text-[10px] text-rose-500 hover:bg-rose-50 hover:text-rose-700">Reddet</Button>
+                                                          <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded uppercase tracking-widest animate-pulse">Yeni / Fiş Bekliyor</span>
+                                                      </div>
+                                                  )}
+                                                  {req.status === 'SIPARIS_VERILDI' && <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-1 rounded uppercase tracking-widest">Siparişi Verildi</span>}
+                                                  {req.status === 'GELDI' && <span className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-1 rounded uppercase tracking-widest">Teslim Edildi</span>}
+                                                  {req.status === 'REDDEDILDI' && <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase tracking-widest line-through">Reddedildi</span>}
+                                              </div>
+
                                           </div>
                                       </div>
                                   )})}
