@@ -10,7 +10,7 @@ import {
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
   LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront,
   Wallet, FileText, Archive, ScanLine, History, Menu, X,
-  ShoppingCart, ListOrdered, Send, Loader2 // 🚀 FAZ 1 İÇİN EKLENEN İKONLAR
+  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore // 🚀 FAZ 1 İÇİN EKLENEN İKONLAR
 } from "lucide-react"
 
 // 🚀 FAZ 1 İÇİN EKLENEN BİLEŞENLER
@@ -115,6 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/dashboard/purchases", label: "Satın Alma", icon: ClipboardList },
         { href: "/dashboard/customers", label: "Müşteriler", icon: Users },
         { href: "/dashboard/suppliers", label: "Tedarikçiler", icon: Truck },
+        { href: "/dashboard/archive", label: "Üretim Arşivi", icon: ArchiveRestore },
       ]
     },
     {
