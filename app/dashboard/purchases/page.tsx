@@ -7,7 +7,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { 
   PlusCircle, Trash2, Edit2, PackageOpen, RefreshCcw, CheckCircle, Clock, 
-  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, Link as LinkIcon, FileCheck, Loader2, Copy
+  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, Link as LinkIcon, FileCheck, Loader2, Copy, Inbox
 } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ActionUserBadge } from "@/components/ActionUserBadge"
 
 export default function PurchasesPage() {
+  // ANA SAS (Satın Alma) STATELERİ
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -28,10 +29,16 @@ export default function PurchasesPage() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // 🚀 FAZ 1 YENİ EKLENTİ: GELEN SİPARİŞ İSTEKLERİ
+  const [requests, setRequests] = useState<any[]>([])
+  const [showRequests, setShowRequests] = useState(true)
+
   useEffect(() => {
     fetchOrders()
+    fetchRequests() // 🚀 Sayfa açılınca istekleri de çek
   }, [])
 
+  // SAS LİSTESİNİ ÇEK
   const fetchOrders = async () => {
     setLoading(true)
     try {
@@ -48,6 +55,22 @@ export default function PurchasesPage() {
     } finally {
         setLoading(false)
     }
+  }
+
+  // 🚀 YENİ: GELEN İSTEKLERİ ÇEK (Sadece Bekleyenleri veya Yeni olanları)
+  const fetchRequests = async () => {
+      const { data } = await supabase
+          .from('material_requests')
+          .select(`*, profiles ( first_name, last_name, department )`)
+          // .neq('status', 'GELDI') // İstersen gelenleri gizleyebilirsin
+          .order('created_at', { ascending: false })
+      if (data) setRequests(data)
+  }
+
+  // 🚀 YENİ: İSTEK DURUMUNU GÜNCELLE
+  const updateRequestStatus = async (id: number, newStatus: string) => {
+      await supabase.from('material_requests').update({ status: newStatus }).eq('id', id)
+      fetchRequests()
   }
 
   const formatOrderNumber = (id: number) => `SAS${String(id).padStart(5, '0')}`;
@@ -77,34 +100,11 @@ export default function PurchasesPage() {
   const handleRowClick = (order: any) => {
       setSelectedOrder(order)
       setIsEditing(false)
-      // 🚀 Mobilde seçildiğinde otomatik olarak ekranı aşağı (detaylara) kaydırır
       if (window.innerWidth < 1280) {
           setTimeout(() => {
               document.getElementById('order-detail-section')?.scrollIntoView({ behavior: 'smooth' })
           }, 100)
       }
-  }
-
-  const openEditMode = () => {
-      setEditForm({
-          total_amount: selectedOrder.total_amount || "0",
-          description: selectedOrder.description || "",
-          termin_tarihi: selectedOrder.termin_tarihi || "",
-          status: selectedOrder.status || "BEKLIYOR"
-      })
-      setIsEditing(true)
-  }
-
-  const saveOrderUpdate = async () => {
-      await supabase.from('purchase_orders')
-        .update({
-            total_amount: Number(editForm.total_amount),
-            description: editForm.description,
-            termin_tarihi: editForm.termin_tarihi || null,
-            status: editForm.status
-        }).eq('id', selectedOrder.id)
-      setIsEditing(false)
-      fetchOrders()
   }
 
   const markAsCompleted = async (id: number) => {
@@ -188,10 +188,9 @@ export default function PurchasesPage() {
   );
 
   return (
-    // 🚀 Mobilde height sorun çıkarmaması için h-[calc] yapısını xl'de tuttuk, mobilde serbest bıraktık (min-h-0)
-    <div className="flex flex-col gap-6 font-sans xl:h-[calc(100vh-100px)] w-full pb-10 xl:pb-0">
+    <div className="flex flex-col gap-6 font-sans xl:h-[calc(100vh-100px)] w-full pb-10 xl:pb-0 overflow-hidden">
       
-      {/* 🚀 Üst Başlık ve Arama Kısmı (Mobil Uyumlu Flex-Wrap) */}
+      {/* Üst Başlık ve Arama Kısmı */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 shrink-0">
         <div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900">Satın Alma Kokpiti</h1>
@@ -203,12 +202,12 @@ export default function PurchasesPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input placeholder="SAS No veya Firma..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-12 md:h-14 bg-white/60 backdrop-blur-md border-white/50 text-xs md:text-sm focus:ring-2 focus:ring-blue-500 shadow-sm rounded-xl md:rounded-2xl transition-all" />
             </div>
-            <Button onClick={fetchOrders} variant="outline" className="h-12 w-12 md:h-14 md:w-14 p-0 bg-white/60 backdrop-blur-md border-white/50 text-slate-600 rounded-xl md:rounded-2xl shadow-sm hover:text-blue-600 hover:bg-white transition-all shrink-0">
+            <Button onClick={() => { fetchOrders(); fetchRequests(); }} variant="outline" className="h-12 w-12 md:h-14 md:w-14 p-0 bg-white/60 backdrop-blur-md border-white/50 text-slate-600 rounded-xl md:rounded-2xl shadow-sm hover:text-blue-600 hover:bg-white transition-all shrink-0">
                 <RefreshCcw className={`h-4 w-4 md:h-5 md:w-5 ${loading ? 'animate-spin text-blue-600' : ''}`} />
             </Button>
             <Link href="/dashboard/purchases/new" className="w-full sm:w-auto mt-2 sm:mt-0">
                 <Button className="h-12 md:h-14 px-6 w-full bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-bold rounded-xl md:rounded-2xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center">
-                    <PlusCircle className="mr-2 h-4 w-4 md:h-5 md:w-5" /> Yeni Sipariş
+                    <PlusCircle className="mr-2 h-4 w-4 md:h-5 md:w-5" /> Yeni Fiş Oluştur
                 </Button>
             </Link>
         </div>
@@ -216,57 +215,123 @@ export default function PurchasesPage() {
 
       <div className="flex flex-col xl:flex-row gap-6 flex-1 min-h-0 w-full">
           
-          {/* SOL: SİPARİŞ LİSTESİ */}
-          <div className="w-full xl:w-5/12 flex flex-col bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden max-h-[500px] xl:max-h-full">
-              <div className="overflow-y-auto flex-1 p-2 custom-scrollbar">
-                  <table className="w-full text-left border-collapse min-w-[300px]">
-                      <thead className="sticky top-0 bg-white/90 backdrop-blur-md z-10">
-                          <tr>
-                              <th className="px-4 md:px-5 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Sipariş & Firma</th>
-                              <th className="px-4 md:px-5 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Durum</th>
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100/50">
-                          {filteredOrders.map((order) => {
-                              const deadline = getDeadlineStatus(order.termin_tarihi, order.status);
-                              const isSelected = selectedOrder?.id === order.id;
-
-                              return (
-                              <tr key={order.id} onClick={() => handleRowClick(order)} className={`cursor-pointer transition-all duration-300 group ${isSelected ? 'bg-blue-50/80 shadow-inner' : 'hover:bg-white/50'}`}>
-                                  <td className="px-4 md:px-5 py-3 md:py-4 relative">
-                                      {isSelected && <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-blue-500 rounded-r-full shadow-[0_0_10px_rgba(59,130,246,0.6)]"></div>}
-                                      <div className="flex flex-col gap-0.5 md:gap-1 pl-1 md:pl-2">
-                                          <span className={`font-mono text-[10px] md:text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-500'}`}>
-                                              {formatOrderNumber(order.id)}
-                                          </span>
-                                          <span className={`text-xs md:text-sm font-black truncate max-w-[150px] md:max-w-[200px] ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
-                                              {order.suppliers?.name || "Genel Tedarikçi"}
-                                          </span>
-                                      </div>
-                                  </td>
-                                  <td className="px-4 md:px-5 py-3 md:py-4">
-                                      <div className={`inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl text-[9px] md:text-[11px] font-bold shadow-sm ${deadline.classes}`}>
-                                          {deadline.icon} <span className="truncate">{deadline.text}</span>
-                                      </div>
-                                  </td>
-                              </tr>
-                          )})}
-                          {filteredOrders.length === 0 && !loading && (
-                              <tr><td colSpan={2} className="px-6 py-16 md:py-20 text-center text-slate-500"><div className="flex flex-col items-center gap-3"><div className="bg-white p-3 md:p-4 rounded-xl md:rounded-2xl shadow-sm"><FileText className="h-6 w-6 md:h-8 md:w-8 text-slate-300" /></div><p className="text-xs md:text-sm font-bold text-slate-600">Sipariş bulunamadı.</p></div></td></tr>
+          {/* SOL TARAF: İSTEKLER VE SİPARİŞ LİSTESİ */}
+          <div className="w-full xl:w-6/12 flex flex-col gap-6 max-h-[800px] xl:max-h-full">
+              
+              {/* 🚀 YENİ: GELEN İSTEKLER KUTUSU */}
+              <div className="flex flex-col bg-white/60 backdrop-blur-2xl border border-blue-200/50 shadow-lg shadow-blue-500/5 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shrink-0 transition-all">
+                  <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between p-4 md:p-5 bg-blue-50/50 hover:bg-blue-50 cursor-pointer border-b border-blue-100">
+                      <div className="flex items-center gap-3">
+                          <Inbox className="h-5 w-5 text-blue-600" />
+                          <h3 className="font-black text-slate-800 text-sm md:text-base">Mühendislik & Saha İstekleri</h3>
+                          {requests.filter(r => r.status === 'BEKLIYOR').length > 0 && (
+                              <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                                  {requests.filter(r => r.status === 'BEKLIYOR').length} YENİ
+                              </span>
                           )}
-                      </tbody>
-                  </table>
+                      </div>
+                      <span className="text-xs font-bold text-blue-600">{showRequests ? 'Gizle' : 'Göster'}</span>
+                  </button>
+                  
+                  {showRequests && (
+                      <div className="overflow-y-auto max-h-[300px] custom-scrollbar p-2 bg-white/40">
+                          {requests.length === 0 ? (
+                              <p className="text-center py-6 text-sm font-bold text-slate-400">Şu an bekleyen talep yok.</p>
+                          ) : (
+                              <div className="flex flex-col gap-2">
+                                  {requests.map(req => (
+                                      <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border border-slate-100 rounded-xl shadow-sm gap-4">
+                                          <div className="flex flex-col gap-1">
+                                              <div className="flex items-center gap-2">
+                                                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{req.request_no}</span>
+                                                  <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${
+                                                      req.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' :
+                                                      req.status === 'SIPARIS_VERILDI' ? 'bg-blue-100 text-blue-700' :
+                                                      req.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                                  }`}>{req.status.replace('_', ' ')}</span>
+                                              </div>
+                                              <p className="text-sm font-black text-slate-800">{req.material_name} <span className="text-xs text-slate-500 font-bold ml-1">({req.material_code})</span></p>
+                                              <div className="flex items-center gap-3 text-[10px] font-medium text-slate-500 mt-1">
+                                                  <span className="flex items-center gap-1"><User className="h-3 w-3" /> {req.profiles?.first_name} {req.profiles?.last_name}</span>
+                                                  <span>Proje: {req.project_code || "-"}</span>
+                                              </div>
+                                          </div>
+                                          <div className="flex flex-col sm:items-end gap-2 shrink-0">
+                                              <span className="text-xl font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg text-center">{req.quantity} Adet</span>
+                                              <select 
+                                                  className="text-[10px] font-bold bg-slate-50 border border-slate-200 rounded p-1 outline-none"
+                                                  value={req.status}
+                                                  onChange={(e) => updateRequestStatus(req.id, e.target.value)}
+                                              >
+                                                  <option value="BEKLIYOR">Bekliyor (İşlem Yapılmadı)</option>
+                                                  <option value="SIPARIS_VERILDI">Siparişi Verildi (Yolda)</option>
+                                                  <option value="GELDI">Geldi / Teslim Edildi</option>
+                                                  <option value="REDDEDILDI">Reddedildi / İptal</option>
+                                              </select>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          )}
+                      </div>
+                  )}
+              </div>
+
+              {/* ANA SAS LİSTESİ */}
+              <div className="flex flex-col bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden flex-1 min-h-0">
+                  <div className="p-4 bg-slate-50/50 border-b border-slate-100">
+                      <h3 className="font-black text-slate-800 text-sm">Resmi Satın Alma Fişleri (SAS)</h3>
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-2 custom-scrollbar">
+                      <table className="w-full text-left border-collapse min-w-[300px]">
+                          <thead className="sticky top-0 bg-white/90 backdrop-blur-md z-10">
+                              <tr>
+                                  <th className="px-4 md:px-5 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Sipariş & Firma</th>
+                                  <th className="px-4 md:px-5 py-3 md:py-4 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Durum</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100/50">
+                              {filteredOrders.map((order) => {
+                                  const deadline = getDeadlineStatus(order.termin_tarihi, order.status);
+                                  const isSelected = selectedOrder?.id === order.id;
+
+                                  return (
+                                  <tr key={order.id} onClick={() => handleRowClick(order)} className={`cursor-pointer transition-all duration-300 group ${isSelected ? 'bg-blue-50/80 shadow-inner' : 'hover:bg-white/50'}`}>
+                                      <td className="px-4 md:px-5 py-3 md:py-4 relative">
+                                          {isSelected && <div className="absolute left-0 top-2 bottom-2 w-1.5 bg-blue-500 rounded-r-full shadow-[0_0_10px_rgba(59,130,246,0.6)]"></div>}
+                                          <div className="flex flex-col gap-0.5 md:gap-1 pl-1 md:pl-2">
+                                              <span className={`font-mono text-[10px] md:text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-slate-500'}`}>
+                                                  {formatOrderNumber(order.id)}
+                                              </span>
+                                              <span className={`text-xs md:text-sm font-black truncate max-w-[150px] md:max-w-[200px] ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
+                                                  {order.suppliers?.name || "Genel Tedarikçi"}
+                                              </span>
+                                          </div>
+                                      </td>
+                                      <td className="px-4 md:px-5 py-3 md:py-4">
+                                          <div className={`inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-lg md:rounded-xl text-[9px] md:text-[11px] font-bold shadow-sm ${deadline.classes}`}>
+                                              {deadline.icon} <span className="truncate">{deadline.text}</span>
+                                          </div>
+                                      </td>
+                                  </tr>
+                              )})}
+                              {filteredOrders.length === 0 && !loading && (
+                                  <tr><td colSpan={2} className="px-6 py-16 text-center text-slate-500"><div className="flex flex-col items-center gap-3"><div className="bg-white p-3 rounded-xl shadow-sm"><FileText className="h-6 w-6 text-slate-300" /></div><p className="text-xs font-bold text-slate-600">Sipariş bulunamadı.</p></div></td></tr>
+                              )}
+                          </tbody>
+                      </table>
+                  </div>
               </div>
           </div>
 
           {/* SAĞ: DETAY VE DOSYA KOKPİTİ */}
-          <div id="order-detail-section" className="w-full xl:w-7/12 flex flex-col bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden relative">
+          <div id="order-detail-section" className="w-full xl:w-6/12 flex flex-col bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden relative">
               
               {!selectedOrder ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-6 md:p-10 opacity-60 py-20 xl:py-10">
                       <div className="bg-white/80 p-4 md:p-6 rounded-full shadow-sm mb-4"><PackageOpen className="h-10 w-10 md:h-12 md:w-12 text-blue-400" /></div>
                       <h3 className="text-lg md:text-xl font-black text-slate-800">Sipariş Detayları</h3>
-                      <p className="text-xs md:text-sm font-medium text-slate-500 mt-2 max-w-[200px] md:max-w-[250px]">Tüm detayları, ekli dosyaları ve zaman çizelgesini görmek için listeden bir sipariş seçin.</p>
+                      <p className="text-xs md:text-sm font-medium text-slate-500 mt-2 max-w-[200px] md:max-w-[250px]">Tüm detayları, ekli dosyaları ve zaman çizelgesini görmek için listeden bir SAS seçin.</p>
                   </div>
               ) : (
                   <div className="flex flex-col h-full overflow-y-auto custom-scrollbar p-5 md:p-6 lg:p-8">
@@ -287,7 +352,7 @@ export default function PurchasesPage() {
                       <div className="bg-slate-50/50 p-4 md:p-5 rounded-[1.5rem] md:rounded-3xl border border-slate-100 shadow-sm mb-6 md:mb-8">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
                               <h3 className="font-black text-sm md:text-base text-slate-800 flex items-center gap-2">
-                                  <FileCheck className="h-4 w-4 md:h-5 md:w-5 text-blue-600" /> Ekli Dokümanlar
+                                  <FileCheck className="h-4 w-4 md:h-5 md:w-5 text-blue-600" /> Ekli Dokümanlar (Teklif, Dekont vb.)
                               </h3>
                               
                               <input 
@@ -340,7 +405,7 @@ export default function PurchasesPage() {
 
                       {/* Açıklama */}
                       <div className="bg-white/80 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 shadow-sm mb-6 md:mb-8">
-                          <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Açıklama / İçerik</span>
+                          <span className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">Sipariş İçeriği / Notlar</span>
                           <p className="text-xs md:text-sm font-medium text-slate-700 leading-relaxed">
                               {selectedOrder.description || "Bu sipariş için detaylı bir açıklama girilmemiş."}
                           </p>
@@ -353,7 +418,7 @@ export default function PurchasesPage() {
                                   <User className="h-3 w-3 md:h-4 md:w-4" />
                               </div>
                               <div className="w-[calc(100%-1rem)] md:w-[calc(50%-2.5rem)] bg-white/80 p-3 md:p-4 rounded-xl md:rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1.5 md:gap-2">
-                                  <span className="font-bold text-slate-800 text-xs md:text-sm">Satın Alma Oluşturuldu</span>
+                                  <span className="font-bold text-slate-800 text-xs md:text-sm">SAS Oluşturuldu</span>
                                   <div className="scale-90 md:scale-95 origin-left">
                                       <ActionUserBadge profile={selectedOrder.profiles} actionText="İşlemi Başlatan" date={selectedOrder.created_at} />
                                   </div>
@@ -366,7 +431,7 @@ export default function PurchasesPage() {
                           <div className="flex flex-col sm:flex-row items-center gap-3 mt-auto pt-6 md:pt-8 w-full">
                               {selectedOrder.status !== 'TAMAMLANDI' && (
                                   <Button onClick={() => markAsCompleted(selectedOrder.id)} className="w-full sm:flex-1 h-12 md:h-14 rounded-xl md:rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-lg shadow-emerald-500/30 transition-all text-xs md:text-sm">
-                                      <CheckCircle className="mr-2 h-4 w-4 md:h-5 md:w-5" /> Teslim Alındı
+                                      <CheckCircle className="mr-2 h-4 w-4 md:h-5 md:w-5" /> Teslim Alındı (Stoğa Gir)
                                   </Button>
                               )}
                               <Button onClick={() => deleteOrder(selectedOrder.id)} variant="outline" className="w-full sm:w-14 h-12 md:h-14 rounded-xl md:rounded-2xl border-slate-200 text-red-500 hover:bg-red-50 hover:border-red-200 transition-all bg-white/80 shrink-0">
