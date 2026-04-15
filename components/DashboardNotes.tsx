@@ -56,23 +56,24 @@ export function DashboardNotes() {
       if (data) setUsers(data)
   }
 
-  // 🚀 MESAJLARI ÇEK (YENİ VE KUSURSUZ SİSTEM)
+  // 🚀 İÇ İÇE SORGULAR (REPLY) KUSURSUZLAŞTIRILDI
   const fetchNotes = async () => {
     if (!currentUser) return;
     
-    // Güvenli ve basit Supabase Join Mantığı
     let query = supabase
         .from('notes')
         .select(`
             *,
             profiles (first_name, last_name, department),
             projects (project_code),
-            reply_to:notes!reply_to_id ( content, profiles (first_name) )
+            reply_to:reply_to_id (
+                content,
+                profiles (first_name, last_name)
+            )
         `)
         .order('created_at', { ascending: false })
         .limit(50)
 
-    // Filtreler
     if (activeChat === "genel") {
         query = query.is('receiver_id', null)
     } else {
@@ -81,10 +82,9 @@ export function DashboardNotes() {
 
     const { data, error } = await query
     
-    // 🚨 HATA YAKALAYICI (Mesajlar giderse neden gittiğini söyler)
     if (error) {
         console.error("Mesaj Çekme Hatası:", error)
-        alert("SİSTEM UYARISI: Mesajlar Supabase'den çekilemedi!\n\nHata: " + error.message)
+        alert("SİSTEM UYARISI: Mesajlar çekilemedi!\n\nHata: " + error.message)
     }
     
     if (data) setNotes(data.reverse())
@@ -214,13 +214,18 @@ export function DashboardNotes() {
 
                           <div className={`relative max-w-[85%] p-2.5 rounded-2xl shadow-sm border group ${isMe ? 'bg-[#dcf8c6] border-[#c0e8a8] rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
                               
-                              {/* 🚀 YANITLANAN MESAJ */}
-                              {note.reply_to && (
-                                  <div className="bg-black/5 border-l-4 border-emerald-500 p-1.5 rounded-lg mb-1.5 text-[10px] text-slate-600 font-medium">
-                                      <span className="font-black text-emerald-600 block mb-0.5">{note.reply_to.profiles?.first_name || "Biri"}</span>
-                                      <p className="truncate opacity-80">{note.reply_to.content}</p>
-                                  </div>
-                              )}
+                              {/* 🚀 AKILLI YANIT KUTUSU (Artık 'Biri' yazmaz) */}
+                              {note.reply_to && (() => {
+                                  const rProfile = Array.isArray(note.reply_to.profiles) ? note.reply_to.profiles[0] : note.reply_to.profiles;
+                                  const rName = rProfile?.first_name ? `${rProfile.first_name} ${rProfile.last_name || ''}` : "Silinmiş Mesaj";
+                                  
+                                  return (
+                                      <div className="bg-black/5 border-l-4 border-emerald-500 p-1.5 rounded-lg mb-1.5 text-[10px] text-slate-700 font-medium">
+                                          <span className="font-black text-emerald-600 block mb-0.5">{rName}</span>
+                                          <p className="truncate opacity-80">{note.reply_to.content}</p>
+                                      </div>
+                                  );
+                              })()}
 
                               {note.projects && (
                                   <div className={`flex items-center gap-1 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded mb-1.5 w-max ${isMe ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-blue-700'}`}>
@@ -244,7 +249,7 @@ export function DashboardNotes() {
                                   </div>
                               )}
 
-                              {/* EMOJİ & YANITLA MENÜSÜ */}
+                              {/* Emoji & Yanıtla Menüsü */}
                               <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity ${isEmojiMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isMe ? '-left-[5.5rem]' : '-right-[5.5rem]'} z-20`}>
                                   
                                   <button onClick={() => setReplyTo(note)} className="p-1.5 bg-white text-slate-500 hover:text-blue-500 rounded-full shadow-sm border border-slate-200 transition-colors" title="Yanıtla">
@@ -282,11 +287,12 @@ export function DashboardNotes() {
               {/* Mesaj Kutusu */}
               <div className="p-2 bg-[#f0f2f5] border-t border-slate-200 shrink-0 relative">
                   
+                  {/* YANITLAMA ÖNİZLEMESİ */}
                   {replyTo && (
-                      <div className="absolute bottom-full left-0 right-0 p-2 bg-[#f0f2f5]">
+                      <div className="absolute bottom-full left-0 right-0 p-2 bg-[#f0f2f5] z-10">
                           <div className="bg-white p-2 rounded-xl border-l-4 border-blue-500 flex items-start justify-between shadow-sm mx-1">
                               <div className="flex flex-col overflow-hidden">
-                                  <span className="text-[10px] font-black text-blue-600 mb-0.5">Yanıtlanıyor: {replyTo.profiles?.first_name || "Biri"}</span>
+                                  <span className="text-[10px] font-black text-blue-600 mb-0.5">Yanıtlanıyor: {replyTo.profiles?.first_name} {replyTo.profiles?.last_name}</span>
                                   <span className="text-[10px] text-slate-500 truncate">{replyTo.content}</span>
                               </div>
                               <button onClick={() => setReplyTo(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded-full shrink-0"><X className="h-4 w-4"/></button>
@@ -294,7 +300,7 @@ export function DashboardNotes() {
                       </div>
                   )}
 
-                  <div className="flex flex-col gap-1.5 px-1 relative z-10">
+                  <div className="flex flex-col gap-1.5 px-1 relative z-20">
                       <div className="flex bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm h-8">
                           <div className="bg-slate-100 px-2 flex items-center justify-center border-r border-slate-200"><LinkIcon className="h-3 w-3 text-slate-500" /></div>
                           <select className="flex-1 bg-transparent text-[10px] font-bold text-slate-600 px-2 outline-none cursor-pointer" value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)}>
