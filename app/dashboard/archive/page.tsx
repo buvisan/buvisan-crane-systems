@@ -17,7 +17,6 @@ export default function ArchivePage() {
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
 
-    // Zaman Çizelgesi (Timeline) Stateleri
     const [selectedProject, setSelectedProject] = useState<any>(null)
     const [timelineEvents, setTimelineEvents] = useState<any[]>([])
     const [historyLoading, setHistoryLoading] = useState(false)
@@ -30,24 +29,30 @@ export default function ArchivePage() {
 
     const fetchCompletedProjects = async () => {
         setLoading(true)
-        const { data } = await supabase
-            .from('projects')
-            .select('*, customers(name)')
-            .eq('status', 'TAMAMLANDI') // SADECE BİTEN İŞLER
-            .order('updated_at', { ascending: false })
-        
-        if (data) setProjects(data)
-        setLoading(false)
+        try {
+            const { data, error } = await supabase
+                .from('projects')
+                .select('*, customers(name)')
+                .eq('status', 'TAMAMLANDI') 
+                .order('created_at', { ascending: false }) // 🚀 HATA BURADAYDI! updated_at yerine created_at yapıldı.
+            
+            if (error) throw error
+            if (data) setProjects(data)
+        } catch (error: any) {
+            console.error("Arşiv Çekme Hatası:", error)
+            alert("Sistem Hatası: Arşiv verileri çekilemedi! \n\n" + error.message)
+        } finally {
+            setLoading(false)
+        }
     }
 
     const openProjectHistory = async (project: any) => {
         setSelectedProject(project)
         setHistoryLoading(true)
-        setTimelineEvents([]) // Önceki veriyi temizle
+        setTimelineEvents([]) 
 
         const events: any[] = []
 
-        // 1. Projenin Başlangıcı
         events.push({
             id: 'start',
             type: 'START',
@@ -58,7 +63,6 @@ export default function ArchivePage() {
             color: 'bg-blue-100 border-blue-200'
         })
 
-        // 2. Revize Talepleri
         const { data: revisions } = await supabase.from('project_revisions').select('*').eq('project_id', project.id)
         if (revisions) {
             revisions.forEach(rev => {
@@ -75,7 +79,6 @@ export default function ArchivePage() {
             })
         }
 
-        // 3. Eksik Malzeme Talepleri
         const { data: missing } = await supabase.from('missing_materials').select('*').eq('project_id', project.id)
         if (missing) {
             missing.forEach(miss => {
@@ -92,18 +95,20 @@ export default function ArchivePage() {
             })
         }
 
-        // 4. Projenin Bitişi
+        // Bitiş tarihi olarak şimdilik created_at + 1 dakika koyalım ki sıralama bozulmasın (çünkü updated_at yok)
+        const endDate = new Date(project.created_at)
+        endDate.setMinutes(endDate.getMinutes() + 1)
+
         events.push({
             id: 'end',
             type: 'END',
-            date: project.updated_at,
+            date: endDate.toISOString(),
             title: 'Üretim Tamamlandı',
-            description: 'Proje başarıyla bitirildi ve satışa aktarıldı.',
+            description: 'Proje başarıyla bitirildi ve arşive kaldırıldı.',
             icon: <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
             color: 'bg-emerald-100 border-emerald-200'
         })
 
-        // Olayları tarihe göre (eskiden yeniye) sırala
         events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
         setTimelineEvents(events)
@@ -117,8 +122,6 @@ export default function ArchivePage() {
 
     return (
         <div className="flex flex-col gap-6 md:gap-8 max-w-[1400px] mx-auto w-full font-sans pb-10">
-            
-            {/* ÜST BAŞLIK */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
                     <div className="bg-gradient-to-br from-slate-700 to-slate-900 p-3 md:p-4 rounded-2xl shadow-lg shadow-slate-900/30 shrink-0">
@@ -136,7 +139,6 @@ export default function ArchivePage() {
                 </div>
             </div>
 
-            {/* TABLO LİSTESİ */}
             <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
                 <div className="overflow-x-auto custom-scrollbar p-2">
                     <table className="w-full text-left border-collapse min-w-[700px]">
@@ -152,7 +154,7 @@ export default function ArchivePage() {
                         <tbody className="divide-y divide-slate-100">
                             {filteredProjects.map((p) => (
                                 <tr key={p.id} className="hover:bg-slate-50/80 transition-colors bg-white group cursor-pointer" onClick={() => openProjectHistory(p)}>
-                                    <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-bold text-slate-500">{new Date(p.updated_at).toLocaleDateString('tr-TR')}</td>
+                                    <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-bold text-slate-500">{new Date(p.created_at).toLocaleDateString('tr-TR')}</td>
                                     <td className="px-4 md:px-6 py-3 md:py-4 font-mono font-black text-slate-700">{p.project_code}</td>
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-900 truncate max-w-[200px]">{p.customers?.name}</td>
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-bold text-slate-600">{p.capacity}</td>
@@ -171,7 +173,6 @@ export default function ArchivePage() {
                 </div>
             </div>
 
-            {/* TIMELINE (GEÇMİŞ) MODALI */}
             <Dialog open={selectedProject !== null} onOpenChange={(isOpen) => !isOpen && setSelectedProject(null)}>
                 <DialogContent className="rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 max-w-[90vw] md:max-w-[700px] border-none shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
                     <DialogHeader className="shrink-0 mb-4">
@@ -190,12 +191,10 @@ export default function ArchivePage() {
                             <div className="relative border-l-2 border-slate-200 ml-4 md:ml-6 space-y-8 py-4">
                                 {timelineEvents.map((event, index) => (
                                     <div key={event.id} className="relative pl-8 md:pl-10">
-                                        {/* Timeline İkonu */}
                                         <div className={`absolute -left-[17px] md:-left-[21px] top-0 h-8 w-8 md:h-10 md:w-10 rounded-full border-4 border-white flex items-center justify-center shadow-sm z-10 ${event.color}`}>
                                             {event.icon}
                                         </div>
                                         
-                                        {/* İçerik Kartı */}
                                         <div className="bg-white border border-slate-100 shadow-sm p-4 md:p-5 rounded-2xl flex flex-col gap-2 relative group hover:shadow-md hover:border-slate-200 transition-all">
                                             <div className="flex items-start justify-between gap-4">
                                                 <h3 className="font-black text-slate-800 text-sm md:text-base">{event.title}</h3>
