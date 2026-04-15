@@ -108,7 +108,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     {
       title: "GENEL",
       // 🚀 FAZ 2 UYARISI: "depo" bilerek eklenmedi! Sadece aşağıdakiler görebilir.
-      allowedRoles: ["yönetim", "admin", "satış", "satın", "muhasebe", "mühendis", "üretim", "proje"], 
+      allowedRoles: ["yönetim", "admin", "satış", "satın", "muhasebe", "mühendis", "üretim", "proje", "ressam"], 
       items: [
         { href: "/dashboard", label: "Ana Sayfa", icon: Home },
         { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package },
