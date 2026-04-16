@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
     Calculator, Trash2, Loader2, Users, FileText, 
-    Search, Briefcase, Save, PlusCircle, UserPlus, Table, Landmark, AlertCircle, FileDown
+    Search, Briefcase, Save, PlusCircle, UserPlus, Table, 
+    Landmark, AlertCircle, FileDown, CalendarDays, CheckCircle2, XCircle
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -23,28 +24,23 @@ export default function PayrollPage() {
     const [activeTab, setActiveTab] = useState<"puantaj" | "personel">("puantaj")
     const [searchTerm, setSearchTerm] = useState("")
 
-    // PERSONEL STATELERİ
     const [personnel, setPersonnel] = useState<any[]>([])
     const [isAddPersonModalOpen, setIsAddPersonModalOpen] = useState(false)
     const [personForm, setPersonForm] = useState({ full_name: "", tc_no: "", iban: "", department: "", base_salary: "" })
     const [savingPerson, setSavingPerson] = useState(false)
 
-    // PUANTAJ (EXCEL) STATELERİ
     const [periodMonth, setPeriodMonth] = useState(CURRENT_MONTH)
     const [periodYear, setPeriodYear] = useState(CURRENT_YEAR)
     const [payrollGrid, setPayrollGrid] = useState<any[]>([])
     const [savingGrid, setSavingGrid] = useState(false)
     const [hasChanges, setHasChanges] = useState(false)
 
-    useEffect(() => {
-        fetchPersonnel()
-    }, [])
+    const [isTimesheetOpen, setIsTimesheetOpen] = useState(false)
+    const [activeRowIndex, setActiveRowIndex] = useState<number | null>(null)
+    const [dailyRecords, setDailyRecords] = useState<any[]>([])
 
-    useEffect(() => {
-        if (activeTab === "puantaj") {
-            fetchPayrollGrid()
-        }
-    }, [periodMonth, periodYear, activeTab])
+    useEffect(() => { fetchPersonnel() }, [])
+    useEffect(() => { if (activeTab === "puantaj") fetchPayrollGrid() }, [periodMonth, periodYear, activeTab])
 
     const fetchPersonnel = async () => {
         const { data } = await supabase.from('fin_personnel').select('*').order('full_name')
@@ -55,11 +51,9 @@ export default function PayrollPage() {
         e.preventDefault()
         setSavingPerson(true)
         try {
-            const { error } = await supabase.from('fin_personnel').insert([{
-                ...personForm, base_salary: Number(personForm.base_salary) || 0
-            }])
+            const { error } = await supabase.from('fin_personnel').insert([{ ...personForm, base_salary: Number(personForm.base_salary) || 0 }])
             if (error) throw error
-            alert("✅ Personel başarıyla finans sistemine eklendi!")
+            alert("✅ Personel başarıyla eklendi!")
             setPersonForm({ full_name: "", tc_no: "", iban: "", department: "", base_salary: "" })
             setIsAddPersonModalOpen(false)
             fetchPersonnel()
@@ -67,21 +61,20 @@ export default function PayrollPage() {
         finally { setSavingPerson(false) }
     }
 
+    // 🚀 İŞTE EKSİK OLAN VE GERİ EKLENEN SİLME FONKSİYONU
     const deletePersonnel = async (id: number) => {
         if(!confirm("DİKKAT: Bu personeli silerseniz geçmiş puantaj kayıtları da tamamen silinir! Emin misiniz?")) return;
-        await supabase.from('fin_personnel').delete().eq('id', id)
-        fetchPersonnel()
-        fetchPayrollGrid()
+        const { error } = await supabase.from('fin_personnel').delete().eq('id', id)
+        if (error) alert("Hata: " + error.message)
+        else {
+            fetchPersonnel()
+            fetchPayrollGrid()
+        }
     }
 
     const fetchPayrollGrid = async () => {
         setLoading(true)
-        const { data, error } = await supabase.from('fin_payroll')
-            .select(`*, fin_personnel(full_name, department, base_salary)`)
-            .eq('period_month', periodMonth)
-            .eq('period_year', periodYear)
-            .order('created_at', { ascending: true })
-
+        const { data } = await supabase.from('fin_payroll').select(`*, fin_personnel(full_name, department, base_salary)`).eq('period_month', periodMonth).eq('period_year', periodYear).order('created_at', { ascending: true })
         if (data) setPayrollGrid(data)
         setHasChanges(false)
         setLoading(false)
@@ -90,16 +83,13 @@ export default function PayrollPage() {
     const startNewPeriod = async () => {
         if(!confirm(`${MONTHS[periodMonth-1]} ${periodYear} dönemi için puantaj tablosu oluşturulacak. Onaylıyor musunuz?`)) return;
         setLoading(true)
-        
         const { data: activePers } = await supabase.from('fin_personnel').select('*').eq('is_active', true)
-        if (!activePers || activePers.length === 0) {
-            alert("Sistemde kayıtlı personel yok! Önce personel ekleyin."); setLoading(false); return;
-        }
+        if (!activePers || activePers.length === 0) { alert("Sistemde personel yok!"); setLoading(false); return; }
 
         const newRecords = activePers.map(p => ({
             personnel_id: p.id, period_month: periodMonth, period_year: periodYear,
             work_days: 30, overtime_15x: 0, overtime_20x: 0, missing_days: 0, advance_payment: 0, additions: 0,
-            net_salary: p.base_salary, status: 'HESAPLANDI'
+            net_salary: p.base_salary, status: 'HESAPLANDI', daily_records: []
         }))
 
         const { error } = await supabase.from('fin_payroll').insert(newRecords)
@@ -107,14 +97,8 @@ export default function PayrollPage() {
         else fetchPayrollGrid()
     }
 
-    const handleCellChange = (index: number, field: string, value: string) => {
-        const val = Number(value) || 0
-        const updatedGrid = [...payrollGrid]
-        updatedGrid[index][field] = val
-
-        const row = updatedGrid[index]
+    const calculateNetSalary = (row: any) => {
         const baseSalary = Number(row.fin_personnel?.base_salary) || 0
-        
         const dailyRate = baseSalary / 30
         const hourlyRate = dailyRate / 7.5
         
@@ -124,10 +108,78 @@ export default function PayrollPage() {
         const advance = Number(row.advance_payment)
         const adds = Number(row.additions)
 
-        updatedGrid[index].net_salary = baseSalary + ot15 + ot20 - missingCut - advance + adds
+        return baseSalary + ot15 + ot20 - missingCut - advance + adds
+    }
+
+    const handleCellChange = (index: number, field: string, value: string) => {
+        const val = Number(value) || 0
+        const updatedGrid = [...payrollGrid]
+        updatedGrid[index][field] = val
+        updatedGrid[index].net_salary = calculateNetSalary(updatedGrid[index])
+        setPayrollGrid(updatedGrid)
+        setHasChanges(true)
+    }
+
+    const generateMonthDays = (month: number, year: number) => {
+        const daysInMonth = new Date(year, month, 0).getDate()
+        const days = []
+        for (let i = 1; i <= daysInMonth; i++) {
+            const date = new Date(year, month - 1, i)
+            const isSunday = date.getDay() === 0
+            days.push({
+                dayNum: i,
+                dateStr: date.toLocaleDateString('tr-TR'),
+                dayName: date.toLocaleDateString('tr-TR', { weekday: 'long' }),
+                isSunday: isSunday,
+                status: isSunday ? 'HAFTA_TATİLİ' : 'ÇALIŞTI',
+                ot15: 0,
+                ot20: 0
+            })
+        }
+        return days
+    }
+
+    const openTimesheet = (index: number) => {
+        setActiveRowIndex(index)
+        const row = payrollGrid[index]
+        if (row.daily_records && row.daily_records.length > 0) {
+            setDailyRecords(row.daily_records)
+        } else {
+            setDailyRecords(generateMonthDays(periodMonth, periodYear))
+        }
+        setIsTimesheetOpen(true)
+    }
+
+    const handleDailyChange = (dayIndex: number, field: string, value: any) => {
+        const updatedDays = [...dailyRecords]
+        updatedDays[dayIndex][field] = value
+        setDailyRecords(updatedDays)
+    }
+
+    const applyTimesheetToGrid = () => {
+        if (activeRowIndex === null) return;
+        
+        let totalMissing = 0;
+        let totalOt15 = 0;
+        let totalOt20 = 0;
+
+        dailyRecords.forEach(day => {
+            if (day.status === 'EKSİK' || day.status === 'RAPORLU') totalMissing += 1;
+            totalOt15 += Number(day.ot15) || 0;
+            totalOt20 += Number(day.ot20) || 0;
+        })
+
+        const updatedGrid = [...payrollGrid]
+        updatedGrid[activeRowIndex].missing_days = totalMissing
+        updatedGrid[activeRowIndex].overtime_15x = totalOt15
+        updatedGrid[activeRowIndex].overtime_20x = totalOt20
+        updatedGrid[activeRowIndex].daily_records = dailyRecords 
+        
+        updatedGrid[activeRowIndex].net_salary = calculateNetSalary(updatedGrid[activeRowIndex])
         
         setPayrollGrid(updatedGrid)
         setHasChanges(true)
+        setIsTimesheetOpen(false)
     }
 
     const saveBulkGrid = async () => {
@@ -137,81 +189,29 @@ export default function PayrollPage() {
                 supabase.from('fin_payroll').update({
                     work_days: row.work_days, overtime_15x: row.overtime_15x, overtime_20x: row.overtime_20x,
                     missing_days: row.missing_days, advance_payment: row.advance_payment, additions: row.additions,
-                    net_salary: row.net_salary
+                    net_salary: row.net_salary, daily_records: row.daily_records
                 }).eq('id', row.id)
             )
-
             await Promise.all(updatePromises)
             alert("✅ Tüm puantaj değişiklikleri başarıyla kaydedildi!")
             setHasChanges(false)
-        } catch (error: any) {
-            alert("Kayıt sırasında bir hata oluştu: " + error.message)
-        } finally {
-            setSavingGrid(false)
-        }
+        } catch (error: any) { alert("Hata: " + error.message) } 
+        finally { setSavingGrid(false) }
     }
 
-    // 🚀 EXCEL İNDİRME MOTORU BURADA
     const exportToExcel = () => {
-        if (payrollGrid.length === 0) {
-            alert("İndirilecek veri bulunamadı! Önce puantaj tablosunu oluşturun.");
-            return;
-        }
-
-        // CSV Başlıkları
-        const headers = [
-            "Personel Adi",
-            "Departman",
-            "Kok Maas (TL)",
-            "Calistigi Gun",
-            "H.Ici/Cmt Mesai (Saat)",
-            "Pazar Mesai (Saat)",
-            "Eksik/Izin (Gun)",
-            "Avans (TL)",
-            "Prim/Ek (TL)",
-            "Net Hakedis (TL)"
-        ];
-
-        // CSV Veri Satırları
-        const rows = payrollGrid.map(row => [
-            row.fin_personnel?.full_name || "",
-            row.fin_personnel?.department || "",
-            row.fin_personnel?.base_salary || 0,
-            row.work_days || 0,
-            row.overtime_15x || 0,
-            row.overtime_20x || 0,
-            row.missing_days || 0,
-            row.advance_payment || 0,
-            row.additions || 0,
-            row.net_salary || 0
-        ]);
-
-        // CSV İçeriğini birleştir (Noktalı virgül Excel'de sütunları düzgün ayırır)
+        if (payrollGrid.length === 0) return alert("İndirilecek veri yok!");
+        const headers = ["Personel Adi", "Departman", "Kok Maas", "H.Ici Mesai", "Pazar Mesai", "Eksik Gun", "Avans", "Prim", "Net Hakedis"];
+        const rows = payrollGrid.map(row => [ row.fin_personnel?.full_name||"", row.fin_personnel?.department||"", row.fin_personnel?.base_salary||0, row.overtime_15x||0, row.overtime_20x||0, row.missing_days||0, row.advance_payment||0, row.additions||0, row.net_salary||0 ]);
         let csvContent = headers.join(";") + "\n";
-        rows.forEach(rowArray => {
-            let row = rowArray.map(item => {
-                return typeof item === 'string' ? `"${item.replace(/"/g, '""')}"` : item;
-            });
-            csvContent += row.join(";") + "\n";
-        });
-
-        // UTF-8 BOM ekle (Türkçe Ş, Ğ, İ karakterlerinin Excel'de bozulmaması için çok kritik!)
-        const bom = "\uFEFF";
-        const blob = new Blob([bom + csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        
-        // İndirme Linkini oluştur ve tıkla
-        const link = document.createElement("a");
-        link.href = url;
-        link.setAttribute("download", `Puantaj_${MONTHS[periodMonth-1]}_${periodYear}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        rows.forEach(r => csvContent += r.join(";") + "\n");
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.setAttribute("download", `Puantaj_${MONTHS[periodMonth-1]}_${periodYear}.csv`);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
     const formatMoney = (val: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val)
     const grandTotalNet = payrollGrid.reduce((sum, row) => sum + Number(row.net_salary), 0)
-
     const filteredPersonnel = personnel.filter(p => p.full_name?.toLowerCase().includes(searchTerm.toLowerCase()))
 
     return (
@@ -240,6 +240,7 @@ export default function PayrollPage() {
 
             <div className="relative w-full">
                 
+                {/* PERSONEL SEKME */}
                 {activeTab === "personel" && (
                     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4">
                         <div className="flex items-center justify-between">
@@ -251,42 +252,29 @@ export default function PayrollPage() {
                                 <UserPlus className="h-4 w-4 mr-2" /> Yeni Personel Tanımla
                             </Button>
                         </div>
-
                         <div className="bg-white/80 border border-slate-200 rounded-[2rem] shadow-sm overflow-hidden">
                             <table className="w-full text-left border-collapse text-sm">
                                 <thead className="bg-slate-100/50">
                                     <tr>
-                                        <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">Ad Soyad</th>
-                                        <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">Departman</th>
-                                        <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">TC Kimlik</th>
-                                        <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">Kök Maaş</th>
-                                        <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">Banka / IBAN</th>
-                                        <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px] text-right">İşlem</th>
+                                        <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">Ad Soyad</th><th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">Departman</th><th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">TC Kimlik</th><th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px]">Kök Maaş</th><th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest text-[10px] text-right">İşlem</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredPersonnel.map(p => (
                                         <tr key={p.id} className="hover:bg-slate-50 transition-colors group">
-                                            <td className="px-6 py-4 font-black text-slate-800">{p.full_name}</td>
-                                            <td className="px-6 py-4 font-bold text-slate-500">{p.department || "-"}</td>
-                                            <td className="px-6 py-4 font-mono text-slate-400 text-xs">{p.tc_no || "-"}</td>
-                                            <td className="px-6 py-4 font-black text-emerald-700 tabular-nums">{formatMoney(p.base_salary)}</td>
-                                            <td className="px-6 py-4 font-mono text-xs text-slate-500 truncate max-w-[200px]">{p.iban || "-"}</td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button onClick={() => deletePersonnel(p.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"><Trash2 className="h-4 w-4" /></button>
-                                            </td>
+                                            <td className="px-6 py-4 font-black text-slate-800">{p.full_name}</td><td className="px-6 py-4 font-bold text-slate-500">{p.department || "-"}</td><td className="px-6 py-4 font-mono text-slate-400 text-xs">{p.tc_no || "-"}</td><td className="px-6 py-4 font-black text-emerald-700 tabular-nums">{formatMoney(p.base_salary)}</td>
+                                            <td className="px-6 py-4 text-right"><button onClick={() => deletePersonnel(p.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100"><Trash2 className="h-4 w-4" /></button></td>
                                         </tr>
                                     ))}
-                                    {filteredPersonnel.length === 0 && (<tr><td colSpan={6} className="py-10 text-center text-slate-400 font-bold">Personel kaydı bulunmuyor.</td></tr>)}
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 )}
 
+                {/* PUANTAJ SEKME */}
                 {activeTab === "puantaj" && (
                     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-4">
-                        
                         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white/80 p-4 rounded-[1.5rem] border border-slate-200 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <Label className="text-xs font-black text-slate-500 uppercase tracking-widest shrink-0">Bordro Dönemi:</Label>
@@ -295,12 +283,8 @@ export default function PayrollPage() {
                                 </select>
                                 <Input type="number" value={periodYear} onChange={e=>setPeriodYear(Number(e.target.value))} className="h-10 w-24 rounded-xl bg-slate-50 border-slate-200 font-bold text-slate-800 text-center" />
                             </div>
-
                             <div className="flex items-center gap-3 w-full md:w-auto">
-                                {/* 🚀 EXCEL İNDİR BUTONUNA FONKSİYON BAĞLANDI */}
-                                <Button variant="outline" onClick={exportToExcel} className="h-10 rounded-xl font-bold border-slate-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 w-full md:w-auto transition-colors">
-                                    <FileDown className="h-4 w-4 mr-2" /> Excel İndir
-                                </Button>
+                                <Button variant="outline" onClick={exportToExcel} className="h-10 rounded-xl font-bold border-slate-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 w-full md:w-auto transition-colors"><FileDown className="h-4 w-4 mr-2" /> Excel İndir</Button>
                                 {hasChanges && (
                                     <Button onClick={saveBulkGrid} disabled={savingGrid} className="h-10 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-500/20 w-full md:w-auto animate-pulse">
                                         {savingGrid ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />} Kaydet
@@ -309,16 +293,12 @@ export default function PayrollPage() {
                             </div>
                         </div>
 
-                        {loading ? (
-                            <div className="h-64 flex items-center justify-center"><Loader2 className="h-10 w-10 text-emerald-500 animate-spin" /></div>
-                        ) : payrollGrid.length === 0 ? (
+                        {loading ? <div className="h-64 flex items-center justify-center"><Loader2 className="h-10 w-10 text-emerald-500 animate-spin" /></div>
+                        : payrollGrid.length === 0 ? (
                             <div className="bg-white/80 border border-slate-200 rounded-[2rem] p-10 flex flex-col items-center justify-center text-center shadow-sm">
                                 <div className="bg-slate-50 p-5 rounded-full mb-4"><AlertCircle className="h-10 w-10 text-amber-400" /></div>
                                 <h3 className="text-lg font-black text-slate-800 mb-2">{MONTHS[periodMonth-1]} {periodYear} Dönemi İçin Kayıt Yok</h3>
-                                <p className="text-sm font-medium text-slate-500 mb-6">Bu ay için henüz puantaj tablosu oluşturulmamış.</p>
-                                <Button onClick={startNewPeriod} className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-lg">
-                                    <Calculator className="h-5 w-5 mr-2" /> Bu Ayın Tablosunu Başlat
-                                </Button>
+                                <Button onClick={startNewPeriod} className="h-14 px-8 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-lg mt-4"><Calculator className="h-5 w-5 mr-2" /> Bu Ayın Tablosunu Başlat</Button>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-4">
@@ -328,7 +308,7 @@ export default function PayrollPage() {
                                             <thead className="bg-[#1e293b] text-white">
                                                 <tr>
                                                     <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest border-r border-slate-700">Personel Adı</th>
-                                                    <th className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-24">Çalıştığı Gün</th>
+                                                    <th className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-24 text-indigo-300">Detaylı Takvim</th>
                                                     <th className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-28 text-blue-300">N. Mesai (Saat)</th>
                                                     <th className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-28 text-amber-300">P. Mesai (Saat)</th>
                                                     <th className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-28 text-rose-300">Eksik (Gün)</th>
@@ -346,31 +326,29 @@ export default function PayrollPage() {
                                                                 <span className="text-[10px] font-bold text-slate-400">Kök Maaş: {formatMoney(row.fin_personnel?.base_salary)}</span>
                                                             </div>
                                                         </td>
-                                                        <td className="p-0 border-r border-slate-200"><Input type="number" min="0" value={row.work_days} onChange={e=>handleCellChange(idx, 'work_days', e.target.value)} className="h-12 w-full text-center font-bold text-sm border-none focus:ring-0 focus:bg-blue-50 rounded-none shadow-none" /></td>
+                                                        {/* 🚀 DETAYLI TAKVİM BUTONU */}
+                                                        <td className="p-0 border-r border-slate-200 text-center bg-indigo-50/30">
+                                                            <button onClick={() => openTimesheet(idx)} className="h-10 px-3 w-[80%] mx-auto bg-white border border-indigo-200 text-indigo-600 rounded-lg text-xs font-black shadow-sm hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center gap-1.5">
+                                                                <CalendarDays className="h-4 w-4" /> Aç
+                                                            </button>
+                                                        </td>
+                                                        
+                                                        {/* HIZLI EXCEL HÜCRELERİ */}
                                                         <td className="p-0 border-r border-slate-200"><Input type="number" min="0" value={row.overtime_15x} onChange={e=>handleCellChange(idx, 'overtime_15x', e.target.value)} className="h-12 w-full text-center font-black text-blue-600 text-sm border-none focus:ring-0 focus:bg-blue-50 rounded-none shadow-none" /></td>
                                                         <td className="p-0 border-r border-slate-200"><Input type="number" min="0" value={row.overtime_20x} onChange={e=>handleCellChange(idx, 'overtime_20x', e.target.value)} className="h-12 w-full text-center font-black text-amber-600 text-sm border-none focus:ring-0 focus:bg-amber-50 rounded-none shadow-none" /></td>
                                                         <td className="p-0 border-r border-slate-200"><Input type="number" min="0" step="0.5" value={row.missing_days} onChange={e=>handleCellChange(idx, 'missing_days', e.target.value)} className="h-12 w-full text-center font-black text-rose-500 text-sm border-none focus:ring-0 focus:bg-rose-50 rounded-none shadow-none" /></td>
                                                         <td className="p-0 border-r border-slate-200"><Input type="number" min="0" value={row.advance_payment} onChange={e=>handleCellChange(idx, 'advance_payment', e.target.value)} className="h-12 w-full text-center font-bold text-rose-700 text-sm border-none focus:ring-0 focus:bg-rose-50 rounded-none shadow-none" /></td>
                                                         <td className="p-0 border-r border-slate-200"><Input type="number" min="0" value={row.additions} onChange={e=>handleCellChange(idx, 'additions', e.target.value)} className="h-12 w-full text-center font-bold text-emerald-600 text-sm border-none focus:ring-0 focus:bg-emerald-50 rounded-none shadow-none" /></td>
-                                                        
-                                                        <td className="px-4 py-2 text-right bg-emerald-50/50">
-                                                            <span className="text-sm font-black text-emerald-800 tabular-nums">{formatMoney(row.net_salary)}</span>
-                                                        </td>
+                                                        <td className="px-4 py-2 text-right bg-emerald-50/50"><span className="text-sm font-black text-emerald-800 tabular-nums">{formatMoney(row.net_salary)}</span></td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
-                                
                                 <div className="bg-slate-900 rounded-[1.5rem] p-5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 mt-2">
-                                    <div className="flex items-center gap-3 text-slate-400">
-                                        <Users className="h-5 w-5" /> <span className="text-sm font-bold">{payrollGrid.length} Personel Kayıtlı</span>
-                                    </div>
-                                    <div className="flex items-center gap-6">
-                                        <span className="text-xs font-black uppercase tracking-widest text-slate-400">Bu Ay Ödenecek Toplam Tutar:</span>
-                                        <span className="text-2xl md:text-4xl font-black text-emerald-400 tabular-nums tracking-tight">{formatMoney(grandTotalNet)}</span>
-                                    </div>
+                                    <div className="flex items-center gap-3 text-slate-400"><Users className="h-5 w-5" /> <span className="text-sm font-bold">{payrollGrid.length} Personel Kayıtlı</span></div>
+                                    <div className="flex items-center gap-6"><span className="text-xs font-black uppercase tracking-widest text-slate-400">Ödenecek Toplam Tutar:</span><span className="text-2xl md:text-4xl font-black text-emerald-400 tabular-nums tracking-tight">{formatMoney(grandTotalNet)}</span></div>
                                 </div>
                             </div>
                         )}
@@ -381,38 +359,100 @@ export default function PayrollPage() {
             {/* PERSONEL EKLEME MODALI */}
             <Dialog open={isAddPersonModalOpen} onOpenChange={setIsAddPersonModalOpen}>
                 <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-xl border-none shadow-2xl">
-                    <DialogHeader className="mb-4">
-                        <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                            <UserPlus className="h-6 w-6 text-emerald-600" /> Yeni Finansal Personel Kaydı
+                    <DialogHeader className="mb-4"><DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-3"><UserPlus className="h-6 w-6 text-emerald-600" /> Yeni Finansal Personel Kaydı</DialogTitle></DialogHeader>
+                    <form onSubmit={savePersonnel} className="flex flex-col gap-4">
+                        <div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ad Soyad</Label><Input required placeholder="Örn: Ali Yılmaz" value={personForm.full_name} onChange={e=>setPersonForm({...personForm, full_name: e.target.value})} className="h-12 rounded-xl border-slate-200 shadow-sm font-bold text-sm" /></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Departman</Label><Input placeholder="Örn: Kaynak" value={personForm.department} onChange={e=>setPersonForm({...personForm, department: e.target.value})} className="h-12 rounded-xl border-slate-200 shadow-sm font-bold text-sm" /></div>
+                            <div className="space-y-2"><Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded">Kök Maaş (Net)</Label><Input required type="number" placeholder="25000" value={personForm.base_salary} onChange={e=>setPersonForm({...personForm, base_salary: e.target.value})} className="h-12 rounded-xl border-emerald-200 shadow-sm font-black text-emerald-700 text-sm" /></div>
+                        </div>
+                        <div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TC Kimlik / IBAN</Label>
+                            <div className="flex gap-2"><Input placeholder="TC Kimlik" maxLength={11} value={personForm.tc_no} onChange={e=>setPersonForm({...personForm, tc_no: e.target.value})} className="h-12 w-1/3 rounded-xl font-mono text-sm" /><Input placeholder="TR..." value={personForm.iban} onChange={e=>setPersonForm({...personForm, iban: e.target.value})} className="h-12 w-2/3 rounded-xl font-mono text-sm" /></div>
+                        </div>
+                        <Button type="submit" disabled={savingPerson} className="w-full h-14 mt-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-xl">{savingPerson ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Save className="h-5 w-5 mr-2" />} {savingPerson ? "KAYDEDİLİYOR..." : "PERSONELİ KAYDET"}</Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* 📅 DETAYLI PUANTAJ (TIMESHEET) MODALI */}
+            <Dialog open={isTimesheetOpen} onOpenChange={setIsTimesheetOpen}>
+                <DialogContent className="rounded-[2rem] p-0 max-w-4xl border-none shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] overflow-hidden bg-slate-50">
+                    <DialogHeader className="p-6 bg-white border-b border-slate-200 shrink-0">
+                        <DialogTitle className="text-xl md:text-2xl font-black text-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <CalendarDays className="h-7 w-7 text-indigo-600" />
+                                <div className="flex flex-col">
+                                    <span>{activeRowIndex !== null && payrollGrid[activeRowIndex]?.fin_personnel?.full_name}</span>
+                                    <span className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">{MONTHS[periodMonth-1]} {periodYear} Detaylı Cetveli</span>
+                                </div>
+                            </div>
                         </DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={savePersonnel} className="flex flex-col gap-4">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ad Soyad</Label>
-                            <Input required placeholder="Örn: Ali Yılmaz" value={personForm.full_name} onChange={e=>setPersonForm({...personForm, full_name: e.target.value})} className="h-12 rounded-xl border-slate-200 shadow-sm font-bold text-sm" />
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                        <div className="bg-white border border-slate-200 rounded-[1.5rem] shadow-sm overflow-hidden">
+                            <table className="w-full text-left border-collapse whitespace-nowrap">
+                                <thead className="bg-[#f8fafc] border-b border-slate-200 sticky top-0 z-10">
+                                    <tr>
+                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 w-16">Gün</th>
+                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Tarih</th>
+                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Durum</th>
+                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center text-blue-600 w-32">N. Mesai (1.5x)</th>
+                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center text-amber-600 w-32">P. Mesai (2.0x)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {dailyRecords.map((day, idx) => (
+                                        <tr key={idx} className={`transition-colors ${day.isSunday ? 'bg-amber-50/30' : 'hover:bg-slate-50'} ${day.status === 'EKSİK' || day.status === 'RAPORLU' ? 'bg-rose-50/50' : ''}`}>
+                                            <td className="px-4 py-3 text-xs font-black text-slate-400 text-center">{day.dayNum}</td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex flex-col">
+                                                    <span className={`text-sm font-bold ${day.isSunday ? 'text-amber-700' : 'text-slate-800'}`}>{day.dateStr}</span>
+                                                    <span className={`text-[10px] font-black uppercase ${day.isSunday ? 'text-amber-500' : 'text-slate-400'}`}>{day.dayName}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <select 
+                                                    value={day.status} 
+                                                    onChange={(e) => handleDailyChange(idx, 'status', e.target.value)}
+                                                    className={`h-10 rounded-xl text-xs font-black px-3 outline-none border focus:ring-2 focus:ring-indigo-500 ${
+                                                        day.status === 'ÇALIŞTI' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                        day.status === 'EKSİK' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                        day.status === 'RAPORLU' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                                        'bg-amber-50 text-amber-700 border-amber-200'
+                                                    }`}
+                                                >
+                                                    <option value="ÇALIŞTI">✅ Geldi / Çalıştı</option>
+                                                    <option value="EKSİK">❌ EKSİK (Kesinti)</option>
+                                                    <option value="HAFTA_TATİLİ">🏖️ Hafta Tatili</option>
+                                                    <option value="RAPORLU">🤒 Raporlu (Kesinti)</option>
+                                                </select>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <Input type="number" min="0" disabled={day.isSunday} value={day.ot15} onChange={e=>handleDailyChange(idx, 'ot15', e.target.value)} className="h-10 text-center font-bold text-sm bg-white border-slate-200 focus:border-blue-500 disabled:opacity-30" placeholder="0" />
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <Input type="number" min="0" disabled={!day.isSunday} value={day.ot20} onChange={e=>handleDailyChange(idx, 'ot20', e.target.value)} className="h-10 text-center font-bold text-sm bg-white border-slate-200 focus:border-amber-500 disabled:opacity-30" placeholder="0" />
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Departman</Label>
-                                <Input placeholder="Örn: Kaynak" value={personForm.department} onChange={e=>setPersonForm({...personForm, department: e.target.value})} className="h-12 rounded-xl border-slate-200 shadow-sm font-bold text-sm" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded">Kök Maaş (Net)</Label>
-                                <Input required type="number" placeholder="25000" value={personForm.base_salary} onChange={e=>setPersonForm({...personForm, base_salary: e.target.value})} className="h-12 rounded-xl border-emerald-200 shadow-sm font-black text-emerald-700 text-sm" />
-                            </div>
+                    </div>
+
+                    <div className="p-6 bg-white border-t border-slate-200 shrink-0 flex items-center justify-between">
+                        <div className="flex gap-4">
+                            <div className="flex flex-col"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Eksik Gün</span><span className="text-lg font-black text-rose-600">{dailyRecords.filter(d=>d.status === 'EKSİK' || d.status==='RAPORLU').length} Gün</span></div>
+                            <div className="flex flex-col"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Toplam Mesai</span><span className="text-lg font-black text-indigo-600">{dailyRecords.reduce((acc, curr) => acc + (Number(curr.ot15)||0) + (Number(curr.ot20)||0), 0)} Saat</span></div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">TC Kimlik No</Label>
-                            <Input placeholder="11122233344" maxLength={11} value={personForm.tc_no} onChange={e=>setPersonForm({...personForm, tc_no: e.target.value})} className="h-12 rounded-xl border-slate-200 shadow-sm font-mono text-sm" />
+                        <div className="flex gap-3">
+                            <Button variant="ghost" onClick={() => setIsTimesheetOpen(false)} className="h-12 px-6 rounded-xl font-bold bg-slate-100 hover:bg-slate-200">İptal</Button>
+                            <Button onClick={applyTimesheetToGrid} className="h-12 px-8 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black shadow-lg shadow-indigo-500/30">
+                                Tümünü Ana Tabloya Aktar
+                            </Button>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Banka IBAN</Label>
-                            <Input placeholder="TR..." value={personForm.iban} onChange={e=>setPersonForm({...personForm, iban: e.target.value})} className="h-12 rounded-xl border-slate-200 shadow-sm font-mono text-sm" />
-                        </div>
-                        <Button type="submit" disabled={savingPerson} className="w-full h-14 mt-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black shadow-xl">
-                            {savingPerson ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Save className="h-5 w-5 mr-2" />} {savingPerson ? "KAYDEDİLİYOR..." : "PERSONELİ KAYDET"}
-                        </Button>
-                    </form>
+                    </div>
                 </DialogContent>
             </Dialog>
 
