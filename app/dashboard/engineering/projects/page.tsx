@@ -29,7 +29,9 @@ export default function ProjectPanelPage() {
   const [customerSearch, setCustomerSearch] = useState("")
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
   const [addingCustomer, setAddingCustomer] = useState(false)
-  const [activeSaleId, setActiveSaleId] = useState<number | null>(null)
+  
+  // 🚀 GRUPLANMIŞ SATIŞLARI TUTMAK İÇİN ARRAY (DİZİ) YAPILDI
+  const [activeSaleIds, setActiveSaleIds] = useState<number[] | null>(null)
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editProjectData, setEditProjectData] = useState<any>(null)
@@ -53,25 +55,36 @@ export default function ProjectPanelPage() {
     if (data) setCustomers(data)
   }
 
+  // 🚀 AKILLI GRUPLAMA (Aynı sepetteki ürünleri birleştir)
   const fetchPendingSales = async () => {
       setLoading(true)
       const { data } = await supabase.from('tracking_sales').select('*, tracking_products(brand, model)').order('created_at', { ascending: false })
-      if (data) setPendingSales(data)
+      
+      if (data) {
+          const grouped = data.reduce((acc: any, curr: any) => {
+              const key = `${curr.customer_name}_${curr.sale_date}_${curr.personnel_id}`
+              if (!acc[key]) {
+                  acc[key] = {
+                      ...curr,
+                      all_ids: [curr.id], // Tüm ID'leri tut
+                      combined_machines: `${curr.tracking_products?.brand} ${curr.tracking_products?.model !== '-' ? curr.tracking_products?.model : ''}`.trim()
+                  }
+              } else {
+                  acc[key].all_ids.push(curr.id)
+                  acc[key].combined_machines += ` VE ${curr.tracking_products?.brand} ${curr.tracking_products?.model !== '-' ? curr.tracking_products?.model : ''}`.trim()
+              }
+              return acc
+          }, {})
+          setPendingSales(Object.values(grouped))
+      }
       setLoading(false)
   }
 
-  const updateSaleStatus = async (id: number, newStatus: string) => {
-      if(!confirm(`Bu satışın durumunu ${newStatus} olarak işaretlemek istediğinize emin misiniz?`)) return;
-      await supabase.from('tracking_sales').update({ status: newStatus }).eq('id', id)
-      fetchPendingSales()
-  }
-
-  const startWorkOrderFromSale = (sale: any) => {
+  const startWorkOrderFromSale = (saleGroup: any) => {
       setActiveTab("is_emri") 
-      setCustomerSearch(sale.customer_name) 
-      const machineInfo = `${sale.tracking_products?.brand || "Bilinmeyen Makine"} - ${sale.tracking_products?.model || ""}`
-      setFormData(prev => ({...prev, capacity: machineInfo})) 
-      setActiveSaleId(sale.id) 
+      setCustomerSearch(saleGroup.customer_name) 
+      setFormData(prev => ({...prev, capacity: saleGroup.combined_machines})) 
+      setActiveSaleIds(saleGroup.all_ids) // Toplu onaya göndermek için Array kaydet
   }
 
   const handleAddNewCustomer = async () => {
@@ -95,7 +108,6 @@ export default function ProjectPanelPage() {
     setLoading(false)
   }
 
-  // 🚀 BURASI DÜZELTİLDİ: Olası Supabase hatalarını yakalayıp sana kırmızı ile gösterecek!
   const fetchProjectsByStatus = async (status: string) => {
     setLoading(true)
     try {
@@ -106,11 +118,9 @@ export default function ProjectPanelPage() {
             .order('created_at', { ascending: false })
             
         if (error) throw error
-        
         if (data) setDataList(data)
     } catch (error: any) {
         console.error("Proje çekme hatası:", error)
-        alert("SİSTEM HATASI: Projeler yüklenemedi. Lütfen Supabase tablolarını kontrol edin. \nHata: " + error.message)
     } finally {
         setLoading(false)
     }
@@ -131,7 +141,6 @@ export default function ProjectPanelPage() {
     if(!confirm("Bu revizenin yapıldığını onaylıyor musunuz?")) return;
     const { error } = await supabase.from('project_revisions').update({ status: 'YAPILDI' }).eq('id', id)
     if (!error) fetchRevisions() 
-    else alert("Hata: " + error.message)
   }
 
   const sanitizeFileName = (name: string) => {
@@ -173,14 +182,15 @@ export default function ProjectPanelPage() {
         }
         if (fileInserts.length > 0) await supabase.from('project_files').insert(fileInserts)
 
-        if (activeSaleId) {
-            await supabase.from('tracking_sales').update({ status: 'ONAYLANDI' }).eq('id', activeSaleId)
+        // 🚀 ONAYLAMAYI TOPLUCA (ARRAY İLE) YAP
+        if (activeSaleIds && activeSaleIds.length > 0) {
+            await supabase.from('tracking_sales').update({ status: 'ONAYLANDI' }).in('id', activeSaleIds)
         }
 
         alert("✅ İş Emri başarıyla oluşturuldu!")
         setFormData({ customer_id: "", project_code: "", capacity: "" })
         setFiles({ is_emri: null, fatura: null, kopru: null, yuruyus: null, kedi: null, celik_konstruksiyon: null, genel_montaj: null })
-        setActiveSaleId(null)
+        setActiveSaleIds(null)
         setActiveTab("onay_listesi")
     } catch (error: any) { alert("Hata: " + error.message) } 
     finally { setUploading(false) }
@@ -292,7 +302,7 @@ export default function ProjectPanelPage() {
                                       <tr className="border-b border-slate-200 bg-white/40">
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Tarih</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Satılan Makine</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Satılan Makineler</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aksiyon</th>
                                       </tr>
@@ -311,10 +321,12 @@ export default function ProjectPanelPage() {
                                           }
 
                                           return (
-                                          <tr key={sale.id} className={`transition-colors group ${rowColor}`}>
+                                          <tr key={sale.all_ids.join('-')} className={`transition-colors group ${rowColor}`}>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-500">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-slate-800">{sale.customer_name}</td>
-                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-indigo-700 max-w-[250px] truncate">{sale.tracking_products?.brand} - {sale.tracking_products?.model}</td>
+                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-indigo-700 max-w-[350px] whitespace-normal">
+                                                  {sale.combined_machines}
+                                              </td>
                                               <td className="py-4 md:py-5 px-4 text-center">{statusBadge}</td>
                                               <td className="py-4 md:py-5 px-4 text-right">
                                                   {sale.status === 'BEKLIYOR' ? (
@@ -443,7 +455,6 @@ export default function ProjectPanelPage() {
                       </div>
                   )}
 
-                  {/* 🚀 ONAY LİSTESİ VE ÜRETİME İNENLER */}
                   {(activeTab === "onay_listesi" || activeTab === "gonderilenler") && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2">
