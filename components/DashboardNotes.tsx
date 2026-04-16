@@ -22,7 +22,6 @@ export function DashboardNotes() {
   const [activeEmojiNoteId, setActiveEmojiNoteId] = useState<number | null>(null) 
   const [replyTo, setReplyTo] = useState<any>(null) 
 
-  // 🚀 BİLDİRİM SAYILARI STATELERİ
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -39,15 +38,42 @@ export function DashboardNotes() {
   useEffect(() => {
     if (activeView === "chat" && activeChat) {
         fetchNotes()
-        markAsRead(activeChat) // Sohbete girince okundu işaretle
+        markAsRead(activeChat) 
     } else if (activeView === "list") {
-        loadUnreadCounts() // Listeye dönünce bildirimleri güncelle
+        loadUnreadCounts() 
     }
   }, [activeView, activeChat])
 
   useEffect(() => {
       if (currentUser) loadUnreadCounts()
   }, [currentUser])
+
+  // 🚀 İŞTE SİHRİN OLDUĞU YER: ANLIK (REALTIME) DİNLEYİCİ
+  useEffect(() => {
+      if (!currentUser) return;
+
+      const channel = supabase
+          .channel('canli_sohbet_kanali')
+          .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'notes' },
+              (payload) => {
+                  // Eğer açık olan sohbetteysek anında mesajları çek ve görüldü at
+                  if (activeView === "chat" && activeChat) {
+                      fetchNotes();
+                      markAsRead(activeChat); 
+                  }
+                  // Sol taraftaki bildirim sayılarını da anında güncelle
+                  loadUnreadCounts();
+              }
+          )
+          .subscribe();
+
+      // Komponent kapanırsa kanalı temizle (performans için)
+      return () => {
+          supabase.removeChannel(channel);
+      }
+  }, [currentUser, activeChat, activeView]);
 
   useEffect(() => {
       if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -68,12 +94,10 @@ export function DashboardNotes() {
       if (data) setUsers(data)
   }
 
-  // 🚀 BİLDİRİMLERİ (OKUNMAMIŞ MESAJ SAYILARINI) HESAPLA
   const loadUnreadCounts = async () => {
       if (!currentUser) return;
       const counts: Record<string, number> = {};
 
-      // 1. Özel Mesajları Hesapla (is_read = false olanlar)
       const { data: dms } = await supabase.from('notes').select('user_id').eq('receiver_id', currentUser.id).eq('is_read', false);
       if (dms) {
           dms.forEach(dm => {
@@ -81,7 +105,6 @@ export function DashboardNotes() {
           });
       }
 
-      // 2. Genel Pano Hesapla (Local Storage ile son giriş tarihine göre)
       const lastReadGenel = localStorage.getItem(`lastReadGenel_${currentUser.id}`);
       let genelQuery = supabase.from('notes').select('id', { count: 'exact' }).is('receiver_id', null);
       if (lastReadGenel) genelQuery = genelQuery.gt('created_at', lastReadGenel);
@@ -92,7 +115,6 @@ export function DashboardNotes() {
       setUnreadCounts(counts);
   }
 
-  // 🚀 MESAJLARI OKUNDU İŞARETLE
   const markAsRead = async (chatId: string) => {
       if (!currentUser) return;
 
@@ -128,7 +150,6 @@ export function DashboardNotes() {
     const { data, error } = await query
     if (error) {
         console.error("Mesaj Çekme Hatası:", error)
-        alert("SİSTEM UYARISI: Mesajlar çekilemedi!\n\nHata: " + error.message)
     }
     
     if (data) setNotes(data.reverse())
@@ -145,19 +166,20 @@ export function DashboardNotes() {
             project_id: selectedProjectId ? Number(selectedProjectId) : null,
             receiver_id: activeChat === "genel" ? null : activeChat,
             reply_to_id: replyTo ? replyTo.id : null,
-            is_read: false // Yeni mesaj okunmadı
+            is_read: false 
         }
 
         const { error } = await supabase.from('notes').insert([payload])
-
         if (error) throw new Error(error.message)
 
         setNewNote("") 
         setSelectedProjectId("") 
         setReplyTo(null)
-        fetchNotes()   
+        
+        // Not: fetchNotes() çağırmamıza gerek kalmadı! 
+        // Çünkü Realtime dinleyicimiz veritabanına eklenen mesajı duyup anında ekranı kendi güncelleyecek.
     } catch (error: any) {
-        alert("❌ MESAJ GİTMEDİ! \nSupabase SQL kodunu çalıştırdığınıza emin olun.\n\nHata: " + error.message)
+        alert("❌ MESAJ GİTMEDİ! Hata: " + error.message)
     } finally {
         setLoading(false)
     }
@@ -166,7 +188,6 @@ export function DashboardNotes() {
   const deleteNote = async (id: number) => {
     if(!confirm("Bu mesajı silmek istediğinize emin misiniz?")) return;
     await supabase.from('notes').delete().eq('id', id)
-    fetchNotes()
   }
 
   const addReaction = async (noteId: number, emoji: string, currentReactions: any) => {
@@ -184,13 +205,11 @@ export function DashboardNotes() {
 
       await supabase.from('notes').update({ reactions }).eq('id', noteId)
       setActiveEmojiNoteId(null) 
-      fetchNotes()
   }
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
   const activeChatUser = users.find(u => u.id === activeChat)
 
-  // 🚀 BİLDİRİM BALONCUĞU YARDIMCI COMPONENT
   const UnreadBadge = ({ count }: { count: number }) => {
       if (!count || count === 0) return null;
       return (
@@ -213,10 +232,9 @@ export function DashboardNotes() {
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                   
-                  {/* Genel Pano Butonu */}
                   <button onClick={() => { setActiveChat("genel"); setActiveView("chat"); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-200/50 transition-all border border-transparent hover:border-slate-200">
                       <div className="h-12 w-12 bg-emerald-500 rounded-full flex items-center justify-center shrink-0 shadow-inner"><Users className="h-6 w-6 text-white" /></div>
-                      <div className="flex flex-col items-start">
+                      <div className="flex flex-col items-start flex-1">
                           <span className="font-bold text-slate-800 text-sm">Genel Pano</span>
                           <span className="text-[10px] text-slate-500 font-medium">Tüm şirkete açık duyurular</span>
                       </div>
@@ -227,7 +245,6 @@ export function DashboardNotes() {
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Çalışma Arkadaşları</span>
                   </div>
 
-                  {/* Kişiler Listesi */}
                   {users.filter(u => u.id !== currentUser?.id).map((u) => (
                       <button key={u.id} onClick={() => { setActiveChat(u.id); setActiveView("chat"); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-200/50 transition-all border border-transparent hover:border-slate-200">
                           <div className="h-12 w-12 bg-slate-800 rounded-full flex items-center justify-center shrink-0 text-white font-black text-sm shadow-inner">
@@ -273,7 +290,6 @@ export function DashboardNotes() {
 
                           <div className={`relative max-w-[85%] p-2.5 rounded-2xl shadow-sm border group ${isMe ? 'bg-[#dcf8c6] border-[#c0e8a8] rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
                               
-                              {/* YANITLANAN MESAJ */}
                               {note.reply_to && (() => {
                                   const rProfile = Array.isArray(note.reply_to.profiles) ? note.reply_to.profiles[0] : note.reply_to.profiles;
                                   const rName = rProfile?.first_name ? `${rProfile.first_name} ${rProfile.last_name || ''}` : "Silinmiş Mesaj";
@@ -286,7 +302,6 @@ export function DashboardNotes() {
                                   );
                               })()}
 
-                              {/* PROJE ETİKETİ */}
                               {note.projects && (
                                   <div className={`flex items-center gap-1 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded mb-1.5 w-max ${isMe ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-blue-700'}`}>
                                       <LinkIcon className="h-2.5 w-2.5" /> PROJE: {note.projects.project_code}
@@ -296,20 +311,17 @@ export function DashboardNotes() {
                               <p className="text-xs text-slate-800 whitespace-pre-wrap font-medium pr-10">{note.content}</p>
                               <span className="absolute bottom-1 right-1.5 text-[8px] font-bold text-slate-400 mix-blend-multiply">{formatTime(note.created_at)}</span>
 
-                              {/* 🚀 EMOJİLER (KİMİN ATTIĞI EKLENDİ) */}
                               {note.reactions && Object.keys(note.reactions).length > 0 && (
                                   <div className="absolute -bottom-3 left-2 flex gap-1 bg-white p-0.5 rounded-full shadow-sm border border-slate-200 z-10">
                                       {Object.entries(note.reactions).map(([emoji, userIds]: [string, any]) => {
                                           if (!userIds || userIds.length === 0) return null;
-                                          
-                                          // Emojiyi atanların isimlerini bul ve virgülle birleştir
                                           const reactorNames = userIds.map((uid: string) => users.find(u => u.id === uid)?.first_name || "Biri").join(", ");
 
                                           return (
                                               <button 
                                                   key={emoji} 
                                                   onClick={() => addReaction(note.id, emoji, note.reactions)} 
-                                                  title={reactorNames} // 👈 İşte Mouse ile üzerine gelince isimleri çıkaran kod!
+                                                  title={reactorNames}
                                                   className="text-[9px] bg-slate-50 hover:bg-slate-200 rounded-full px-1.5 flex items-center gap-1 cursor-pointer transition-colors"
                                               >
                                                   {emoji} <span className="text-slate-400 font-bold">{userIds.length}</span>
@@ -319,7 +331,6 @@ export function DashboardNotes() {
                                   </div>
                               )}
 
-                              {/* Emoji & Yanıtla Menüsü */}
                               <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity ${isEmojiMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isMe ? '-left-[5.5rem]' : '-right-[5.5rem]'} z-20`}>
                                   <button onClick={() => setReplyTo(note)} className="p-1.5 bg-white text-slate-500 hover:text-blue-500 rounded-full shadow-sm border border-slate-200 transition-colors" title="Yanıtla"><Reply className="h-3.5 w-3.5" /></button>
                                   <div className="relative">
@@ -344,7 +355,6 @@ export function DashboardNotes() {
                   )}
               </div>
 
-              {/* Mesaj Kutusu */}
               <div className="p-2 bg-[#f0f2f5] border-t border-slate-200 shrink-0 relative">
                   
                   {replyTo && (
