@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { CarFront, PlusCircle, Trash2, Loader2, PackageOpen, Search, Edit2 } from "lucide-react"
+import { CarFront, PlusCircle, Trash2, Loader2, PackageOpen, Search, Edit2, ChevronDown, Layers } from "lucide-react"
 
 export default function TrackingProductsPage() {
   const [products, setProducts] = useState<any[]>([])
@@ -14,6 +14,9 @@ export default function TrackingProductsPage() {
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState("") 
   const [editingId, setEditingId] = useState<number | null>(null)
+  
+  // 🚀 GRUPLARI AÇIP KAPATMAK İÇİN HAFIZA
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([])
   
   const [form, setForm] = useState({ brand: "", model: "", price: "", stock: "" })
   const supabase = createClient()
@@ -65,14 +68,59 @@ export default function TrackingProductsPage() {
     else fetchProducts()
   }
 
-  const filteredProducts = products.filter(p => 
-      p.brand.toLowerCase().includes(searchTerm.toLowerCase()) || p.model.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const toggleGroup = (groupName: string) => {
+      setExpandedGroups(prev => prev.includes(groupName) ? prev.filter(g => g !== groupName) : [...prev, groupName])
+  }
+
+  // 🚀 AKILLI GRUPLAMA MOTORU (Tonajlara göre ayırır)
+  const getGroupedProducts = () => {
+      const filtered = products.filter(p => 
+          p.brand.toLowerCase().includes(searchTerm.toLowerCase()) || p.model.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+
+      if (searchTerm) return { "Arama Sonuçları": filtered }; // Arama yapılıyorsa gruplama yapma, hepsini dök
+
+      const grouped: Record<string, any[]> = {}
+      
+      filtered.forEach(p => {
+          const brandUpper = p.brand.toUpperCase()
+          let groupName = "DİĞER ÜRÜNLER VE AKSESUARLAR" // Varsayılan grup
+
+          // Tonaj yakalayıcı (Örn: "10 TON", "3.2 TON", "5 TON")
+          const tonMatch = brandUpper.match(/(\d+(?:[.,]\d+)?)\s*TON/);
+          if (tonMatch) {
+              groupName = `${tonMatch[0]} KAPASİTELİ SİSTEMLER`
+          } else if (brandUpper.includes("VİNÇ")) {
+              groupName = "VİNÇ SİSTEMLERİ"
+          } else if (brandUpper.includes("KEDİ")) {
+              groupName = "KEDİ VE YÜRÜYÜŞ SİSTEMLERİ"
+          }
+
+          if (!grouped[groupName]) grouped[groupName] = []
+          grouped[groupName].push(p)
+      })
+
+      // Alfabetik veya Mantıksal Sıralama (Önce Tonajlar, Sonra Diğerleri)
+      const sortedKeys = Object.keys(grouped).sort((a, b) => {
+          if (a.includes("TON") && b.includes("TON")) {
+              const numA = parseFloat(a.replace(',', '.').match(/\d+(\.\d+)?/)?.[0] || "0")
+              const numB = parseFloat(b.replace(',', '.').match(/\d+(\.\d+)?/)?.[0] || "0")
+              return numB - numA // Büyük tonajlar üstte
+          }
+          return a.localeCompare(b)
+      })
+
+      const sortedGrouped: Record<string, any[]> = {}
+      sortedKeys.forEach(k => sortedGrouped[k] = grouped[k])
+
+      return sortedGrouped
+  }
+
+  const groupedProducts = getGroupedProducts();
 
   return (
     <div className="flex flex-col gap-6 md:gap-8 max-w-[1400px] mx-auto w-full font-sans pb-10">
       
-      {/* 🚀 ÜST BAŞLIK ALANI (Mobil Uyumlu) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] shadow-sm flex-1">
             <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-3 md:p-4 rounded-xl md:rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0"><CarFront className="h-6 w-6 md:h-8 md:w-8 text-white" /></div>
@@ -94,26 +142,25 @@ export default function TrackingProductsPage() {
         </div>
       </div>
 
-      {/* 🚀 FORM ALANI */}
       {isAdding && (
           <div className="bg-white/80 backdrop-blur-2xl border border-white shadow-lg rounded-[1.5rem] md:rounded-[2.5rem] p-5 md:p-8 animate-in fade-in slide-in-from-top-4">
               <h2 className="text-lg md:text-xl font-black text-slate-800 mb-5 md:mb-6">{editingId ? "Ürün Bilgilerini Güncelle" : "Yeni Araç Kaydı"}</h2>
               <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
                   <div className="space-y-1.5 md:space-y-2">
-                      <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Marka</Label>
-                      <Input required placeholder="Örn: 10 TON ÇİFT KİRİŞ..." value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm" />
+                      <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Marka / Tanım</Label>
+                      <Input required placeholder="Örn: 10 TON ÇİFT KİRİŞ..." value={form.brand} onChange={e => setForm({...form, brand: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm font-bold text-slate-800" />
                   </div>
                   <div className="space-y-1.5 md:space-y-2">
                       <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Model Yılı / Kodu</Label>
-                      <Input required placeholder="Örn: 2026" value={form.model} onChange={e => setForm({...form, model: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm" />
+                      <Input required placeholder="Örn: 2026" value={form.model} onChange={e => setForm({...form, model: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm font-bold text-slate-800" />
                   </div>
                   <div className="space-y-1.5 md:space-y-2">
                       <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Liste Fiyatı (TL)</Label>
-                      <Input required type="number" placeholder="1500000" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-indigo-600 text-sm" />
+                      <Input required type="number" placeholder="1500000" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-black text-indigo-600 text-sm" />
                   </div>
                   <div className="space-y-1.5 md:space-y-2">
                       <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Stok Adeti</Label>
-                      <Input required type="number" placeholder="1" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm" />
+                      <Input required type="number" placeholder="1" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 text-sm font-bold text-slate-800" />
                   </div>
                   <div className="sm:col-span-2 md:col-span-4 flex flex-col-reverse sm:flex-row justify-end gap-3 mt-2 md:mt-4">
                       <Button type="button" variant="ghost" onClick={() => { setIsAdding(false); setEditingId(null); }} className="h-12 px-6 rounded-xl font-bold w-full sm:w-auto">İptal</Button>
@@ -125,38 +172,71 @@ export default function TrackingProductsPage() {
           </div>
       )}
 
-      {/* 🚀 AKIŞKAN TABLO LİSTESİ */}
-      <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
-          <div className="overflow-x-auto custom-scrollbar p-2">
-              <table className="w-full text-left border-collapse min-w-[600px]">
-                  <thead className="bg-white/40 border-b border-slate-100">
-                      <tr>
-                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest rounded-tl-xl md:rounded-tl-2xl">Ürün Markası / Cinsi</th>
-                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Model / Kod</th>
-                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Fiyat</th>
-                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Stok</th>
-                          <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right rounded-tr-xl md:rounded-tr-2xl">İşlem</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                      {filteredProducts.map((p) => (
-                          <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors group">
-                              <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-800 truncate max-w-[200px]">{p.brand}</td>
-                              <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-bold text-slate-600">{p.model}</td>
-                              <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-indigo-600 tabular-nums">{p.price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
-                              <td className="px-4 md:px-6 py-3 md:py-4"><span className="bg-slate-100 text-slate-600 px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-sm font-bold border border-slate-200">{p.stock}</span></td>
-                              <td className="px-4 md:px-6 py-3 md:py-4 text-right flex justify-end gap-1.5 md:gap-2 opacity-100 lg:opacity-30 lg:group-hover:opacity-100 transition-opacity">
-                                  <button onClick={() => openEdit(p)} className="p-1.5 md:p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg md:rounded-xl transition-colors"><Edit2 className="h-4 w-4 md:h-5 md:w-5" /></button>
-                                  <button onClick={() => handleDelete(p.id)} className="p-1.5 md:p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg md:rounded-xl transition-colors"><Trash2 className="h-4 w-4 md:h-5 md:w-5" /></button>
-                              </td>
-                          </tr>
-                      ))}
-                      {filteredProducts.length === 0 && !loading && (
-                          <tr><td colSpan={5} className="py-16 md:py-20 text-center"><div className="flex flex-col items-center gap-3"><div className="bg-white p-4 md:p-5 rounded-full shadow-sm"><PackageOpen className="h-8 w-8 md:h-10 md:w-10 text-slate-300" /></div><p className="text-sm md:text-lg font-bold text-slate-500">Ürün bulunamadı.</p></div></td></tr>
-                      )}
-                  </tbody>
-              </table>
-          </div>
+      <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full p-2">
+          
+          {Object.keys(groupedProducts).length === 0 && !loading ? (
+              <div className="py-16 md:py-20 text-center"><div className="flex flex-col items-center gap-3"><div className="bg-white p-4 md:p-5 rounded-full shadow-sm"><PackageOpen className="h-8 w-8 md:h-10 md:w-10 text-slate-300" /></div><p className="text-sm md:text-lg font-bold text-slate-500">Ürün bulunamadı.</p></div></div>
+          ) : (
+              <div className="flex flex-col gap-3">
+                  {Object.entries(groupedProducts).map(([groupName, groupItems]) => {
+                      const isExpanded = expandedGroups.includes(groupName) || searchTerm !== ""; // Arama yapılıyorsa hepsi açık olsun
+
+                      return (
+                      <div key={groupName} className="flex flex-col border border-slate-200/60 bg-white/40 rounded-[1rem] overflow-hidden shadow-sm transition-all duration-300">
+                          
+                          {/* GRUP BAŞLIĞI */}
+                          <div 
+                              onClick={() => toggleGroup(groupName)}
+                              className="flex items-center justify-between p-4 md:p-5 cursor-pointer bg-slate-50/50 hover:bg-indigo-50/50 transition-colors select-none"
+                          >
+                              <div className="flex items-center gap-3 md:gap-4">
+                                  <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600"><Layers className="h-5 w-5" /></div>
+                                  <div>
+                                      <h3 className="font-black text-sm md:text-base text-slate-800">{groupName}</h3>
+                                      <p className="text-[10px] md:text-xs font-bold text-slate-400 mt-0.5">{groupItems.length} Çeşit Ürün / Varyasyon Kayıtlı</p>
+                                  </div>
+                              </div>
+                              <div className={`p-2 rounded-full transition-all duration-300 ${isExpanded ? 'bg-indigo-100 text-indigo-600 rotate-180' : 'bg-slate-100 text-slate-400'}`}>
+                                  <ChevronDown className="h-5 w-5" />
+                              </div>
+                          </div>
+
+                          {/* İÇERİK (AÇILIR KAPANIR) */}
+                          <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                              <div className="overflow-hidden">
+                                  <div className="overflow-x-auto custom-scrollbar border-t border-slate-100">
+                                      <table className="w-full text-left border-collapse min-w-[800px]">
+                                          <thead className="bg-white/80 border-b border-slate-100">
+                                              <tr>
+                                                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ürün Tanımı / Marka</th>
+                                                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Model / Kod</th>
+                                                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Fiyat</th>
+                                                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Stok</th>
+                                                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">İşlem</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-100 bg-white/30">
+                                              {groupItems.map((p) => (
+                                                  <tr key={p.id} className="hover:bg-indigo-50/40 transition-colors group/row">
+                                                      <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-800 max-w-[300px] whitespace-normal leading-tight">{p.brand}</td>
+                                                      <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-bold text-slate-500">{p.model}</td>
+                                                      <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-indigo-600 tabular-nums">{p.price.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</td>
+                                                      <td className="px-4 md:px-6 py-3 md:py-4"><span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-xs font-bold border border-slate-200">{p.stock} Adet</span></td>
+                                                      <td className="px-4 md:px-6 py-3 md:py-4 text-right flex justify-end gap-1.5 md:gap-2 opacity-100 lg:opacity-40 lg:group-hover/row:opacity-100 transition-opacity">
+                                                          <button onClick={() => openEdit(p)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"><Edit2 className="h-4 w-4 md:h-5 md:w-5" /></button>
+                                                          <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"><Trash2 className="h-4 w-4 md:h-5 md:w-5" /></button>
+                                                      </td>
+                                                  </tr>
+                                              ))}
+                                          </tbody>
+                                      </table>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  )})}
+              </div>
+          )}
       </div>
     </div>
   )
