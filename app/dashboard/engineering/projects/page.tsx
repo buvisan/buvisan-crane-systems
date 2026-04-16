@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { 
   UploadCloud, FileCog, Loader2, CheckCircle2, AlertTriangle, 
-  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2, Trash2
+  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2, Trash2, ChevronDown, Package
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -30,8 +30,10 @@ export default function ProjectPanelPage() {
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false)
   const [addingCustomer, setAddingCustomer] = useState(false)
   
-  // 🚀 GRUPLANMIŞ SATIŞLARI TUTMAK İÇİN ARRAY (DİZİ) YAPILDI
   const [activeSaleIds, setActiveSaleIds] = useState<number[] | null>(null)
+  
+  // 🚀 YENİ: AÇILIR KAPANIR LİSTE İÇİN HAFIZA
+  const [expandedSales, setExpandedSales] = useState<string[]>([])
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editProjectData, setEditProjectData] = useState<any>(null)
@@ -55,7 +57,12 @@ export default function ProjectPanelPage() {
     if (data) setCustomers(data)
   }
 
-  // 🚀 AKILLI GRUPLAMA (Aynı sepetteki ürünleri birleştir)
+  // 🚀 AÇ/KAPAT TETİKLEYİCİSİ
+  const toggleExpand = (key: string) => {
+      setExpandedSales(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  }
+
+  // 🚀 AKILLI GRUPLAMA VE TEMİZ METİN OLUŞTURMA
   const fetchPendingSales = async () => {
       setLoading(true)
       const { data } = await supabase.from('tracking_sales').select('*, tracking_products(brand, model)').order('created_at', { ascending: false })
@@ -66,15 +73,24 @@ export default function ProjectPanelPage() {
               if (!acc[key]) {
                   acc[key] = {
                       ...curr,
-                      all_ids: [curr.id], // Tüm ID'leri tut
-                      combined_machines: `${curr.tracking_products?.brand} ${curr.tracking_products?.model !== '-' ? curr.tracking_products?.model : ''}`.trim()
+                      group_key: key,
+                      all_ids: [curr.id],
+                      items: [curr] // Tüm ürünleri diziye atıyoruz
                   }
               } else {
                   acc[key].all_ids.push(curr.id)
-                  acc[key].combined_machines += ` VE ${curr.tracking_products?.brand} ${curr.tracking_products?.model !== '-' ? curr.tracking_products?.model : ''}`.trim()
+                  acc[key].items.push(curr)
               }
               return acc
           }, {})
+
+          // İş emrine atılacak yazıyı "2x 10 Ton + 1x 5 Ton" şeklinde formatla
+          Object.values(grouped).forEach((group: any) => {
+              group.combined_machines = group.items.map((i: any) => 
+                  `${i.quantity}x ${i.tracking_products?.brand} ${i.tracking_products?.model !== '-' ? i.tracking_products?.model : ''}`.trim()
+              ).join(' + ')
+          })
+
           setPendingSales(Object.values(grouped))
       }
       setLoading(false)
@@ -84,7 +100,7 @@ export default function ProjectPanelPage() {
       setActiveTab("is_emri") 
       setCustomerSearch(saleGroup.customer_name) 
       setFormData(prev => ({...prev, capacity: saleGroup.combined_machines})) 
-      setActiveSaleIds(saleGroup.all_ids) // Toplu onaya göndermek için Array kaydet
+      setActiveSaleIds(saleGroup.all_ids) 
   }
 
   const handleAddNewCustomer = async () => {
@@ -182,7 +198,6 @@ export default function ProjectPanelPage() {
         }
         if (fileInserts.length > 0) await supabase.from('project_files').insert(fileInserts)
 
-        // 🚀 ONAYLAMAYI TOPLUCA (ARRAY İLE) YAP
         if (activeSaleIds && activeSaleIds.length > 0) {
             await supabase.from('tracking_sales').update({ status: 'ONAYLANDI' }).in('id', activeSaleIds)
         }
@@ -296,39 +311,66 @@ export default function ProjectPanelPage() {
                   {activeTab === "bekleyen_satislar" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in w-full">
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2"><TrendingUp className="text-indigo-500 h-5 w-5 md:h-6 md:w-6"/> Satıştan Gelen İşler</h2>
-                          <div className="overflow-x-auto custom-scrollbar w-full border border-slate-100/50 rounded-2xl">
+                          <div className="overflow-x-auto custom-scrollbar w-full border border-slate-100/50 rounded-2xl bg-white/40">
                               <table className="w-full text-left border-collapse min-w-[800px]">
                                   <thead>
-                                      <tr className="border-b border-slate-200 bg-white/40">
+                                      <tr className="border-b border-slate-200">
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Tarih</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Satılan Makineler</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Satılan Makineler (Sepet)</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aksiyon</th>
                                       </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-slate-100 bg-white/40">
+                                  <tbody className="divide-y divide-slate-100">
                                       {pendingSales.map((sale) => {
-                                          let rowColor = "hover:bg-white/60 bg-transparent";
                                           let statusBadge = <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[10px] font-bold border border-slate-200">GÖNDERİLMEDİ</span>;
-                                          
-                                          if (sale.status === 'ONAYLANDI') {
-                                              rowColor = "bg-emerald-50/50 hover:bg-emerald-50";
-                                              statusBadge = <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-emerald-200 flex items-center justify-center gap-1 w-max mx-auto"><CheckCircle2 className="h-3 w-3"/> GÖNDERİLDİ</span>;
-                                          } else if (sale.status === 'IPTAL') {
-                                              rowColor = "bg-rose-50/50 hover:bg-rose-50";
-                                              statusBadge = <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-rose-200 flex items-center justify-center gap-1 w-max mx-auto"><AlertTriangle className="h-3 w-3"/> ONAYLANMADI</span>;
-                                          }
+                                          if (sale.status === 'ONAYLANDI') statusBadge = <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-emerald-200 flex items-center justify-center gap-1 w-max mx-auto"><CheckCircle2 className="h-3 w-3"/> GÖNDERİLDİ</span>;
+                                          else if (sale.status === 'IPTAL') statusBadge = <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-rose-200 flex items-center justify-center gap-1 w-max mx-auto"><AlertTriangle className="h-3 w-3"/> ONAYLANMADI</span>;
+
+                                          const isExpanded = expandedSales.includes(sale.group_key);
 
                                           return (
-                                          <tr key={sale.all_ids.join('-')} className={`transition-colors group ${rowColor}`}>
-                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-500">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
-                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-slate-800">{sale.customer_name}</td>
-                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-indigo-700 max-w-[350px] whitespace-normal">
-                                                  {sale.combined_machines}
+                                          <tr key={sale.group_key} className={`transition-colors group hover:bg-white/60 ${isExpanded ? 'bg-indigo-50/20' : ''}`}>
+                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-500 align-top pt-5">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
+                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-slate-800 align-top pt-5">{sale.customer_name}</td>
+                                              
+                                              {/* 🚀 İŞTE YENİ AÇILIR KAPANIR (ACCORDION) BÖLÜM */}
+                                              <td className="py-4 md:py-5 px-4 align-top">
+                                                  <div className="flex flex-col gap-2">
+                                                      <div 
+                                                          onClick={() => toggleExpand(sale.group_key)} 
+                                                          className="flex items-center gap-2 cursor-pointer hover:bg-indigo-50/80 p-1.5 -ml-1.5 rounded-lg transition-colors w-max"
+                                                      >
+                                                          <span className="bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md text-[10px] md:text-xs font-black flex items-center gap-1.5 shadow-sm border border-indigo-200/50">
+                                                              <Package className="h-3 w-3 md:h-3.5 md:w-3.5" /> {sale.items.length} Kalem
+                                                          </span>
+                                                          <span className="text-xs md:text-sm font-bold text-slate-700 truncate max-w-[150px] md:max-w-[200px]">
+                                                              {sale.items[0].tracking_products?.brand} {sale.items.length > 1 && '...'}
+                                                          </span>
+                                                          <ChevronDown className={`h-4 w-4 md:h-5 md:w-5 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                                                      </div>
+
+                                                      {/* LİSTE DETAYI (Tıklanınca Açılır) */}
+                                                      {isExpanded && (
+                                                          <div className="flex flex-col gap-1.5 mt-2 pl-2 md:pl-3 border-l-2 border-indigo-200 animate-in slide-in-from-top-2 fade-in duration-200 pb-2">
+                                                              {sale.items.map((item: any, idx: number) => (
+                                                                  <div key={item.id} className="text-[10px] md:text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-lg shadow-sm flex items-center justify-between gap-4 w-max min-w-[250px] md:min-w-[300px]">
+                                                                      <span className="flex items-center gap-1.5">
+                                                                          <span className="font-black text-indigo-600 w-4">{idx + 1}.</span> 
+                                                                          <span className="font-bold text-slate-800">{item.tracking_products?.brand}</span>
+                                                                          <span className="opacity-60 hidden sm:inline">({item.tracking_products?.model})</span>
+                                                                      </span>
+                                                                      <span className="font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 shrink-0">{item.quantity} Adet</span>
+                                                                  </div>
+                                                              ))}
+                                                          </div>
+                                                      )}
+                                                  </div>
                                               </td>
-                                              <td className="py-4 md:py-5 px-4 text-center">{statusBadge}</td>
-                                              <td className="py-4 md:py-5 px-4 text-right">
+                                              
+                                              <td className="py-4 md:py-5 px-4 text-center align-top pt-5">{statusBadge}</td>
+                                              <td className="py-4 md:py-5 px-4 text-right align-top pt-4">
                                                   {sale.status === 'BEKLIYOR' ? (
                                                       <Button onClick={() => startWorkOrderFromSale(sale)} className="h-9 md:h-10 text-xs md:text-sm rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 group/btn">
                                                           İş Emrine Çevir <ArrowRight className="ml-1.5 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover/btn:translate-x-1 transition-transform" />
@@ -359,8 +401,8 @@ export default function ProjectPanelPage() {
                                   <Input placeholder="Örn: PRJ-2026-001" value={formData.project_code} onChange={(e) => setFormData({...formData, project_code: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-4 md:px-5 shadow-sm text-sm" />
                               </div>
                               <div className="space-y-2 md:space-y-3">
-                                  <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite / Açıklama</Label>
-                                  <Input placeholder="Örn: 10 TON Çift Kiriş" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-4 md:px-5 shadow-sm text-sm" />
+                                  <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite / Makine Özeti</Label>
+                                  <Input placeholder="Örn: 2x 10 TON Çift Kiriş" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-4 md:px-5 shadow-sm text-sm" />
                               </div>
                               
                               <div className="space-y-2 md:space-y-3 md:col-span-2 relative">
