@@ -151,6 +151,64 @@ export default function PayrollPage() {
         }
     }
 
+    // 🚀 EXCEL İNDİRME MOTORU BURADA
+    const exportToExcel = () => {
+        if (payrollGrid.length === 0) {
+            alert("İndirilecek veri bulunamadı! Önce puantaj tablosunu oluşturun.");
+            return;
+        }
+
+        // CSV Başlıkları
+        const headers = [
+            "Personel Adi",
+            "Departman",
+            "Kok Maas (TL)",
+            "Calistigi Gun",
+            "H.Ici/Cmt Mesai (Saat)",
+            "Pazar Mesai (Saat)",
+            "Eksik/Izin (Gun)",
+            "Avans (TL)",
+            "Prim/Ek (TL)",
+            "Net Hakedis (TL)"
+        ];
+
+        // CSV Veri Satırları
+        const rows = payrollGrid.map(row => [
+            row.fin_personnel?.full_name || "",
+            row.fin_personnel?.department || "",
+            row.fin_personnel?.base_salary || 0,
+            row.work_days || 0,
+            row.overtime_15x || 0,
+            row.overtime_20x || 0,
+            row.missing_days || 0,
+            row.advance_payment || 0,
+            row.additions || 0,
+            row.net_salary || 0
+        ]);
+
+        // CSV İçeriğini birleştir (Noktalı virgül Excel'de sütunları düzgün ayırır)
+        let csvContent = headers.join(";") + "\n";
+        rows.forEach(rowArray => {
+            let row = rowArray.map(item => {
+                return typeof item === 'string' ? `"${item.replace(/"/g, '""')}"` : item;
+            });
+            csvContent += row.join(";") + "\n";
+        });
+
+        // UTF-8 BOM ekle (Türkçe Ş, Ğ, İ karakterlerinin Excel'de bozulmaması için çok kritik!)
+        const bom = "\uFEFF";
+        const blob = new Blob([bom + csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        
+        // İndirme Linkini oluştur ve tıkla
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `Puantaj_${MONTHS[periodMonth-1]}_${periodYear}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
     const formatMoney = (val: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val)
     const grandTotalNet = payrollGrid.reduce((sum, row) => sum + Number(row.net_salary), 0)
 
@@ -239,7 +297,8 @@ export default function PayrollPage() {
                             </div>
 
                             <div className="flex items-center gap-3 w-full md:w-auto">
-                                <Button variant="outline" className="h-10 rounded-xl font-bold border-slate-200 text-slate-600 hover:bg-slate-50 w-full md:w-auto">
+                                {/* 🚀 EXCEL İNDİR BUTONUNA FONKSİYON BAĞLANDI */}
+                                <Button variant="outline" onClick={exportToExcel} className="h-10 rounded-xl font-bold border-slate-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 w-full md:w-auto transition-colors">
                                     <FileDown className="h-4 w-4 mr-2" /> Excel İndir
                                 </Button>
                                 {hasChanges && (
