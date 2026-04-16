@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
-    Calculator, PlusCircle, Trash2, Loader2, Users, FileText, 
-    Download, Search, Briefcase, CalendarDays, ArrowRight, FileSpreadsheet
+    Calculator, Trash2, Loader2, Users, FileText, 
+    Search, Briefcase, ArrowRight, FileSpreadsheet
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -47,14 +47,14 @@ export default function PayrollPage() {
         fetchData()
     }, [])
 
-    // 🚀 ANLIK MATEMATİK MOTORU
+    // 🚀 ANLIK MATEMATİK MOTORU (Sıfır Gecikme)
     useEffect(() => {
         const salary = Number(calcForm.base_salary) || 0
         const normalHours = Number(calcForm.normal_overtime_hours) || 0
         const sundayHours = Number(calcForm.sunday_overtime_hours) || 0
         const leaveHours = Number(calcForm.leave_hours) || 0
 
-        // Standart Türkiye Aylık Çalışma Saati = 225 Saat
+        // Türkiye Standart Aylık Çalışma Saati = 225 Saat
         const hourlyRate = salary > 0 ? (salary / 225) : 0
         
         // Hafta içi / Cmt mesaisi (1.5 Katı)
@@ -73,6 +73,7 @@ export default function PayrollPage() {
 
     const fetchData = async () => {
         setLoading(true)
+        // Kayıtları ve Personel Listesini Çek
         const { data: recData } = await supabase.from('payroll_records').select('*, tracking_personnel(full_name, title)').order('created_at', { ascending: false })
         const { data: perData } = await supabase.from('tracking_personnel').select('*').order('full_name')
         
@@ -150,37 +151,37 @@ export default function PayrollPage() {
                 </div>
             </div>
 
-            {/* RAPORLAMA BUTONLARI (HAZIRLIK) */}
+            {/* RAPORLAMA BUTONLARI (İleride Geliştirilecek) */}
             <div className="flex items-center justify-end gap-3 w-full">
-                <Button variant="outline" className="h-10 text-xs font-bold text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-xl">
+                <Button variant="outline" className="h-10 text-xs font-bold text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-all">
                     <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel'e Aktar
                 </Button>
-                <Button variant="outline" className="h-10 text-xs font-bold text-rose-700 border-rose-200 bg-rose-50 hover:bg-rose-100 rounded-xl">
+                <Button variant="outline" className="h-10 text-xs font-bold text-rose-700 border-rose-200 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all">
                     <FileText className="h-4 w-4 mr-2" /> PDF Çıktısı Al
                 </Button>
             </div>
 
-            {/* PUANTAJ TABLOSU */}
+            {/* PUANTAJ LİSTESİ */}
             <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
-                <div className="overflow-x-auto custom-scrollbar">
+                <div className="overflow-x-auto custom-scrollbar p-2">
                     <table className="w-full text-left border-collapse whitespace-nowrap min-w-[1000px]">
                         <thead className="bg-[#1e293b] text-white">
                             <tr>
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest rounded-tl-xl md:rounded-tl-2xl">Dönem</th>
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest">Personel</th>
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest">Kök Maaş</th>
-                                <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-center">H.İçi/Cmt Mesai</th>
+                                <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-center text-blue-300">Normal Mesai</th>
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-center text-amber-300">Pazar Mesai</th>
-                                <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-center text-rose-300">İzin/Eksik</th>
+                                <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-center text-rose-300">Eksik/İzin</th>
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest bg-emerald-600">Net Hakediş</th>
                                 <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[11px] font-black uppercase tracking-widest text-right rounded-tr-xl md:rounded-tr-2xl">İşlem</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white/50">
                             {filteredRecords.map((rec) => (
-                                <tr key={rec.id} className="hover:bg-blue-50/50 transition-colors">
+                                <tr key={rec.id} className="hover:bg-blue-50/50 transition-colors group">
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-500">
-                                        <span className="bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">{months[rec.record_month - 1]} {rec.record_year}</span>
+                                        <span className="bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 shadow-sm">{months[rec.record_month - 1]} {rec.record_year}</span>
                                     </td>
                                     <td className="px-4 md:px-6 py-3 md:py-4">
                                         <div className="flex flex-col">
@@ -191,29 +192,29 @@ export default function PayrollPage() {
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-bold text-slate-600 tabular-nums">{formatMoney(rec.base_salary)}</td>
                                     
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-center">
-                                        <span className="inline-flex flex-col items-center justify-center bg-blue-50 text-blue-700 px-3 py-1 rounded-xl border border-blue-100">
-                                            <span className="text-xs font-black">{rec.normal_overtime_hours} Saat</span>
+                                        <span className="inline-flex flex-col items-center justify-center bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl border border-blue-100 shadow-sm min-w-[70px]">
+                                            <span className="text-xs font-black">{rec.normal_overtime_hours} S.</span>
                                         </span>
                                     </td>
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-center">
-                                        <span className="inline-flex flex-col items-center justify-center bg-amber-50 text-amber-700 px-3 py-1 rounded-xl border border-amber-100">
-                                            <span className="text-xs font-black">{rec.sunday_overtime_hours} Saat</span>
+                                        <span className="inline-flex flex-col items-center justify-center bg-amber-50 text-amber-700 px-3 py-1.5 rounded-xl border border-amber-100 shadow-sm min-w-[70px]">
+                                            <span className="text-xs font-black">{rec.sunday_overtime_hours} S.</span>
                                         </span>
                                     </td>
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-center">
-                                        <span className="inline-flex flex-col items-center justify-center bg-rose-50 text-rose-700 px-3 py-1 rounded-xl border border-rose-100">
-                                            <span className="text-xs font-black">{rec.leave_hours} Saat</span>
+                                        <span className="inline-flex flex-col items-center justify-center bg-rose-50 text-rose-700 px-3 py-1.5 rounded-xl border border-rose-100 shadow-sm min-w-[70px]">
+                                            <span className="text-xs font-black">{rec.leave_hours} S.</span>
                                         </span>
                                     </td>
                                     
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-emerald-800 bg-emerald-50/50 shadow-inner tabular-nums">{formatMoney(rec.net_earned)}</td>
                                     <td className="px-4 md:px-6 py-3 md:py-4 text-right">
-                                        <button onClick={() => handleDelete(rec.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"><Trash2 className="h-5 w-5" /></button>
+                                        <button onClick={() => handleDelete(rec.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"><Trash2 className="h-5 w-5" /></button>
                                     </td>
                                 </tr>
                             ))}
                             {filteredRecords.length === 0 && !loading && (
-                                <tr><td colSpan={8} className="py-16 text-center"><div className="flex flex-col items-center gap-3"><div className="bg-slate-50 p-4 rounded-full shadow-sm"><Users className="h-10 w-10 text-slate-300" /></div><p className="text-lg font-bold text-slate-500">Puantaj kaydı bulunmuyor.</p></div></td></tr>
+                                <tr><td colSpan={8} className="py-16 text-center"><div className="flex flex-col items-center gap-3"><div className="bg-slate-50 p-5 rounded-full shadow-sm"><Users className="h-10 w-10 text-slate-300" /></div><p className="text-sm md:text-lg font-bold text-slate-500">Puantaj kaydı bulunmuyor.</p></div></td></tr>
                             )}
                         </tbody>
                     </table>
@@ -222,7 +223,7 @@ export default function PayrollPage() {
 
             {/* 🚀 AKILLI HESAPLAMA MODALI */}
             <Dialog open={isCalcModalOpen} onOpenChange={setIsCalcModalOpen}>
-                <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-4xl border-none shadow-2xl flex flex-col max-h-[95vh] overflow-hidden">
+                <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-4xl border-none shadow-2xl flex flex-col max-h-[95vh] overflow-hidden bg-white/95 backdrop-blur-3xl">
                     <DialogHeader className="shrink-0 border-b border-slate-100 pb-4 mb-2">
                         <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-3">
                             <Calculator className="h-7 w-7 text-blue-600" /> Puantaj ve Hakediş Makinesi
@@ -250,55 +251,64 @@ export default function PayrollPage() {
                             </div>
                         </div>
 
-                        <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 grid grid-cols-1 sm:grid-cols-2 gap-6 relative">
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-3xl border border-blue-100 grid grid-cols-1 sm:grid-cols-2 gap-6 relative shadow-inner">
                             <div className="space-y-2">
                                 <Label className="text-xs font-black text-blue-800 uppercase tracking-widest">Aylık Kök Maaş (TL)</Label>
-                                <Input type="number" placeholder="Örn: 25000" value={calcForm.base_salary} onChange={e=>setCalcForm({...calcForm, base_salary: e.target.value})} className="h-14 rounded-xl bg-white border-blue-200 text-lg font-black text-blue-700 shadow-sm" />
+                                <Input type="number" placeholder="Örn: 25000" value={calcForm.base_salary} onChange={e=>setCalcForm({...calcForm, base_salary: e.target.value})} className="h-14 rounded-2xl bg-white border-blue-200 text-xl font-black text-blue-700 shadow-sm" />
                             </div>
-                            <div className="flex flex-col justify-center bg-white p-3 rounded-xl border border-blue-100 shadow-sm">
+                            <div className="flex flex-col justify-center bg-white p-4 rounded-2xl border border-blue-100 shadow-sm">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Hesaplanan Saatlik Ücret</span>
-                                <span className="text-xl font-black text-slate-800 tabular-nums">{formatMoney(liveResult.hourlyRate)} <span className="text-xs font-bold text-slate-400">/ saat</span></span>
+                                <span className="text-2xl font-black text-slate-800 tabular-nums">{formatMoney(liveResult.hourlyRate)} <span className="text-xs font-bold text-slate-400">/ saat</span></span>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 hover:border-blue-300 transition-colors">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest">H.İçi / Cmt Mesai (Saat)</Label>
+                                    <Label className="text-[10px] font-black text-slate-600 uppercase tracking-widest">H.İçi / Cmt Mesai</Label>
                                     <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">1.5x Çarpan</span>
                                 </div>
-                                <Input type="number" min="0" value={calcForm.normal_overtime_hours} onChange={e=>setCalcForm({...calcForm, normal_overtime_hours: e.target.value})} className="h-12 rounded-xl text-center font-bold text-lg" />
+                                <div className="relative">
+                                    <Input type="number" min="0" value={calcForm.normal_overtime_hours} onChange={e=>setCalcForm({...calcForm, normal_overtime_hours: e.target.value})} className="h-12 rounded-xl text-center font-bold text-lg bg-slate-50" />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Saat</span>
+                                </div>
                                 <div className="text-right text-xs font-black text-slate-500">+ {formatMoney(liveResult.normalOTPay)}</div>
                             </div>
 
-                            <div className="bg-amber-50/30 p-4 rounded-2xl border border-amber-200 space-y-3">
+                            <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-sm space-y-3 hover:border-amber-400 transition-colors">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Pazar / Tatil Mesai</Label>
-                                    <span className="text-[10px] font-bold bg-amber-200 text-amber-800 px-2 py-0.5 rounded">2.0x Çarpan</span>
+                                    <Label className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Pazar Mesai</Label>
+                                    <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded">2.0x Çarpan</span>
                                 </div>
-                                <Input type="number" min="0" value={calcForm.sunday_overtime_hours} onChange={e=>setCalcForm({...calcForm, sunday_overtime_hours: e.target.value})} className="h-12 rounded-xl text-center font-bold text-lg border-amber-300" />
+                                <div className="relative">
+                                    <Input type="number" min="0" value={calcForm.sunday_overtime_hours} onChange={e=>setCalcForm({...calcForm, sunday_overtime_hours: e.target.value})} className="h-12 rounded-xl text-center font-bold text-lg border-amber-300 bg-amber-50/30" />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-600/50">Saat</span>
+                                </div>
                                 <div className="text-right text-xs font-black text-amber-600">+ {formatMoney(liveResult.sundayOTPay)}</div>
                             </div>
 
-                            <div className="bg-rose-50/30 p-4 rounded-2xl border border-rose-200 space-y-3">
+                            <div className="bg-white p-4 rounded-2xl border border-rose-200 shadow-sm space-y-3 hover:border-rose-400 transition-colors">
                                 <div className="flex items-center justify-between">
-                                    <Label className="text-[10px] font-black text-rose-700 uppercase tracking-widest">Eksik / İzin (Saat)</Label>
-                                    <span className="text-[10px] font-bold bg-rose-200 text-rose-800 px-2 py-0.5 rounded">Kesinti</span>
+                                    <Label className="text-[10px] font-black text-rose-700 uppercase tracking-widest">Eksik / İzin</Label>
+                                    <span className="text-[10px] font-bold bg-rose-100 text-rose-800 px-2 py-0.5 rounded">Kesinti</span>
                                 </div>
-                                <Input type="number" min="0" value={calcForm.leave_hours} onChange={e=>setCalcForm({...calcForm, leave_hours: e.target.value})} className="h-12 rounded-xl text-center font-bold text-lg border-rose-300" />
+                                <div className="relative">
+                                    <Input type="number" min="0" value={calcForm.leave_hours} onChange={e=>setCalcForm({...calcForm, leave_hours: e.target.value})} className="h-12 rounded-xl text-center font-bold text-lg border-rose-300 bg-rose-50/30" />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-rose-600/50">Saat</span>
+                                </div>
                                 <div className="text-right text-xs font-black text-rose-600">- {formatMoney(liveResult.deduction)}</div>
                             </div>
                         </div>
 
                     </div>
 
-                    <div className="shrink-0 mt-4 pt-4 border-t border-slate-100 flex flex-col md:flex-row items-end md:items-center justify-between gap-4">
-                        <div className="bg-slate-900 p-4 rounded-2xl shadow-xl flex items-center justify-between gap-8 w-full md:w-auto min-w-[300px]">
-                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">TOPLAM HAKEDİŞ</span>
+                    <div className="shrink-0 mt-6 pt-5 border-t border-slate-100 flex flex-col md:flex-row items-end md:items-center justify-between gap-4">
+                        <div className="bg-slate-900 p-4 md:p-5 rounded-2xl shadow-xl flex items-center justify-between gap-8 w-full md:w-auto min-w-[320px]">
+                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">NET HAKEDİŞ</span>
                             <span className="text-3xl font-black text-emerald-400 tabular-nums">{formatMoney(liveResult.netEarned)}</span>
                         </div>
 
-                        <Button onClick={handleSave} disabled={saving} className="h-14 px-8 w-full md:w-auto rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-lg shadow-blue-500/30 transition-all">
+                        <Button onClick={handleSave} disabled={saving} className="h-14 px-8 w-full md:w-auto rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-lg shadow-blue-500/30 transition-transform active:scale-95">
                             {saving ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <ArrowRight className="h-5 w-5 mr-2" />} 
                             {saving ? "KAYDEDİLİYOR..." : "PUANTAJI KAYDET"}
                         </Button>

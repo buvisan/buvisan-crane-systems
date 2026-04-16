@@ -224,7 +224,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { title: "İMALAT YÖNETİMİ", allowedRoles: ["imalat", "üretim", "fabrika"], items: [ { href: "/dashboard/manufacturing/dashboard", label: "İmalat Paneli", icon: Factory }, { href: "/dashboard/manufacturing/missing", label: "Eksik Malzemeler", icon: AlertCircle }, ] },
     { title: "SAHA (ÜRETİM)", allowedRoles: ["imalat", "üretim", "saha", "montaj"], items: [ { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat }, ] },
     { title: "DEPO & LOJİSTİK", allowedRoles: ["depo", "lojistik", "üretim", "satın", "teknik"], items: [ { href: "/dashboard/warehouse/products", label: "Depo Ürünleri (QR)", icon: Archive }, { href: "/dashboard/warehouse/entries", label: "Mal Kabul & İrsaliye", icon: ClipboardList }, { href: "/dashboard/warehouse/scanner", label: "QR Barkod Terminali", icon: ScanLine }, { href: "/dashboard/warehouse/logs", label: "Stok Hareket Analizi", icon: History }, ] },
-    { title: "MUHASEBE & FİNANS", allowedRoles: ["muhasebe", "finans", "yönetici"], items: [ { href: "/dashboard/finance/invoices", label: "Faturalar & İrsaliyeler", icon: FileText }, { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet }, ] },
+    { title: "MUHASEBE & FİNANS", allowedRoles: ["muhasebe", "finans", "yönetici", "admin"], items: [ 
+        { href: "/dashboard/finance/invoices", label: "Faturalar & İrsaliyeler", icon: FileText }, 
+        { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet }, 
+        { href: "/dashboard/finance/payroll", label: "Puantaj & Bordro", icon: Calculator } 
+    ] },
     { title: "SATIŞ TAKİP", allowedRoles: ["satış", "pazarlama", "bayi","satın", "üretim","muhasebe","proje" ], items: [ { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart }, { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package }, { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp }, { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users }, ] }
   ]
 
