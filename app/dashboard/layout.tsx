@@ -29,7 +29,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // 🚀 SİPARİŞ SEPETİ STATELERİ
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false)
   const [orderItems, setOrderItems] = useState<any[]>([]) 
@@ -37,7 +36,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [orderSubmitting, setOrderSubmitting] = useState(false)
   const [myOrders, setMyOrders] = useState<any[]>([])
 
-  // 🚀 YENİ: ANLIK VE SESLİ BİLDİRİM STATELERİ
   const [notifications, setNotifications] = useState<any[]>([])
 
   useEffect(() => {
@@ -49,112 +47,116 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       else document.body.style.overflow = 'unset'
   }, [isMobileMenuOpen])
 
-  // 🚀 ANLIK RADAR (REALTIME LİSTENER) - Her sayfada çalışır!
+  const playSound = () => {
+      const audio = document.getElementById('notif-sound') as HTMLAudioElement;
+      if (audio) {
+          audio.currentTime = 0;
+          audio.play().catch(e => console.warn("Tarayıcı sesi engelledi. Ekrana bir kez tıklayın:", e));
+      }
+  }
+
+  // 🚀 ULTRA MEGA ANLIK RADAR (TÜM SİSTEMİ DİNLER)
   useEffect(() => {
       if (!profile?.id) return;
 
-      const channel = supabase.channel('global_notifications')
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notes' }, (payload) => {
-              const note = payload.new;
-              // Kendi attığım mesajda zil çalmasın
-              if (note.user_id === profile.id) return; 
-              
-              // Bana özel mesajsa veya genel panoya atıldıysa
-              if (note.receiver_id === profile.id || !note.receiver_id) {
-                  playNotificationSound();
-                  loadNotifications(profile.id, profile.department || "");
+      const channel = supabase.channel('global_all_tables')
+      .on('postgres_changes', { event: '*', schema: 'public' }, async (payload: any) => {
+          const table = payload.table;
+          const eventType = payload.eventType;
+          
+          // 🚀 TYPESCRIPT HATALARINI GİDEREN SİHİRLİ DOKUNUŞ (as any)
+          const newData = payload.new as any;
+          const oldData = payload.old as any;
+          
+          const dept = (profile.department || "").toLowerCase();
+          const isMaster = dept.includes('admin') || dept.includes('yönetim') || dept.includes('teknoloji');
+
+          let shouldNotify = false;
+          let notifObj: any = null;
+
+          // 1. YENİ MESAJ GELDİ Mİ?
+          if (table === 'notes' && eventType === 'INSERT') {
+              if (newData.user_id !== profile.id && (newData.receiver_id === profile.id || !newData.receiver_id)) {
+                  shouldNotify = true;
+                  const {data: u} = await supabase.from('profiles').select('first_name').eq('id', newData.user_id).single();
+                  notifObj = { id: Date.now(), type: 'msg', title: `Yeni Mesaj: ${u?.first_name || 'Biri'}`, desc: newData.content, color: 'bg-blue-100 text-blue-600', path: '/dashboard', icon: <MessageCircle className="h-4 w-4"/>, date: new Date().toISOString() };
               }
-          })
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'material_requests' }, (payload) => {
-              const dept = (profile.department || "").toLowerCase();
-              // Eğer satın alma veya adminsem, yeni sipariş gelince zil çalsın!
-              if (dept.includes('satın') || dept.includes('admin') || dept.includes('yönetim') || dept.includes('teknoloji')) {
-                  playNotificationSound();
-                  loadNotifications(profile.id, dept);
-              }
-          })
-          .subscribe();
+          }
+
+          // 2. YENİ SİPARİŞ Mİ GEÇİLDİ? (Satın Almaya Gider)
+          if (table === 'material_requests' && eventType === 'INSERT' && (dept.includes('satın') || isMaster)) {
+              shouldNotify = true;
+              notifObj = { id: Date.now(), type: 'sys', title: newData.priority === 'ACIL' ? '🔥 ACİL SİPARİŞ' : 'Yeni Malzeme Talebi', desc: `${newData.quantity} Adet ${newData.material_name}`, color: newData.priority === 'ACIL' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600', path: '/dashboard/purchases', icon: <ShoppingCart className="h-4 w-4"/>, date: new Date().toISOString() };
+          }
+
+          // 3. SİPARİŞ DURUMU MU DEĞİŞTİ? (İsteyen kişiye gider)
+          if (table === 'material_requests' && eventType === 'UPDATE' && newData.requested_by === profile.id && oldData?.status !== newData.status) {
+              shouldNotify = true;
+              notifObj = { id: Date.now(), type: 'sys', title: 'Siparişin Güncellendi', desc: `${newData.material_name} -> ${newData.status.replace('_', ' ')}`, color: 'bg-emerald-100 text-emerald-600', path: '/dashboard', icon: <Package className="h-4 w-4"/>, date: new Date().toISOString() };
+          }
+
+          // 4. YENİ SATIŞ MI EKLENDİ? (Mühendise Gider)
+          if (table === 'tracking_sales' && eventType === 'INSERT' && (dept.includes('mühendis') || dept.includes('proje') || isMaster)) {
+              shouldNotify = true;
+              notifObj = { id: Date.now(), type: 'sys', title: 'Yeni Satış Geldi!', desc: `${newData.customer_name} firmasına satış yapıldı.`, color: 'bg-indigo-100 text-indigo-600', path: '/dashboard/engineering/projects', icon: <TrendingUp className="h-4 w-4"/>, date: new Date().toISOString() };
+          }
+
+          // 5. YENİ İŞ EMRİ Mİ AÇILDI? (Üretime Gider)
+          if (table === 'projects' && eventType === 'INSERT' && (dept.includes('üretim') || dept.includes('imalat') || isMaster)) {
+              shouldNotify = true;
+              notifObj = { id: Date.now(), type: 'sys', title: 'Yeni İş Emri İndi', desc: `Proje No: ${newData.project_code}`, color: 'bg-orange-100 text-orange-600', path: '/dashboard/production-screen', icon: <HardHat className="h-4 w-4"/>, date: new Date().toISOString() };
+          }
+
+          if (shouldNotify && notifObj) {
+              playSound();
+              setNotifications(prev => [notifObj, ...prev]);
+          }
+      })
+      .subscribe();
 
       return () => { supabase.removeChannel(channel); }
   }, [profile])
 
-  // 🔊 BİLDİRİM SESİNİ ÇALAN FONKSİYON
-  const playNotificationSound = () => {
-      try {
-          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-          audio.volume = 0.6; // Çok bağırmasın diye ses %60
-          const playPromise = audio.play();
-          // Tarayıcı güvenlik engellerine takılmaması için hata yakalayıcı
-          if (playPromise !== undefined) {
-              playPromise.catch(error => console.log("Ses çalınamadı (Kullanıcı henüz sayfaya tıklamamış olabilir):", error));
-          }
-      } catch (e) { console.error("Ses yüklenemedi", e) }
-  }
-
-  // 🚀 VERİTABANINDAN BİLDİRİMLERİ TOPLAYAN AKILLI MOTOR
   const loadNotifications = async (userId: string, dept: string) => {
-      const notifs: any[] = [];
+      let notifs: any[] = [];
       const userDept = dept.toLowerCase();
+      const isMaster = userDept.includes('admin') || userDept.includes('yönetim') || userDept.includes('teknoloji');
 
-      // 1. OkuNMAMIŞ Özel Mesajlar
       const { data: dms } = await supabase.from('notes').select('*, profiles!notes_user_id_fkey(first_name, last_name)').eq('receiver_id', userId).eq('is_read', false);
-      if (dms) {
-          dms.forEach(dm => notifs.push({
-              id: `dm_${dm.id}`, type: 'message',
-              title: `Yeni Mesaj: ${dm.profiles?.first_name} ${dm.profiles?.last_name}`,
-              desc: dm.content.length > 25 ? dm.content.substring(0, 25) + '...' : dm.content,
-              date: dm.created_at, color: 'bg-blue-100 text-blue-600', icon: <MessageCircle className="h-4 w-4" />
-          }))
-      }
+      if (dms) { dms.forEach(dm => notifs.push({ id: `dm_${dm.id}`, type: 'msg', title: `Mesaj: ${dm.profiles?.first_name}`, desc: dm.content, date: dm.created_at, color: 'bg-blue-100 text-blue-600', path: '/dashboard', icon: <MessageCircle className="h-4 w-4" /> })) }
 
-      // 2. OkuNMAMIŞ Genel Pano Mesajları
       const lastRead = localStorage.getItem(`lastReadGenel_${userId}`);
       let gq = supabase.from('notes').select('*, profiles!notes_user_id_fkey(first_name, last_name)').is('receiver_id', null);
       if (lastRead) gq = gq.gt('created_at', lastRead);
       const { data: gms } = await gq;
-      if (gms) {
-          gms.forEach(gm => {
-              if (gm.user_id !== userId) {
-                  notifs.push({
-                      id: `gm_${gm.id}`, type: 'message',
-                      title: `Genel Pano: ${gm.profiles?.first_name}`,
-                      desc: gm.content.length > 25 ? gm.content.substring(0, 25) + '...' : gm.content,
-                      date: gm.created_at, color: 'bg-emerald-100 text-emerald-600', icon: <Users className="h-4 w-4" />
-                  })
-              }
-          })
-      }
+      if (gms) { gms.forEach(gm => { if (gm.user_id !== userId) { notifs.push({ id: `gm_${gm.id}`, type: 'msg', title: `Genel Pano: ${gm.profiles?.first_name}`, desc: gm.content, date: gm.created_at, color: 'bg-emerald-100 text-emerald-600', path: '/dashboard', icon: <Users className="h-4 w-4" /> }) } }) }
 
-      // 3. Satın Alma / Admin için Bekleyen Siparişler
-      if (userDept.includes('satın') || userDept.includes('admin') || userDept.includes('yönetim') || userDept.includes('teknoloji')) {
+      if (userDept.includes('satın') || isMaster) {
           const { data: reqs } = await supabase.from('material_requests').select('*, profiles(first_name)').eq('status', 'BEKLIYOR');
-          if (reqs) {
-              reqs.forEach(req => notifs.push({
-                  id: `req_${req.id}`, type: 'system',
-                  title: req.priority === 'ACIL' ? '🔥 ACİL SİPARİŞ' : 'Yeni Sipariş Talebi',
-                  desc: `${req.profiles?.first_name || 'Biri'} ${req.quantity} adet ${req.material_name} istiyor.`,
-                  date: req.created_at, color: req.priority === 'ACIL' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600', icon: <ShoppingCart className="h-4 w-4" />
-              }))
-          }
+          if (reqs) { reqs.forEach(req => notifs.push({ id: `req_${req.id}`, type: 'sys', title: req.priority === 'ACIL' ? '🔥 ACİL SİPARİŞ' : 'Sipariş Talebi', desc: `${req.profiles?.first_name || 'Biri'} ${req.quantity} adet ${req.material_name} istiyor.`, date: req.created_at, color: req.priority === 'ACIL' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600', path: '/dashboard/purchases', icon: <ShoppingCart className="h-4 w-4" /> })) }
       }
 
-      // Tarihe göre en yenisi en üstte olacak şekilde sırala
+      if (userDept.includes('mühendis') || userDept.includes('proje') || isMaster) {
+          const { data: sales } = await supabase.from('tracking_sales').select('*').eq('status', 'BEKLIYOR');
+          if (sales) { sales.forEach(s => notifs.push({ id: `sale_${s.id}`, type: 'sys', title: 'Yeni Satış', desc: `${s.customer_name} firmasına. Onayınız bekleniyor.`, date: s.created_at, color: 'bg-indigo-100 text-indigo-600', path: '/dashboard/engineering/projects', icon: <TrendingUp className="h-4 w-4" /> })) }
+      }
+
+      const clearTime = localStorage.getItem(`clearedNotifsTime_${userId}`);
+      if (clearTime) {
+          notifs = notifs.filter(n => n.type === 'msg' || new Date(n.date).getTime() > new Date(clearTime).getTime());
+      }
+
       notifs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setNotifications(notifs);
   }
 
-  // 🚀 KALICI OLARAK OKUNDU İŞARETLE (VERİTABANINA YAZAR)
   const handleMarkAllRead = async () => {
       if (!profile?.id) return;
-      
-      // 1. Özel Mesajları veritabanında kalıcı okundu yap
       await supabase.from('notes').update({ is_read: true }).eq('receiver_id', profile.id).eq('is_read', false);
-      
-      // 2. Genel panonun son okunma tarihini kaydet
       localStorage.setItem(`lastReadGenel_${profile.id}`, new Date().toISOString());
-
-      // 3. Sadece mesajları listeden sil, sistem bildirimleri (siparişler) kalmaya devam etsin (çünkü onlar iş!)
-      setNotifications(prev => prev.filter(n => n.type !== 'message'));
+      localStorage.setItem(`clearedNotifsTime_${profile.id}`, new Date().toISOString());
+      setNotifications([]);
+      setIsNotifOpen(false);
   }
 
   const fetchUserData = async () => {
@@ -164,7 +166,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (data) {
             setProfile({ ...data, id: user.id })
             fetchMyOrders(user.id)
-            loadNotifications(user.id, data.department || "") // Profile yüklenince bildirimleri de yükle
+            loadNotifications(user.id, data.department || "") 
         } else {
             setProfile({ id: user.id, first_name: "Kaya", last_name: "", department: "Teknoloji Yön." }) 
             loadNotifications(user.id, "Teknoloji Yön.")
@@ -233,6 +235,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen w-full bg-[#f4f7f9] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-50 via-[#f0f4f8] to-slate-100 flex font-sans overflow-x-hidden">
       
+      {/* 🔊 GİZLİ SES OYNATICISI */}
+      <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+
       {isMobileMenuOpen && (<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden animate-in fade-in" onClick={() => setIsMobileMenuOpen(false)}></div>)}
 
       {/* SOL MENÜ */}
@@ -272,13 +277,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       
       <main className="flex-1 lg:pl-[300px] flex flex-col min-h-screen relative w-full overflow-x-hidden">
         
-        {/* MOBİL ÜST BAR */}
         <div className="lg:hidden flex items-center justify-between p-4 bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 shadow-sm">
             <div className="flex items-center gap-3">
                 <button onClick={() => setIsMobileMenuOpen(true)} className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-600 hover:bg-indigo-100 transition-colors"><Menu className="h-6 w-6" /></button>
                 <Image src="/buvisan.png" alt="Logo" width={100} height={30} className="object-contain" />
             </div>
-            
             <div className="flex items-center gap-2">
                 <button onClick={() => setIsOrderModalOpen(true)} className="p-2.5 bg-blue-600 text-white rounded-xl shadow-md active:scale-95 transition-transform" title="Sipariş Ver"><ShoppingCart className="h-5 w-5" /></button>
                 <button onClick={() => { fetchMyOrders(profile?.id); setIsTrackingModalOpen(true); }} className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl shadow-sm active:scale-95 transition-transform" title="Sipariş Takip"><ListOrdered className="h-5 w-5" /></button>
@@ -289,9 +292,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
         </div>
 
-        {/* MASAÜSTÜ HEADER */}
         <header className="hidden lg:flex h-20 items-center justify-between px-8 mt-5 mx-8 bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-[2rem] sticky top-5 z-30">
-          
           <div className="flex items-center gap-4 shrink-0">
              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)] animate-pulse"></div>
              <span className="font-black text-slate-700 text-sm uppercase tracking-widest">Sistem Çevrimiçi</span>
@@ -307,8 +308,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div className="flex items-center gap-5 shrink-0">
-             
-             {/* 🚀 BİLDİRİM ÇANI VE AÇILIR MENÜ */}
              <div className="relative">
                  <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false)}} className={`h-12 w-12 rounded-2xl border flex items-center justify-center transition-all relative ${isNotifOpen ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-inner' : 'bg-white/80 border-white text-slate-500 hover:text-blue-600 hover:shadow-md'}`}>
                     <Bell className="h-5 w-5" />
@@ -350,7 +349,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                          {notifications.length > 0 && (
                              <div className="p-3 border-t border-slate-100 text-center bg-slate-50/50">
-                                 <button onClick={handleMarkAllRead} className="text-xs font-black text-blue-600 hover:text-blue-800 transition-colors w-full p-2 rounded-xl hover:bg-blue-50/50">Tüm Mesajları Okundu İşaretle</button>
+                                 <button onClick={handleMarkAllRead} className="text-xs font-black text-blue-600 hover:text-blue-800 transition-colors w-full p-2 rounded-xl hover:bg-blue-50/50">Tüm Bildirimleri Okundu İşaretle</button>
                              </div>
                          )}
                      </div>
@@ -390,7 +389,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       </main>
 
-      {/* SİPARİŞ MODALLARI KISMI (AYNI KALDI) */}
       <Dialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen}>
           <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none shadow-2xl z-[100] flex flex-col max-h-[95vh] md:max-h-[90vh]">
               <DialogHeader className="shrink-0 mb-4"><DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ShoppingCart className="text-blue-500"/> Çoklu Sipariş İsteği</DialogTitle><p className="text-xs font-bold text-slate-500 mt-1">Malzemeleri listeye ekleyin, işiniz bitince topluca satın almaya iletin.</p></DialogHeader>
@@ -406,7 +404,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           <div className="space-y-2 col-span-1"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mevcut Stok</Label><Input type="number" value={orderForm.current_stock} onChange={e=>setOrderForm({...orderForm, current_stock: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11 bg-white" /></div>
                           <div className="space-y-2 col-span-1"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">İstenen Miktar</Label><Input type="number" min="1" value={orderForm.quantity} onChange={e=>setOrderForm({...orderForm, quantity: e.target.value})} className="font-black text-blue-600 border-blue-200 focus:ring-blue-500 h-11 bg-white" /></div>
                       </div>
-                      <div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sipariş Açıklaması / Not</Label><Textarea placeholder="Malzemeyi nerede kullanacağınızı veya özelliklerini yazın..." value={orderForm.description} onChange={e=>setOrderForm({...orderForm, description: e.target.value})} className="font-medium border-blue-200 focus:ring-blue-500 min-h-[50px] resize-none bg-white" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sipariş Açıklaması / Not</Label><Textarea placeholder="Malzemeyi nerede kullanacağınızı veya özelliklerini yazın..." value={orderForm.description} onChange={(e: any) => setOrderForm({...orderForm, description: e.target.value})} className="font-medium border-blue-200 focus:ring-blue-500 min-h-[50px] resize-none bg-white" /></div>
                       <Button type="button" onClick={handleAddOrderItem} className="w-full h-12 bg-blue-100 hover:bg-blue-200 text-blue-700 font-black text-sm rounded-xl transition-all flex items-center justify-center gap-2 mt-2"><Plus className="h-5 w-5" /> LİSTEYE (SEPETE) EKLE</Button>
                   </div>
                   {orderItems.length > 0 && (
