@@ -26,9 +26,7 @@ export default function TrackingSalesPage() {
   const [isAdding, setIsAdding] = useState(false)
   const [saving, setSaving] = useState(false)
   
-  // 🚀 ARTIK ÇOKLU SATIR DÜZENLENDİĞİ İÇİN ARRAY TUTUYORUZ
   const [editingIds, setEditingIds] = useState<number[] | null>(null)
-  
   const [searchTerm, setSearchTerm] = useState("") 
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState<{index: number, isOpen: boolean}>({ index: -1, isOpen: false })
 
@@ -97,7 +95,6 @@ export default function TrackingSalesPage() {
 
   const getGrandTotal = () => items.reduce((sum, item) => sum + item.total_amount, 0)
 
-  // 🚀 TABLODA GÖSTERİRKEN AKILLI GRUPLAMA (Aynı sepettekileri birleştirir)
   const fetchData = async () => {
     setLoading(true)
     const { data: salesData } = await supabase.from('tracking_sales').select(`*, tracking_personnel(full_name), tracking_products(brand, model)`).order('sale_date', { ascending: false })
@@ -129,11 +126,23 @@ export default function TrackingSalesPage() {
     }
     
     if (personnelData) setPersonnel(personnelData)
-    if (productsData) setProducts(productsData)
+
+    // 🚀 ÜRÜNLERİ AÇILIR LİSTE İÇİN TEKİLLEŞTİR (Kopyaları Gizle)
+    if (productsData) {
+        const uniqueProductsMap = new Map();
+        productsData.forEach((p: any) => {
+            // Marka, Model ve Fiyatı aynı olanları tek bir kayıt gibi düşünür
+            const key = `${p.brand.trim().toUpperCase()}_${p.model?.trim().toUpperCase()}_${p.price}`;
+            if (!uniqueProductsMap.has(key)) {
+                uniqueProductsMap.set(key, p);
+            }
+        });
+        setProducts(Array.from(uniqueProductsMap.values()));
+    }
+
     setLoading(false)
   }
 
-  // 🚀 DÜZENLEMEYE BASINCA TÜM SEPETİ GERİ YÜKLE
   const openEdit = (saleGroup: any) => {
       const rate = rates[currency] || 1
       setForm({
@@ -152,7 +161,7 @@ export default function TrackingSalesPage() {
       }))
       
       setItems(loadedItems)
-      setEditingIds(saleGroup.all_ids) // O sepete ait tüm satır ID'lerini hafızaya al
+      setEditingIds(saleGroup.all_ids) 
       setIsAdding(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -168,12 +177,10 @@ export default function TrackingSalesPage() {
     const rate = rates[currency] || 1
 
     try {
-        // 🚀 DÜZENLEME İŞLEMİYSE, ESKİ SEPETİ TAMAMEN SİL, YENİSİNİ YAZ
         if (editingIds && editingIds.length > 0) {
             await supabase.from('tracking_sales').delete().in('id', editingIds)
         } 
 
-        // ÇOKLU EKLEME (SEPET)
         const insertPromises = items.map(async (item) => {
             let finalProductId = item.product_id
             if (!finalProductId) {
@@ -208,7 +215,6 @@ export default function TrackingSalesPage() {
     }
   }
 
-  // 🚀 SİLİNCE TÜM SEPETİ SİL
   const handleDelete = async (ids: number[]) => {
     if(!confirm("Bu satış kaydını (içindeki tüm ürünlerle birlikte) silmek istediğinize emin misiniz?")) return;
     await supabase.from('tracking_sales').delete().in('id', ids)
@@ -313,7 +319,7 @@ export default function TrackingSalesPage() {
                                           className="h-12 rounded-xl bg-white border-amber-200 focus:ring-amber-500 font-bold text-sm"
                                       />
                                       {isProductDropdownOpen.isOpen && isProductDropdownOpen.index === index && item.brand && (
-                                          <div className="absolute z-50 w-full sm:w-[200%] mt-1 bg-white rounded-xl border border-slate-200 shadow-xl max-h-48 overflow-y-auto p-1">
+                                          <div className="absolute z-50 w-full sm:w-[200%] mt-1 bg-white rounded-xl border border-slate-200 shadow-2xl max-h-56 overflow-y-auto p-1.5 custom-scrollbar">
                                               {products.filter(p => p.brand.toLowerCase().includes(item.brand.toLowerCase())).map(p => (
                                                   <button key={p.id} type="button" onClick={() => { 
                                                       const productRate = rates[currency] || 1;
@@ -325,10 +331,16 @@ export default function TrackingSalesPage() {
                                                       setItems(newItems);
                                                       updateItem(index, 'quantity', newItems[index].quantity) 
                                                       setIsProductDropdownOpen({index:-1, isOpen: false}); 
-                                                  }} className="w-full text-left px-3 py-2 text-xs md:text-sm font-bold text-slate-700 hover:bg-amber-50 rounded-lg">
-                                                      {p.brand} - {p.model}
+                                                  }} className="w-full text-left px-3 py-2.5 text-xs md:text-sm font-bold text-slate-700 hover:bg-amber-50 rounded-lg flex justify-between items-center group/btn transition-colors border border-transparent hover:border-amber-100 mb-1">
+                                                      <span className="truncate pr-2">{p.brand} <span className="text-slate-400 font-medium ml-1">({p.model})</span></span>
+                                                      <span className="text-amber-600 tabular-nums shrink-0 opacity-70 group-hover/btn:opacity-100 transition-opacity bg-white px-2 py-0.5 rounded shadow-sm">
+                                                          {p.price.toLocaleString('tr-TR', {style:'currency', currency:'TRY'})}
+                                                      </span>
                                                   </button>
                                               ))}
+                                              {products.filter(p => p.brand.toLowerCase().includes(item.brand.toLowerCase())).length === 0 && (
+                                                  <div className="p-3 text-center text-xs font-bold text-slate-400">Ürün bulunamadı. Kendi adınızı yazıp devam edebilirsiniz.</div>
+                                              )}
                                           </div>
                                       )}
                                   </div>
