@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Trash2, Send, Loader2, MessageSquareQuote, Link as LinkIcon, Users, Smile, X, ArrowLeft, Reply } from "lucide-react"
+import { Trash2, Send, Loader2, MessageSquareQuote, Link as LinkIcon, Users, Smile, X, ArrowLeft, Reply, CheckCheck, Eye } from "lucide-react"
 
 export function DashboardNotes() {
   const [notes, setNotes] = useState<any[]>([])
@@ -20,14 +20,12 @@ export function DashboardNotes() {
   const [replyTo, setReplyTo] = useState<any>(null) 
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
 
-  // 🚀 İŞTE YENİ SİLAHIMIZ: ANLIK TETİKLEYİCİ (TRIGGER)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const EMOJIS = ["👍", "❤️", "😂", "🚀", "🔥", "👀"]
 
-  // 1. İLK VERİLERİ YÜKLE
   useEffect(() => {
     const init = async () => {
         const { data: { user } } = await supabase.auth.getUser()
@@ -42,23 +40,17 @@ export function DashboardNotes() {
     init()
   }, [])
 
-  // 🚀 2. ULTRA MEGA ANLIK DİNLEYİCİ (Kanalı kur ve zile bas)
   useEffect(() => {
     if (!currentUser) return;
-
-    // Veritabanında en ufak bir hareket olduğunda (mesaj, emoji vs.) zile basar!
     const channel = supabase
       .channel('public:notes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => {
-          setRefreshTrigger(prev => prev + 1) // ZİL ÇALDI! Taze veriyi çek!
+          setRefreshTrigger(prev => prev + 1)
       })
       .subscribe()
-
     return () => { supabase.removeChannel(channel) }
   }, [currentUser])
 
-
-  // 🚀 3. VERİLERİ TAZELE (Zil çalınca, sohbete girince veya çıkınca otomatik çalışır)
   useEffect(() => {
     if (activeView === "chat" && activeChat) {
         fetchNotes()
@@ -67,8 +59,6 @@ export function DashboardNotes() {
     loadUnreadCounts()
   }, [activeView, activeChat, refreshTrigger, currentUser])
 
-
-  // Sayfa sonuna kaydır
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [notes])
@@ -77,11 +67,26 @@ export function DashboardNotes() {
   const fetchNotes = async () => {
     if (!currentUser || !activeChat) return;
     let query = supabase.from('notes').select(`*, profiles (first_name, last_name, department), projects (project_code), reply_to:reply_to_id ( content, profiles (first_name, last_name) )`).order('created_at', { ascending: true });
+    
     if (activeChat === "genel") query = query.is('receiver_id', null);
     else query = query.or(`and(user_id.eq.${currentUser.id},receiver_id.eq.${activeChat}),and(user_id.eq.${activeChat},receiver_id.eq.${currentUser.id})`);
     
     const { data } = await query.limit(50);
-    if (data) setNotes(data);
+    
+    if (data) {
+        setNotes(data);
+        
+        // 🚀 GRUP (GENEL PANO) İÇİN GÖRÜLDÜ İŞARETLEME
+        if (activeChat === "genel") {
+            const unreadGenel = data.filter(n => n.user_id !== currentUser.id && !(n.read_by || []).includes(currentUser.id));
+            if (unreadGenel.length > 0) {
+                unreadGenel.forEach(async (note) => {
+                    const newReadBy = [...(note.read_by || []), currentUser.id];
+                    await supabase.from('notes').update({ read_by: newReadBy }).eq('id', note.id);
+                });
+            }
+        }
+    }
   }
 
   const loadUnreadCounts = async () => {
@@ -104,6 +109,7 @@ export function DashboardNotes() {
     if (chatId === "genel") {
         localStorage.setItem(`lastReadGenel_${currentUser.id}`, new Date().toISOString());
     } else {
+        // 🚀 1'E 1 SOHBET İÇİN MAVİ TIK (Okundu) İŞARETLEME
         await supabase.from('notes').update({ is_read: true }).eq('receiver_id', currentUser.id).eq('user_id', chatId).eq('is_read', false);
     }
   }
@@ -117,12 +123,13 @@ export function DashboardNotes() {
         project_id: selectedProjectId ? Number(selectedProjectId) : null,
         receiver_id: activeChat === "genel" ? null : activeChat,
         reply_to_id: replyTo ? replyTo.id : null,
-        is_read: false 
+        is_read: false,
+        read_by: [] // Grup sohbeti için boş diziyle başlar
     }
     const { error } = await supabase.from('notes').insert([payload])
     if (!error) { 
         setNewNote(""); setSelectedProjectId(""); setReplyTo(null); 
-        fetchNotes(); // 🚀 Sen mesaj atınca anında ekrana düşmesi için!
+        fetchNotes(); 
     }
     setLoading(false)
   }
@@ -139,6 +146,19 @@ export function DashboardNotes() {
     if (reactions[emoji].length === 0) delete reactions[emoji];
     await supabase.from('notes').update({ reactions }).eq('id', noteId);
     setActiveEmojiNoteId(null);
+  }
+
+  // 🚀 WHATSAPP TARZI TARİH AYIRICI (Dün, Bugün vb.)
+  const formatMessageDate = (dateStr: string) => {
+      const date = new Date(dateStr);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      if (date.toDateString() === today.toDateString()) return "Bugün";
+      if (date.toDateString() === yesterday.toDateString()) return "Dün";
+
+      return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
   }
 
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
@@ -183,33 +203,84 @@ export function DashboardNotes() {
                   <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-black text-xs shrink-0 ${activeChat === "genel" ? 'bg-emerald-500' : 'bg-slate-800'}`}>{activeChat === "genel" ? <Users className="h-5 w-5" /> : `${activeChatUser?.first_name?.charAt(0)}${activeChatUser?.last_name?.charAt(0)}`}</div>
                   <div className="flex flex-col overflow-hidden"><h2 className="text-sm font-black text-slate-800 truncate">{activeChat === "genel" ? 'Genel Pano' : `${activeChatUser?.first_name} ${activeChatUser?.last_name}`}</h2><p className="text-[9px] font-bold text-emerald-600 truncate">{activeChat === "genel" ? 'Tüm Şirket' : activeChatUser?.department}</p></div>
               </div>
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar bg-cover bg-center bg-[#e5ddd5]/30 relative" style={{backgroundImage: `url('https://i.pinimg.com/1200x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')`, backgroundBlendMode: 'soft-light'}}>
-                  {notes.map((note) => {
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 custom-scrollbar bg-cover bg-center bg-[#e5ddd5]/30 relative flex flex-col gap-2 pb-6" style={{backgroundImage: `url('https://i.pinimg.com/1200x/8c/98/99/8c98994518b575bfd8c949e91d20548b.jpg')`, backgroundBlendMode: 'soft-light'}}>
+                  {notes.map((note, index) => {
                       const isMe = note.user_id === currentUser?.id;
                       const isEmojiMenuOpen = activeEmojiNoteId === note.id;
+                      
+                      // 🚀 TARİH AYIRICI (WhatsApp Mantığı)
+                      const currentNoteDate = new Date(note.created_at).toDateString();
+                      const prevNoteDate = index > 0 ? new Date(notes[index - 1].created_at).toDateString() : null;
+                      const showDateLabel = currentNoteDate !== prevNoteDate;
+
                       return (
-                      <div key={note.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} w-full animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                          {!isMe && activeChat === "genel" && <span className="text-[9px] font-black text-slate-500 ml-2 mb-0.5">{note.profiles?.first_name}</span>}
-                          <div className={`relative max-w-[85%] p-2.5 rounded-2xl shadow-sm border group ${isMe ? 'bg-[#dcf8c6] border-[#c0e8a8] rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
-                              {note.reply_to && <div className="bg-black/5 border-l-4 border-emerald-500 p-1.5 rounded-lg mb-1.5 text-[10px] text-slate-700 font-medium"><span className="font-black text-emerald-600 block">{note.reply_to.profiles?.first_name || "Biri"}</span><p className="truncate opacity-80">{note.reply_to.content}</p></div>}
-                              {note.projects && <div className="flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded mb-1.5 bg-blue-50 text-blue-700 w-max"><LinkIcon className="h-2.5 w-2.5" /> PROJE: {note.projects.project_code}</div>}
-                              <p className="text-xs text-slate-800 whitespace-pre-wrap font-medium pr-10">{note.content}</p>
-                              <span className="absolute bottom-1 right-1.5 text-[8px] font-bold text-slate-400">{formatTime(note.created_at)}</span>
-                              {note.reactions && Object.keys(note.reactions).length > 0 && (
-                                  <div className="absolute -bottom-3 left-2 flex gap-1 bg-white p-0.5 rounded-full shadow-sm border border-slate-200 z-10">
-                                      {Object.entries(note.reactions).map(([emoji, userIds]: [string, any]) => {
-                                          if (!userIds || userIds.length === 0) return null;
-                                          const names = userIds.map((uid: string) => users.find(u => u.id === uid)?.first_name || "Biri").join(", ");
-                                          return <button key={emoji} onClick={() => addReaction(note.id, emoji, note.reactions)} title={names} className="text-[9px] bg-slate-50 rounded-full px-1.5 flex items-center gap-1">{emoji} <span className="text-slate-400 font-bold">{userIds.length}</span></button>
-                                      })}
+                      <div key={note.id} className="flex flex-col w-full">
+                          
+                          {/* TARİH ETİKETİ */}
+                          {showDateLabel && (
+                              <div className="flex justify-center w-full my-3">
+                                  <span className="bg-white/90 backdrop-blur-sm text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 py-1 rounded-full shadow-sm border border-slate-200">
+                                      {formatMessageDate(note.created_at)}
+                                  </span>
+                              </div>
+                          )}
+
+                          <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} w-full animate-in fade-in duration-300 mb-1`}>
+                              {!isMe && activeChat === "genel" && <span className="text-[9px] font-black text-slate-500 ml-2 mb-0.5">{note.profiles?.first_name}</span>}
+                              
+                              <div className={`relative max-w-[85%] p-2.5 rounded-2xl shadow-sm border group ${isMe ? 'bg-[#dcf8c6] border-[#c0e8a8] rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
+                                  {note.reply_to && <div className="bg-black/5 border-l-4 border-emerald-500 p-1.5 rounded-lg mb-1.5 text-[10px] text-slate-700 font-medium"><span className="font-black text-emerald-600 block">{note.reply_to.profiles?.first_name || "Biri"}</span><p className="truncate opacity-80">{note.reply_to.content}</p></div>}
+                                  {note.projects && <div className="flex items-center gap-1 text-[8px] font-black uppercase px-1.5 py-0.5 rounded mb-1.5 bg-blue-50 text-blue-700 w-max"><LinkIcon className="h-2.5 w-2.5" /> PROJE: {note.projects.project_code}</div>}
+                                  
+                                  {/* İÇERİK VE ZAMAN/GÖRÜLDÜ YERLEŞİMİ */}
+                                  <div className="flex flex-col relative min-w-[70px]">
+                                      <p className="text-xs text-slate-800 whitespace-pre-wrap font-medium pr-12 pb-3">{note.content}</p>
+                                      
+                                      <div className="absolute bottom-0 right-0 flex items-center gap-1 text-[9px] font-bold text-slate-400">
+                                          <span>{formatTime(note.created_at)}</span>
+                                          
+                                          {/* 🚀 MAVİ TIK (1'E 1 SOHBET) */}
+                                          {isMe && activeChat !== "genel" && (
+                                              <CheckCheck className={`h-3.5 w-3.5 ${note.is_read ? 'text-blue-500' : 'text-slate-400'}`} />
+                                          )}
+                                      </div>
                                   </div>
-                              )}
-                              <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity ${isEmojiMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isMe ? '-left-[5.5rem]' : '-right-[5.5rem]'} z-20`}>
-                                  <button onClick={() => setReplyTo(note)} className="p-1.5 bg-white text-slate-500 hover:text-blue-500 rounded-full shadow-sm border border-slate-200"><Reply className="h-3.5 w-3.5" /></button>
-                                  <div className="relative"><button onClick={() => setActiveEmojiNoteId(isEmojiMenuOpen ? null : note.id)} className={`p-1.5 bg-white text-slate-500 hover:text-amber-500 rounded-full shadow-sm border border-slate-200 ${isEmojiMenuOpen ? 'bg-amber-50 text-amber-500' : ''}`}><Smile className="h-3.5 w-3.5" /></button>
-                                      {isEmojiMenuOpen && <div className={`absolute top-full mt-1 flex bg-white p-1.5 rounded-2xl shadow-xl border border-slate-100 gap-1 z-50 ${isMe ? 'right-0' : 'left-0'}`}>{EMOJIS.map(e => <button key={e} onClick={() => addReaction(note.id, e, note.reactions)} className="hover:bg-slate-100 p-1.5 rounded-xl text-lg transition-transform hover:scale-125">{e}</button>)}</div>}
+
+                                  {/* 🚀 GRUP SOHBETİ KİMLER GÖRDÜ LİSTESİ */}
+                                  {isMe && activeChat === "genel" && note.read_by && note.read_by.length > 0 && (
+                                      <div className="absolute -bottom-3 -right-2 flex items-center gap-1 bg-white border border-slate-200 rounded-full px-1.5 py-0.5 shadow-sm group/seen cursor-help z-30">
+                                          <Eye className="h-3 w-3 text-blue-500" />
+                                          <span className="text-[9px] font-black text-slate-500">{note.read_by.length}</span>
+                                          
+                                          {/* KİMLER GÖRDÜ TOOLTIP */}
+                                          <div className="absolute bottom-full right-0 mb-2 hidden group-hover/seen:flex flex-col bg-slate-800 text-white text-[10px] p-2.5 rounded-xl shadow-xl w-max max-w-[200px] z-50">
+                                              <span className="font-black text-blue-300 mb-1.5 border-b border-slate-600 pb-1 uppercase tracking-widest">Okuyanlar:</span>
+                                              <div className="flex flex-col gap-1 max-h-32 overflow-y-auto custom-scrollbar">
+                                                  {note.read_by.map((uid: string) => {
+                                                      const reader = users.find(u => u.id === uid);
+                                                      return <span key={uid} className="font-medium">{reader?.first_name} {reader?.last_name}</span>
+                                                  })}
+                                              </div>
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  {note.reactions && Object.keys(note.reactions).length > 0 && (
+                                      <div className="absolute -bottom-3 left-2 flex gap-1 bg-white p-0.5 rounded-full shadow-sm border border-slate-200 z-10">
+                                          {Object.entries(note.reactions).map(([emoji, userIds]: [string, any]) => {
+                                              if (!userIds || userIds.length === 0) return null;
+                                              const names = userIds.map((uid: string) => users.find(u => u.id === uid)?.first_name || "Biri").join(", ");
+                                              return <button key={emoji} onClick={() => addReaction(note.id, emoji, note.reactions)} title={names} className="text-[9px] bg-slate-50 rounded-full px-1.5 flex items-center gap-1">{emoji} <span className="text-slate-400 font-bold">{userIds.length}</span></button>
+                                          })}
+                                      </div>
+                                  )}
+                                  <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity ${isEmojiMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} ${isMe ? '-left-[5.5rem]' : '-right-[5.5rem]'} z-20`}>
+                                      <button onClick={() => setReplyTo(note)} className="p-1.5 bg-white text-slate-500 hover:text-blue-500 rounded-full shadow-sm border border-slate-200"><Reply className="h-3.5 w-3.5" /></button>
+                                      <div className="relative"><button onClick={() => setActiveEmojiNoteId(isEmojiMenuOpen ? null : note.id)} className={`p-1.5 bg-white text-slate-500 hover:text-amber-500 rounded-full shadow-sm border border-slate-200 ${isEmojiMenuOpen ? 'bg-amber-50 text-amber-500' : ''}`}><Smile className="h-3.5 w-3.5" /></button>
+                                          {isEmojiMenuOpen && <div className={`absolute top-full mt-1 flex bg-white p-1.5 rounded-2xl shadow-xl border border-slate-100 gap-1 z-50 ${isMe ? 'right-0' : 'left-0'}`}>{EMOJIS.map(e => <button key={e} onClick={() => addReaction(note.id, e, note.reactions)} className="hover:bg-slate-100 p-1.5 rounded-xl text-lg transition-transform hover:scale-125">{e}</button>)}</div>}
+                                      </div>
+                                      {isMe && <button onClick={() => deleteNote(note.id)} className="p-1.5 bg-white text-slate-500 hover:text-rose-500 rounded-full shadow-sm border border-slate-200"><Trash2 className="h-3.5 w-3.5" /></button>}
                                   </div>
-                                  {isMe && <button onClick={() => deleteNote(note.id)} className="p-1.5 bg-white text-slate-500 hover:text-rose-500 rounded-full shadow-sm border border-slate-200"><Trash2 className="h-3.5 w-3.5" /></button>}
                               </div>
                           </div>
                       </div>
