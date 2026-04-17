@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { 
   UploadCloud, FileCog, Loader2, CheckCircle2, AlertTriangle, 
-  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2, Trash2, ChevronDown, Package
+  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2, Trash2, ChevronDown, Package, Building2
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -32,8 +32,10 @@ export default function ProjectPanelPage() {
   
   const [activeSaleIds, setActiveSaleIds] = useState<number[] | null>(null)
   
-  // 🚀 YENİ: AÇILIR KAPANIR LİSTE İÇİN HAFIZA
   const [expandedSales, setExpandedSales] = useState<string[]>([])
+  
+  // 🚀 ÜRETİME İNENLER İÇİN YENİ AÇILIR KAPANIR HAFIZA
+  const [expandedProductionGroups, setExpandedProductionGroups] = useState<string[]>([])
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editProjectData, setEditProjectData] = useState<any>(null)
@@ -57,12 +59,15 @@ export default function ProjectPanelPage() {
     if (data) setCustomers(data)
   }
 
-  // 🚀 AÇ/KAPAT TETİKLEYİCİSİ
   const toggleExpand = (key: string) => {
       setExpandedSales(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
   }
 
-  // 🚀 AKILLI GRUPLAMA VE TEMİZ METİN OLUŞTURMA
+  // 🚀 ÜRETİM GRUPLARINI AÇ/KAPAT
+  const toggleProductionGroup = (name: string) => {
+      setExpandedProductionGroups(prev => prev.includes(name) ? prev.filter(g => g !== name) : [...prev, name])
+  }
+
   const fetchPendingSales = async () => {
       setLoading(true)
       const { data } = await supabase.from('tracking_sales').select('*, tracking_products(brand, model)').order('created_at', { ascending: false })
@@ -75,7 +80,7 @@ export default function ProjectPanelPage() {
                       ...curr,
                       group_key: key,
                       all_ids: [curr.id],
-                      items: [curr] // Tüm ürünleri diziye atıyoruz
+                      items: [curr] 
                   }
               } else {
                   acc[key].all_ids.push(curr.id)
@@ -84,7 +89,6 @@ export default function ProjectPanelPage() {
               return acc
           }, {})
 
-          // İş emrine atılacak yazıyı "2x 10 Ton + 1x 5 Ton" şeklinde formatla
           Object.values(grouped).forEach((group: any) => {
               group.combined_machines = group.items.map((i: any) => 
                   `${i.quantity}x ${i.tracking_products?.brand} ${i.tracking_products?.model !== '-' ? i.tracking_products?.model : ''}`.trim()
@@ -140,6 +144,17 @@ export default function ProjectPanelPage() {
     } finally {
         setLoading(false)
     }
+  }
+
+  // 🚀 ÜRETİMDEKİLERİ FİRMAYA GÖRE GRUPLA
+  const getGroupedProductionProjects = () => {
+      const grouped: Record<string, any[]> = {};
+      dataList.forEach(p => {
+          const customerName = p.customers?.name || "Bilinmeyen Müşteri";
+          if (!grouped[customerName]) grouped[customerName] = [];
+          grouped[customerName].push(p);
+      });
+      return grouped;
   }
 
   const deleteProject = async (id: number) => {
@@ -335,7 +350,6 @@ export default function ProjectPanelPage() {
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-500 align-top pt-5">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-slate-800 align-top pt-5">{sale.customer_name}</td>
                                               
-                                              {/* 🚀 İŞTE YENİ AÇILIR KAPANIR (ACCORDION) BÖLÜM */}
                                               <td className="py-4 md:py-5 px-4 align-top">
                                                   <div className="flex flex-col gap-2">
                                                       <div 
@@ -351,7 +365,6 @@ export default function ProjectPanelPage() {
                                                           <ChevronDown className={`h-4 w-4 md:h-5 md:w-5 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                                                       </div>
 
-                                                      {/* LİSTE DETAYI (Tıklanınca Açılır) */}
                                                       {isExpanded && (
                                                           <div className="flex flex-col gap-1.5 mt-2 pl-2 md:pl-3 border-l-2 border-indigo-200 animate-in slide-in-from-top-2 fade-in duration-200 pb-2">
                                                               {sale.items.map((item: any, idx: number) => (
@@ -497,11 +510,10 @@ export default function ProjectPanelPage() {
                       </div>
                   )}
 
-                  {(activeTab === "onay_listesi" || activeTab === "gonderilenler") && (
+                  {activeTab === "onay_listesi" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
                           <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2">
-                              {activeTab === "onay_listesi" ? <Clock className="text-amber-500 h-5 w-5 md:h-6 md:w-6"/> : <Factory className="text-emerald-500 h-5 w-5 md:h-6 md:w-6"/>} 
-                              {activeTab === "onay_listesi" ? "Üretim Onayı Bekleyenler" : "Sahaya İnen İşler (Üretimde)"}
+                              <Clock className="text-amber-500 h-5 w-5 md:h-6 md:w-6"/> Üretim Onayı Bekleyenler
                           </h2>
                           <div className="overflow-x-auto custom-scrollbar border border-slate-100/50 rounded-2xl">
                               <table className="w-full text-left border-collapse min-w-[800px]">
@@ -536,19 +548,17 @@ export default function ProjectPanelPage() {
                                                   </div>
                                               </td>
                                               <td className="py-4 md:py-5 px-4 text-center">
-                                                  <span className={`inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold w-max ${activeTab === 'onay_listesi' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                      {activeTab === "onay_listesi" ? <><span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-amber-500 animate-pulse"></span> Onay Bekliyor</> : <><Factory className="h-3 w-3 md:h-3.5 md:w-3.5" /> Üretimde</>}
+                                                  <span className={`inline-flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold w-max bg-amber-100 text-amber-700`}>
+                                                      <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-amber-500 animate-pulse"></span> Onay Bekliyor
                                                   </span>
                                               </td>
                                               <td className="py-4 md:py-5 px-4 text-right flex justify-end gap-2 items-center">
                                                   <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-8 md:h-9 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50">
                                                       <Edit2 className="h-3.5 w-3.5 md:mr-1.5" /> <span className="hidden md:inline">Düzenle</span>
                                                   </Button>
-                                                  {activeTab === "onay_listesi" && (
-                                                      <Button variant="outline" size="icon" onClick={() => deleteProject(item.id)} className="h-8 w-8 md:h-9 md:w-9 border-rose-200 text-rose-500 hover:bg-rose-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                                                          <Trash2 className="h-4 w-4" />
-                                                      </Button>
-                                                  )}
+                                                  <Button variant="outline" size="icon" onClick={() => deleteProject(item.id)} className="h-8 w-8 md:h-9 md:w-9 border-rose-200 text-rose-500 hover:bg-rose-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                                      <Trash2 className="h-4 w-4" />
+                                                  </Button>
                                               </td>
                                           </tr>
                                       ))}
@@ -558,10 +568,98 @@ export default function ProjectPanelPage() {
                           </div>
                       </div>
                   )}
+
+                  {/* 🚀 YENİ: ÜRETİME İNENLER (AKILLI GRUPLAMA) */}
+                  {activeTab === "gonderilenler" && (
+                      <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
+                          <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2">
+                              <Factory className="text-emerald-500 h-5 w-5 md:h-6 md:w-6"/> Sahaya İnen İşler (Üretimde)
+                          </h2>
+                          <div className="flex flex-col gap-4">
+                              {Object.entries(getGroupedProductionProjects()).map(([customerName, groupItems]) => {
+                                  const isExpanded = expandedProductionGroups.includes(customerName);
+                                  return (
+                                      <div key={customerName} className="flex flex-col bg-white/60 border border-slate-200 rounded-[1.5rem] overflow-hidden shadow-sm transition-all duration-300">
+                                          <div 
+                                              onClick={() => toggleProductionGroup(customerName)}
+                                              className="flex items-center justify-between p-4 md:p-5 cursor-pointer bg-white/50 hover:bg-emerald-50/50 transition-colors select-none group"
+                                          >
+                                              <div className="flex items-center gap-3 md:gap-4">
+                                                  <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600 shadow-inner"><Building2 className="h-5 w-5" /></div>
+                                                  <div className="flex flex-col">
+                                                      <h2 className="font-black text-base md:text-lg text-slate-800 group-hover:text-emerald-700 transition-colors">{customerName}</h2>
+                                                      <div className="flex items-center gap-2 mt-1">
+                                                          <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold">{groupItems.length} İş Emri</span>
+                                                          <span className="text-[10px] font-bold text-slate-400">Şu an Üretimde</span>
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                              <div className={`p-2 rounded-full transition-all duration-300 ${isExpanded ? 'bg-emerald-100 text-emerald-600 rotate-180' : 'bg-slate-100 text-slate-400 group-hover:bg-emerald-50'}`}>
+                                                  <ChevronDown className="h-5 w-5" />
+                                              </div>
+                                          </div>
+                                          
+                                          <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                                              <div className="overflow-hidden">
+                                                  <div className="overflow-x-auto custom-scrollbar border-t border-slate-100 bg-white/40">
+                                                      <table className="w-full text-left border-collapse min-w-[800px]">
+                                                          <thead>
+                                                              <tr className="border-b border-slate-200 bg-slate-50/50">
+                                                                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">İş Emri</th>
+                                                                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dosyalar & Evraklar</th>
+                                                                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
+                                                                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">İşlem</th>
+                                                              </tr>
+                                                          </thead>
+                                                          <tbody className="divide-y divide-slate-100">
+                                                              {groupItems.map((item) => (
+                                                                  <tr key={item.id} className="hover:bg-white/80 transition-colors">
+                                                                      <td className="py-4 px-4 font-mono text-sm font-bold text-slate-800">{item.project_code}</td>
+                                                                      <td className="py-4 px-4">
+                                                                          <div className="flex flex-wrap gap-1.5 md:gap-2">
+                                                                              {item.project_files && item.project_files.length > 0 ? (
+                                                                                  item.project_files.map((file: any, idx: number) => {
+                                                                                      const isEmriColor = file.file_type === 'IS_EMRI' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100';
+                                                                                      return (
+                                                                                          <a key={idx} href={file.file_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-md border hover:shadow-sm transition-all ${isEmriColor}`}>
+                                                                                              <Download className="h-3 w-3" /> {file.file_type.replace('_', ' ')}
+                                                                                          </a>
+                                                                                      )
+                                                                                  })
+                                                                              ) : (
+                                                                                  <span className="text-[10px] text-slate-400 font-bold">Dosya Yok</span>
+                                                                              )}
+                                                                          </div>
+                                                                      </td>
+                                                                      <td className="py-4 px-4 text-center">
+                                                                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold w-max bg-emerald-100 text-emerald-700">
+                                                                              <Factory className="h-3.5 w-3.5" /> Üretimde
+                                                                          </span>
+                                                                      </td>
+                                                                      <td className="py-4 px-4 text-right">
+                                                                          <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-9 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                                                                              <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Düzenle
+                                                                          </Button>
+                                                                      </td>
+                                                                  </tr>
+                                                              ))}
+                                                          </tbody>
+                                                      </table>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  )
+                              })}
+                              {dataList.length === 0 && <div className="p-10 text-center text-sm font-bold text-slate-400 bg-white/40 rounded-[1.5rem] border border-slate-200">Kayıt bulunamadı.</div>}
+                          </div>
+                      </div>
+                  )}
               </div>
           )}
       </div>
 
+      {/* DÜZENLEME MODALI */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent className="rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 max-w-[90vw] md:max-w-[700px] border-none shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
               <DialogHeader className="shrink-0"><DialogTitle className="text-xl md:text-3xl font-black text-slate-800 flex items-center gap-2 md:gap-3"><Edit2 className="h-5 w-5 md:h-6 md:w-6 text-indigo-500" /> İş Emrini Düzenle</DialogTitle></DialogHeader>
