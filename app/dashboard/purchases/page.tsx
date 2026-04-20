@@ -7,7 +7,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { 
   PlusCircle, Trash2, Edit2, PackageOpen, RefreshCcw, CheckCircle, Clock, 
-  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, Link as LinkIcon, FileCheck, Loader2, Copy, Inbox, Flame
+  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, Link as LinkIcon, FileCheck, Loader2, Copy, Inbox, Flame, FileDown
 } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
@@ -48,12 +48,11 @@ export default function PurchasesPage() {
     }
   }
 
-  // 🚀 FİLTRE EKLENDİ: 'GELDI' Olanları Bu Ekranda Gösterme!
   const fetchRequests = async () => {
       try {
           const { data, error } = await supabase.from('material_requests')
               .select(`*, profiles ( first_name, last_name, department )`)
-              .neq('status', 'GELDI') // <-- İŞTE SİHİRLİ FİLTRE BURADA
+              .neq('status', 'GELDI') 
               .order('created_at', { ascending: false })
           
           if (error) throw error;
@@ -76,7 +75,7 @@ export default function PurchasesPage() {
   }
 
   const rejectRequest = async (requestNo: string) => {
-      if(!confirm("Bu talep sepetindeki tüm ürünleri reddetmek istediğinize emin misiniz?")) return;
+      if(!confirm("Bu talebi reddetmek istediğinize emin misiniz?")) return;
       await supabase.from('material_requests').update({ status: 'REDDEDILDI' }).eq('request_no', requestNo)
       fetchRequests()
   }
@@ -162,9 +161,10 @@ export default function PurchasesPage() {
       <div className="flex flex-col xl:flex-row gap-6 flex-1 min-h-0 w-full">
           <div className="w-full xl:w-6/12 flex flex-col gap-6 max-h-[800px] xl:max-h-full">
               
+              {/* GELEN SİPARİŞ TALEPLERİ */}
               <div className="flex flex-col bg-white/60 backdrop-blur-2xl border border-blue-200/50 shadow-lg shadow-blue-500/5 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shrink-0 transition-all">
                   <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between p-4 md:p-5 bg-blue-50/50 hover:bg-blue-50 cursor-pointer border-b border-blue-100">
-                      <div className="flex items-center gap-3"><Inbox className="h-5 w-5 text-blue-600" /><h3 className="font-black text-slate-800 text-sm md:text-base">Mühendislik & Saha İstekleri</h3>{requests.filter(r => r.status === 'BEKLIYOR').length > 0 && (<span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">{requests.filter(r => r.status === 'BEKLIYOR').length} YENİ SEPET</span>)}</div>
+                      <div className="flex items-center gap-3"><Inbox className="h-5 w-5 text-blue-600" /><h3 className="font-black text-slate-800 text-sm md:text-base">Mühendislik & Saha İstekleri</h3>{requests.filter(r => r.status === 'BEKLIYOR').length > 0 && (<span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">{requests.filter(r => r.status === 'BEKLIYOR').length} YENİ FORMLAR</span>)}</div>
                       <span className="text-xs font-bold text-blue-600">{showRequests ? 'Gizle' : 'Göster'}</span>
                   </button>
                   
@@ -176,6 +176,8 @@ export default function PurchasesPage() {
                               <div className="flex flex-col gap-3">
                                   {requests.map(reqGroup => {
                                       const isUrgent = reqGroup.priority === 'ACIL';
+                                      const firstItem = reqGroup.items[0]; // Form tabanlı olduğu için genelde tek item
+                                      const hasFile = !!firstItem.file_url;
 
                                       return (
                                       <div key={reqGroup.request_no} className={`flex flex-col p-4 rounded-xl shadow-sm gap-3 border-2 transition-all ${isUrgent ? 'bg-rose-50/30 border-rose-300 shadow-rose-100' : 'bg-white border-slate-100'}`}>
@@ -187,26 +189,39 @@ export default function PurchasesPage() {
                                               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500"><User className="h-3 w-3" /> {reqGroup.profiles?.first_name} {reqGroup.profiles?.last_name}</div>
                                           </div>
                                           
-                                          <div className="flex flex-col gap-1">
-                                              {reqGroup.items.map((item: any) => (
-                                                  <div key={item.id} className="flex justify-between items-center bg-slate-50/60 p-2 rounded-lg border border-slate-100">
-                                                      <span className="text-xs font-bold text-slate-700">{item.material_name} <span className="text-[10px] text-slate-400">({item.material_code || "Kodu Yok"})</span></span>
-                                                      <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{item.quantity} Adet</span>
+                                          {/* 🚀 YENİ: PDF FORM GÖRÜNÜMÜ VEYA ESKİ LİSTE */}
+                                          <div className="flex flex-col gap-2">
+                                              {hasFile ? (
+                                                  <div className="flex flex-col gap-2 bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                                                      <span className="text-sm font-black text-slate-800">{firstItem.material_name}</span>
+                                                      {firstItem.description && <span className="text-xs font-medium text-slate-500 italic">"{firstItem.description}"</span>}
+                                                      <a href={firstItem.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 mt-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-colors shadow-sm">
+                                                          <FileDown className="h-4 w-4" /> Sipariş Formunu Aç (PDF)
+                                                      </a>
                                                   </div>
-                                              ))}
+                                              ) : (
+                                                  // Eski sisteme ait manuel kalemler varsa fallback olarak çalışsın
+                                                  reqGroup.items.map((item: any) => (
+                                                      <div key={item.id} className="flex justify-between items-center bg-slate-50/60 p-2 rounded-lg border border-slate-100">
+                                                          <span className="text-xs font-bold text-slate-700">{item.material_name} <span className="text-[10px] text-slate-400">({item.material_code || "Kodu Yok"})</span></span>
+                                                          <span className="text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{item.quantity} Adet</span>
+                                                      </div>
+                                                  ))
+                                              )}
                                           </div>
 
                                           <div className="flex justify-between items-end mt-1">
-                                              <div className="text-[10px] font-bold text-slate-400">Proje: {reqGroup.project_code || "Belirtilmedi"}</div>
+                                              <div className="flex flex-col gap-1">
+                                                  <span className="text-[10px] font-bold text-slate-400">Tarih: {new Date(firstItem.created_at).toLocaleDateString('tr-TR')}</span>
+                                              </div>
                                               <div className="flex flex-col items-end gap-1">
                                                   {reqGroup.status === 'BEKLIYOR' && (
                                                       <div className="flex items-center gap-2">
-                                                          <Button variant="ghost" size="sm" onClick={() => rejectRequest(reqGroup.request_no)} className="h-7 text-[10px] text-rose-500 hover:bg-rose-50 hover:text-rose-700">Tümünü Reddet</Button>
+                                                          <Button variant="ghost" size="sm" onClick={() => rejectRequest(reqGroup.request_no)} className="h-7 text-[10px] text-rose-500 hover:bg-rose-50 hover:text-rose-700">Talebi Reddet</Button>
                                                           <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded uppercase tracking-widest animate-pulse">İşlem Bekliyor</span>
                                                       </div>
                                                   )}
                                                   {reqGroup.status === 'SIPARIS_VERILDI' && <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-1 rounded uppercase tracking-widest">Siparişi Verildi</span>}
-                                                  {reqGroup.status === 'GELDI' && <span className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-1 rounded uppercase tracking-widest">Teslim Edildi</span>}
                                                   {reqGroup.status === 'REDDEDILDI' && <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase tracking-widest line-through">Reddedildi</span>}
                                               </div>
                                           </div>
@@ -218,6 +233,7 @@ export default function PurchasesPage() {
                   )}
               </div>
 
+              {/* MEVCUT SATIN ALMA FİŞLERİ (SAS) LİSTESİ */}
               <div className="flex flex-col bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden flex-1 min-h-0">
                   <div className="p-4 bg-slate-50/50 border-b border-slate-100"><h3 className="font-black text-slate-800 text-sm">Resmi Satın Alma Fişleri (SAS)</h3></div>
                   <div className="overflow-y-auto flex-1 p-2 custom-scrollbar">
