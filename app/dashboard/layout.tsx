@@ -149,6 +149,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setIsFormViewerOpen(true)
   }
 
+  // 🚀 KUSURSUZ YAZDIRMA (PRINT) MOTORU (BEYAZ EKRAN ÇÖZÜCÜ)
+  const handlePrint = () => {
+      const printContent = document.getElementById('printable-form');
+      if (!printContent) return;
+
+      const originalVisibility: {el: Element, display: string}[] = [];
+      Array.from(document.body.children).forEach((el) => {
+          if (el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE') {
+              originalVisibility.push({ el, display: (el as HTMLElement).style.display });
+              (el as HTMLElement).style.display = 'none';
+          }
+      });
+
+      const printWrapper = document.createElement('div');
+      printWrapper.id = 'print-wrapper';
+      printWrapper.style.width = '100%';
+      printWrapper.style.backgroundColor = 'white';
+      printWrapper.innerHTML = printContent.outerHTML;
+
+      const style = document.createElement('style');
+      style.id = 'print-style';
+      style.innerHTML = `
+          @media print {
+              @page { size: A4 portrait; margin: 10mm; }
+              body { background: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              #print-wrapper { display: block !important; zoom: 1.20 !important; }
+          }
+      `;
+
+      document.head.appendChild(style);
+      document.body.appendChild(printWrapper);
+
+      window.print();
+
+      document.body.removeChild(printWrapper);
+      document.head.removeChild(style);
+      originalVisibility.forEach(({ el, display }) => {
+          (el as HTMLElement).style.display = display;
+      });
+  };
+
   const handleLogout = async () => { await supabase.auth.signOut(); router.push('/login'); }
 
   const menuGroups = [
@@ -172,7 +213,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
       {isMobileMenuOpen && (<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden animate-in fade-in" onClick={() => setIsMobileMenuOpen(false)}></div>)}
 
-      {/* SOL MENÜ */}
       <aside className={`fixed inset-y-0 left-0 z-[70] w-[280px] lg:w-[300px] transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col p-4 lg:p-5 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} lg:flex`}>
         <div className="flex-1 flex flex-col bg-white/95 lg:bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)] lg:shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] overflow-hidden relative">
           <div className="flex items-center justify-between gap-3 p-5 border-b border-gray-100/50">
@@ -208,7 +248,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
       
       <main className="flex-1 lg:pl-[300px] flex flex-col min-h-screen relative w-full overflow-x-hidden">
-        
         <header className="hidden lg:flex h-20 items-center justify-between px-8 mt-5 mx-8 bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-[2rem] sticky top-5 z-30">
           <div className="flex items-center gap-4 shrink-0">
              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)] animate-pulse"></div>
@@ -244,7 +283,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex-1 p-4 sm:p-5 lg:p-8 pt-6 w-full max-w-[100vw]">
           {children}
         </div>
-
       </main>
 
       {/* SİPARİŞ OLUŞTURMA MODALI */}
@@ -347,52 +385,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 KUSURSUZ ZM METAL FORMU (YÜZDE 120 ÖLÇEKLİ & BUTON FİXLİ) */}
+      {/* 🚀 KUSURSUZ ZM METAL FORMU (JS YAZDIRMA MOTORLU) */}
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
-          {/* h-[90vh] ve flex-col ile butonların aşağıda kaybolmasını kesin olarak engelledik */}
-          <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-slate-50 shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0 print:bg-white">
+          <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-white shadow-2xl flex flex-col h-[90vh] z-[200] overflow-hidden">
               
-              {/* 🚀 KUSURSUZ PRINT CSS */}
-              <style>{`
-                  @media print {
-                      @page { size: A4 portrait; margin: 10mm; }
-                      /* Radix'in portal dışındaki her şeyi sil */
-                      body > *:not([data-radix-portal]) { display: none !important; }
-                      [data-radix-focus-guard] { display: none !important; }
-                      div[data-state="open"][class*="fixed inset-0"] { display: none !important; }
-                      
-                      /* Dialogu tam ekran yap ve arkaplanı beyazlat */
-                      [role="dialog"] {
-                          position: static !important;
-                          transform: none !important;
-                          box-shadow: none !important;
-                          width: 100% !important;
-                          max-width: 100% !important;
-                          height: auto !important;
-                          max-height: none !important;
-                          background: white !important;
-                      }
-                      
-                      /* Scrollbarı iptal et kağıda tam bassın */
-                      .custom-scrollbar { overflow: visible !important; max-height: none !important; height: auto !important; padding: 0 !important; }
-                      
-                      /* %120 ÖLÇEK SİHRİ */
-                      #printable-form {
-                          zoom: 1.20 !important; 
-                          border: none !important;
-                          width: 100% !important;
-                          margin: 0 !important;
-                          padding: 0 !important;
-                      }
-                      #printable-form * { border-color: black !important; }
-                      .print\\:hidden { display: none !important; }
-                  }
-              `}</style>
-
               {/* KAYDIRILABİLİR İÇERİK ALANI */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50 print:bg-white print:p-0 w-full">
-                  <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 bg-slate-50 w-full">
+                  <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm" id="printable-form">
                       
+                      {/* ÜST BİLGİ (HEADER) */}
                       <table className="w-full border-collapse border border-black mb-4">
                           <tbody>
                               <tr>
@@ -406,20 +407,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                       <table className="w-full h-full border-collapse">
                                           <tbody>
                                               <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Doküman No</td>
-                                                  {/* OTOMATİK DOKÜMAN NO */}
+                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Doküman No</td>
                                                   <td className="border-b border-black p-1.5 font-bold text-blue-700 uppercase">DOC-{viewingOrderGroup?.request_no?.replace(/\D/g, '') || '001'}</td>
                                               </tr>
                                               <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Yayın Tarihi</td>
-                                                  <td className="border-b border-black p-1.5 font-bold text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : '13.12.2017'}</td>
+                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Yayın Tarihi</td>
+                                                  <td className="border-b border-black p-1.5 font-bold text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td>
                                               </tr>
                                               <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Revizyon No</td>
+                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Revizyon No</td>
                                                   <td className="border-b border-black p-1.5 font-bold">00</td>
                                               </tr>
                                               <tr>
-                                                  <td className="border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Revizyon Tarihi</td>
+                                                  <td className="border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Revizyon Tarihi</td>
                                                   <td className="p-1.5 font-bold">--</td>
                                               </tr>
                                           </tbody>
@@ -429,32 +429,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           </tbody>
                       </table>
 
+                      {/* ORTA BİLGİLER */}
                       <table className="w-full border-collapse border border-black mb-4 text-[11px]">
                           <tbody>
                               <tr>
-                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50 print:bg-transparent text-slate-700">Malzeme İstek Formu No</td>
+                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50 text-slate-700">Malzeme İstek Formu No</td>
                                   <td className="border border-black p-2 w-1/4 font-black uppercase text-slate-900">{viewingOrderGroup?.request_no}</td>
-                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50 print:bg-transparent text-slate-700">İstek Yapan Personel</td>
+                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50 text-slate-700">İstek Yapan Personel</td>
                                   <td className="border border-black p-2 font-black w-1/4 uppercase text-slate-900">{viewingOrderGroup?.profiles?.first_name} {viewingOrderGroup?.profiles?.last_name}</td>
                               </tr>
                               <tr>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 print:bg-transparent text-slate-700">Proje No</td>
+                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Proje No</td>
                                   <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.project_code}</td>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 print:bg-transparent text-slate-700">İstek Yapan Bölüm</td>
+                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">İstek Yapan Bölüm</td>
                                   <td className="border border-black p-2 font-black uppercase text-slate-900">{viewingOrderGroup?.profiles?.department || "-"}</td>
                               </tr>
                               <tr>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 print:bg-transparent text-slate-700">Tarih</td>
+                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Tarih</td>
                                   <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 print:bg-transparent text-slate-700">Malzeme Cinsi</td>
+                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Malzeme Cinsi</td>
                                   <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.material_type || viewingOrderGroup?.description || "-"}</td>
                               </tr>
                           </tbody>
                       </table>
 
+                      {/* ÜRÜN LİSTESİ */}
                       <table className="w-full text-xs border-collapse border border-black">
                           <thead>
-                              <tr className="bg-slate-50 print:bg-transparent text-slate-800">
+                              <tr className="bg-slate-50 text-slate-800">
                                   <th className="border border-black p-2 text-center w-12 font-bold">No</th>
                                   <th className="border border-black p-2 text-left pl-3 font-bold">Ürün Tanımı</th>
                                   <th className="border border-black p-2 text-center w-20 font-bold">Stok</th>
@@ -472,6 +474,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                       <td className="border border-black p-2 text-center"></td>
                                   </tr>
                               ))}
+                              {/* Boş Satırlar */}
                               {[...Array(Math.max(0, 10 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
                                   <tr key={`empty-${i}`} className="h-8">
                                       <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
@@ -484,10 +487,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </div>
               </div>
 
-              {/* 🚀 SABİT BUTON ALANI (EN ALTA YAPIŞIK) */}
-              <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-slate-200 bg-white print:hidden w-full">
+              {/* SABİT BUTON ALANI (EKRANIN EN ALTINA YAPIŞIK) */}
+              <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-slate-200 bg-white w-full">
                   <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-slate-300 text-slate-600 hover:bg-slate-100 h-12 px-6">Kapat</Button>
-                  <Button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak Kaydet</Button>
+                  <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak İndir</Button>
               </div>
           </DialogContent>
       </Dialog>
