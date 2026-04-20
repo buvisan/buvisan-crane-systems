@@ -48,10 +48,13 @@ export default function PurchasesPage() {
     }
   }
 
-  // 🚀 İSTEKLERİ TALEP NUMARASINA GÖRE GRUPLA
+  // 🚀 FİLTRE EKLENDİ: 'GELDI' Olanları Bu Ekranda Gösterme!
   const fetchRequests = async () => {
       try {
-          const { data, error } = await supabase.from('material_requests').select(`*, profiles ( first_name, last_name, department )`).order('created_at', { ascending: false })
+          const { data, error } = await supabase.from('material_requests')
+              .select(`*, profiles ( first_name, last_name, department )`)
+              .neq('status', 'GELDI') // <-- İŞTE SİHİRLİ FİLTRE BURADA
+              .order('created_at', { ascending: false })
           
           if (error) throw error;
           if (data) {
@@ -59,11 +62,11 @@ export default function PurchasesPage() {
                   if (!acc[req.request_no]) {
                       acc[req.request_no] = { 
                           ...req, 
-                          items: [req] // Sepetteki ürünler
+                          items: [req] 
                       }
                   } else {
                       acc[req.request_no].items.push(req)
-                      if (req.priority === 'ACIL') acc[req.request_no].priority = 'ACIL' // Biri acilse hepsi acildir
+                      if (req.priority === 'ACIL') acc[req.request_no].priority = 'ACIL' 
                   }
                   return acc
               }, {})
@@ -72,7 +75,6 @@ export default function PurchasesPage() {
       } catch (error: any) { console.error("İstek Çekme Hatası:", error); }
   }
 
-  // Gruplu istekleri toptan reddet
   const rejectRequest = async (requestNo: string) => {
       if(!confirm("Bu talep sepetindeki tüm ürünleri reddetmek istediğinize emin misiniz?")) return;
       await supabase.from('material_requests').update({ status: 'REDDEDILDI' }).eq('request_no', requestNo)

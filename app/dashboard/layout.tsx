@@ -86,7 +86,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }
           }
 
-          if (table === 'material_requests' && eventType === 'INSERT' && (dept.includes('satın') || isMaster)) {
+// 2. YENİ SİPARİŞ Mİ GEÇİLDİ? (Satın Almaya Gider)
+          if (table === 'material_requests' && eventType === 'INSERT' && newData.status !== 'GELDI' && (dept.includes('satın') || isMaster)) {
               shouldNotify = true;
               notifObj = { id: Date.now(), type: 'sys', title: newData.priority === 'ACIL' ? '🔥 ACİL SİPARİŞ' : 'Yeni Malzeme Talebi', desc: `${newData.quantity} Adet ${newData.material_name}`, color: newData.priority === 'ACIL' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600', path: '/dashboard/purchases', icon: <ShoppingCart className="h-4 w-4"/>, date: new Date().toISOString() };
           }
