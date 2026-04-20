@@ -8,7 +8,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { 
   PlusCircle, Trash2, Edit2, PackageOpen, RefreshCcw, CheckCircle, Clock, 
-  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, FileCheck, Loader2, Copy, Inbox, Flame, FileDown, Printer
+  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, FileCheck, Loader2, Copy, Inbox, Flame, Printer
 } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
@@ -28,7 +28,6 @@ export default function PurchasesPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [showRequests, setShowRequests] = useState(true)
   
-  // 🚀 ZM METAL FORM GÖRÜNTÜLEYİCİ STATELERİ
   const [isFormViewerOpen, setIsFormViewerOpen] = useState(false)
   const [viewingOrderGroup, setViewingOrderGroup] = useState<any>(null)
 
@@ -172,7 +171,7 @@ export default function PurchasesPage() {
       <div className="flex flex-col xl:flex-row gap-6 flex-1 min-h-0 w-full">
           <div className="w-full xl:w-6/12 flex flex-col gap-6 max-h-[800px] xl:max-h-full">
               
-              {/* 🚀 GELEN FORMLAR ALANI */}
+              {/* GELEN FORMLAR ALANI */}
               <div className="flex flex-col bg-white/60 backdrop-blur-2xl border border-blue-200/50 shadow-lg shadow-blue-500/5 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shrink-0 transition-all">
                   <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between p-4 md:p-5 bg-blue-50/50 hover:bg-blue-50 cursor-pointer border-b border-blue-100">
                       <div className="flex items-center gap-3"><Inbox className="h-5 w-5 text-blue-600" /><h3 className="font-black text-slate-800 text-sm md:text-base">Mühendislik & Saha İstek Formları</h3>{requests.filter(r => r.status === 'BEKLIYOR').length > 0 && (<span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">{requests.filter(r => r.status === 'BEKLIYOR').length} YENİ FORM</span>)}</div>
@@ -200,12 +199,7 @@ export default function PurchasesPage() {
                                           
                                           <div className="flex flex-col gap-2">
                                               <span className="text-sm font-black text-slate-800">{reqGroup.material_type || "Belirtilmedi"} <span className="text-xs font-medium text-slate-500">({reqGroup.items.length} Kalem)</span></span>
-                                              
-                                              {/* 🚀 DİJİTAL FORMU AÇ BUTONU */}
-                                              <Button 
-                                                  onClick={() => openFormViewer(reqGroup)} 
-                                                  className="w-full bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white transition-colors h-11 rounded-lg font-black text-xs shadow-sm mt-1"
-                                              >
+                                              <Button onClick={() => openFormViewer(reqGroup)} className="w-full bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white transition-colors h-11 rounded-lg font-black text-xs shadow-sm mt-1">
                                                   <FileText className="h-4 w-4 mr-2" /> DİJİTAL SİPARİŞ FORMUNU GÖRÜNTÜLE
                                               </Button>
                                           </div>
@@ -219,7 +213,7 @@ export default function PurchasesPage() {
                                                           <Button size="sm" onClick={() => approveRequest(reqGroup.request_no)} className="h-8 text-[10px] bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3">Siparişi Ver</Button>
                                                       </div>
                                                   )}
-                                                  {reqGroup.status === 'SIPARIS_VERILDI' && <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-1 rounded uppercase tracking-widest">Siparişi Verildi</span>}
+                                                  {reqGroup.status === 'SIPARIS_VERILDI' && <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-1 rounded uppercase tracking-widest">Siparişi Verildi (Onaylandı)</span>}
                                                   {reqGroup.status === 'REDDEDILDI' && <span className="text-[10px] font-black bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase tracking-widest line-through">Reddedildi</span>}
                                               </div>
                                           </div>
@@ -259,7 +253,7 @@ export default function PurchasesPage() {
 
           <div id="order-detail-section" className="w-full xl:w-6/12 flex flex-col bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden relative">
               {!selectedOrder ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 md:p-10 opacity-60"><div className="bg-white/80 p-4 md:p-6 rounded-full shadow-sm mb-4"><PackageOpen className="h-10 w-10 text-blue-400" /></div><h3 className="text-lg md:text-xl font-black text-slate-800">SAS Detayları</h3><p className="text-xs md:text-sm font-medium text-slate-500 mt-2 max-w-[200px]">Tüm detayları görmek için listeden bir SAS seçin.</p></div>
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6 md:p-10 opacity-60 py-20"><div className="bg-white/80 p-4 md:p-6 rounded-full shadow-sm mb-4"><PackageOpen className="h-10 w-10 text-blue-400" /></div><h3 className="text-lg md:text-xl font-black text-slate-800">SAS Detayları</h3><p className="text-xs md:text-sm font-medium text-slate-500 mt-2 max-w-[200px]">Tüm detayları görmek için listeden bir SAS seçin.</p></div>
               ) : (
                   <div className="flex flex-col h-full overflow-y-auto custom-scrollbar p-5 md:p-6 lg:p-8">
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-6 md:mb-8 border-b border-slate-100 pb-5 md:pb-6 gap-4">
@@ -267,7 +261,7 @@ export default function PurchasesPage() {
                       </div>
                       <div className="bg-slate-50/50 p-4 md:p-5 rounded-[1.5rem] md:rounded-3xl border border-slate-100 shadow-sm mb-6 md:mb-8">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-                              <h3 className="font-black text-sm md:text-base text-slate-800 flex items-center gap-2"><FileCheck className="h-4 w-4 md:h-5 md:w-5 text-blue-600" /> Tedarikçi Teklif & Belgeleri</h3>
+                              <h3 className="font-black text-sm md:text-base text-slate-800 flex items-center gap-2"><FileCheck className="h-4 w-4 md:h-5 md:w-5 text-blue-600" /> Ekli Belgeler</h3>
                               <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"/>
                               <Button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="h-10 md:h-9 px-4 rounded-xl bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold shadow-sm transition-all text-xs">{uploading ? "Yükleniyor..." : "Dosya Yükle"}</Button>
                           </div>
@@ -298,107 +292,110 @@ export default function PurchasesPage() {
 
       {/* 🚀 ZM METAL İSTEK FORMU GÖRÜNÜMÜ (MODAL) */}
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
-          <DialogContent className="max-w-4xl p-6 border-none bg-white shadow-2xl overflow-hidden max-h-[90vh] custom-scrollbar print:p-0 print:m-0 print:shadow-none print:max-h-none print:overflow-visible">
+          <DialogContent className="max-w-4xl p-0 border-none bg-white shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:h-auto print:max-h-none print:block print:p-0 print:m-0">
               
-              <div className="bg-white text-black w-full mx-auto print:w-full" id="printable-form">
-                  
-                  {/* ÜST BİLGİ (HEADER) */}
-                  <table className="w-full border-collapse border border-black mb-4">
-                      <tbody>
-                          <tr>
-                              <td className="border border-black w-1/4 p-2 text-center align-middle">
-                                  <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain" />
-                              </td>
-                              <td className="border border-black w-2/4 text-center align-middle">
-                                  <h2 className="text-xl font-medium tracking-wide text-slate-700 uppercase">MALZEME İSTEK FORMU</h2>
-                              </td>
-                              <td className="border border-black w-1/4 p-0 align-top text-[11px]">
-                                  <table className="w-full h-full border-collapse">
-                                      <tbody>
-                                          <tr>
-                                              <td className="border-b border-r border-black p-1.5 text-slate-600">Doküman No</td>
-                                              <td className="border-b border-black p-1.5">SD04.F01</td>
-                                          </tr>
-                                          <tr>
-                                              <td className="border-b border-r border-black p-1.5 text-slate-600">Yayın Tarihi</td>
-                                              <td className="border-b border-black p-1.5">13.12.2017</td>
-                                          </tr>
-                                          <tr>
-                                              <td className="border-b border-r border-black p-1.5 text-slate-600">Revizyon No</td>
-                                              <td className="border-b border-black p-1.5">--</td>
-                                          </tr>
-                                          <tr>
-                                              <td className="border-r border-black p-1.5 text-slate-600">Revizyon Tarihi</td>
-                                              <td className="p-1.5">--</td>
-                                          </tr>
-                                      </tbody>
-                                  </table>
-                              </td>
-                          </tr>
-                      </tbody>
-                  </table>
+              <style>{`
+                  @media print {
+                      @page { size: A4 portrait; margin: 10mm; }
+                      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                      #printable-form { zoom: 1.2; }
+                  }
+              `}</style>
 
-                  {/* ORTA BİLGİLER */}
-                  <table className="w-full border-collapse border border-black mb-4 text-[11px]">
-                      <tbody>
-                          <tr>
-                              <td className="border border-black p-2 font-bold w-1/4 bg-slate-50/50 print:bg-transparent">Malzeme İstek Formu No</td>
-                              <td className="border border-black p-2 w-1/4 font-bold uppercase">{viewingOrderGroup?.request_no}</td>
-                              <td className="border border-black p-2 font-bold w-1/4 bg-slate-50/50 print:bg-transparent">İstek Yapan Personel</td>
-                              <td className="border border-black p-2 font-bold w-1/4">{viewingOrderGroup?.profiles?.first_name} {viewingOrderGroup?.profiles?.last_name}</td>
-                          </tr>
-                          <tr>
-                              <td className="border border-black p-2 font-bold bg-slate-50/50 print:bg-transparent">Proje No</td>
-                              <td className="border border-black p-2 font-bold">{viewingOrderGroup?.project_code}</td>
-                              <td className="border border-black p-2 font-bold bg-slate-50/50 print:bg-transparent">İstek Yapan Bölüm</td>
-                              <td className="border border-black p-2 font-bold">{viewingOrderGroup?.profiles?.department || "-"}</td>
-                          </tr>
-                          <tr>
-                              <td className="border border-black p-2 font-bold bg-slate-50/50 print:bg-transparent">Tarih</td>
-                              <td className="border border-black p-2 font-bold">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td>
-                              <td className="border border-black p-2 font-bold bg-slate-50/50 print:bg-transparent">Malzeme Cinsi</td>
-                              <td className="border border-black p-2 font-bold">{viewingOrderGroup?.material_type}</td>
-                          </tr>
-                      </tbody>
-                  </table>
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-8 print:p-0 print:overflow-visible">
+                  <div className="bg-white text-black border-[3px] border-black w-full mx-auto print:border-none print:w-full" id="printable-form">
+                      
+                      <table className="w-full border-collapse border border-black mb-4">
+                          <tbody>
+                              <tr>
+                                  <td className="border border-black w-1/4 p-2 text-center align-middle">
+                                      <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain" />
+                                  </td>
+                                  <td className="border border-black w-2/4 text-center align-middle">
+                                      <h2 className="text-xl font-medium tracking-wide text-slate-700 uppercase">MALZEME İSTEK FORMU</h2>
+                                  </td>
+                                  <td className="border border-black w-1/4 p-0 align-top text-[11px]">
+                                      <table className="w-full h-full border-collapse">
+                                          <tbody>
+                                              <tr>
+                                                  <td className="border-b border-r border-black p-1.5 text-slate-600">Doküman No</td>
+                                                  <td className="border-b border-black p-1.5 font-bold text-blue-700">DOC-{viewingOrderGroup?.request_no?.replace(/[^0-9]/g, '') || '001'}</td>
+                                              </tr>
+                                              <tr>
+                                                  <td className="border-b border-r border-black p-1.5 text-slate-600">Yayın Tarihi</td>
+                                                  <td className="border-b border-black p-1.5 font-medium text-slate-800">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : '13.12.2017'}</td>
+                                              </tr>
+                                              <tr>
+                                                  <td className="border-b border-r border-black p-1.5 text-slate-600">Revizyon No</td>
+                                                  <td className="border-b border-black p-1.5">00</td>
+                                              </tr>
+                                              <tr>
+                                                  <td className="border-r border-black p-1.5 text-slate-600">Revizyon Tarihi</td>
+                                                  <td className="p-1.5">--</td>
+                                              </tr>
+                                          </tbody>
+                                      </table>
+                                  </td>
+                              </tr>
+                          </tbody>
+                      </table>
 
-                  {/* ÜRÜN LİSTESİ */}
-                  <table className="w-full text-xs border-collapse border border-black">
-                      <thead>
-                          <tr className="bg-slate-50/50 print:bg-transparent">
-                              <th className="border border-black p-2 text-center w-12 font-bold">No</th>
-                              <th className="border border-black p-2 text-left pl-3 font-bold">Ürün Tanımı</th>
-                              <th className="border border-black p-2 text-center w-24 font-bold">Stok</th>
-                              <th className="border border-black p-2 text-center w-28 font-bold">Miktar</th>
-                              <th className="border border-black p-2 text-center w-32 font-bold">Termin</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          {viewingOrderGroup?.items?.map((item: any, idx: number) => (
-                              <tr key={idx} className="h-8">
-                                  <td className="border border-black p-2 text-center font-bold">{idx + 1}</td>
-                                  <td className="border border-black p-2 pl-3 font-bold">{item.material_name}</td>
-                                  <td className="border border-black p-2 text-center font-bold">{item.current_stock || 0}</td>
-                                  <td className="border border-black p-2 text-center font-black text-sm">{item.quantity} ADET</td>
-                                  <td className="border border-black p-2 text-center"></td>
+                      <table className="w-full border-collapse border border-black mb-4 text-[11px]">
+                          <tbody>
+                              <tr>
+                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50/50 print:bg-transparent">Malzeme İstek Formu No</td>
+                                  <td className="border border-black p-2 w-1/4 font-bold uppercase text-blue-700">{viewingOrderGroup?.request_no}</td>
+                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50/50 print:bg-transparent">İstek Yapan Personel</td>
+                                  <td className="border border-black p-2 font-bold w-1/4">{viewingOrderGroup?.profiles?.first_name} {viewingOrderGroup?.profiles?.last_name}</td>
                               </tr>
-                          ))}
-                          {/* Boş Satırlar */}
-                          {[...Array(Math.max(0, 10 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
-                              <tr key={`empty-${i}`} className="h-8">
-                                  <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
+                              <tr>
+                                  <td className="border border-black p-2 font-bold bg-slate-50/50 print:bg-transparent">Proje No</td>
+                                  <td className="border border-black p-2 font-bold">{viewingOrderGroup?.project_code}</td>
+                                  <td className="border border-black p-2 font-bold bg-slate-50/50 print:bg-transparent">İstek Yapan Bölüm</td>
+                                  <td className="border border-black p-2 font-bold">{viewingOrderGroup?.profiles?.department || "-"}</td>
                               </tr>
-                          ))}
-                      </tbody>
-                  </table>
-                  
-                  <div className="mt-6 text-right text-[10px] text-slate-500 font-medium">
-                      Sayfa 1 / 1
+                              <tr>
+                                  <td className="border border-black p-2 font-bold bg-slate-50/50 print:bg-transparent">Tarih</td>
+                                  <td className="border border-black p-2 font-bold">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td>
+                                  <td className="border border-black p-2 font-bold bg-slate-50/50 print:bg-transparent">Malzeme Cinsi</td>
+                                  <td className="border border-black p-2 font-bold">{viewingOrderGroup?.material_type || viewingOrderGroup?.description}</td>
+                              </tr>
+                          </tbody>
+                      </table>
+
+                      <table className="w-full text-xs border-collapse border border-black">
+                          <thead>
+                              <tr className="bg-slate-50/50 print:bg-transparent">
+                                  <th className="border border-black p-2 text-center w-12 font-bold">No</th>
+                                  <th className="border border-black p-2 text-left pl-3 font-bold">Ürün Tanımı</th>
+                                  <th className="border border-black p-2 text-center w-24 font-bold">Stok</th>
+                                  <th className="border border-black p-2 text-center w-28 font-bold">Miktar</th>
+                                  <th className="border border-black p-2 text-center w-32 font-bold">Termin</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {viewingOrderGroup?.items?.map((item: any, idx: number) => (
+                                  <tr key={idx} className="h-8">
+                                      <td className="border border-black p-2 text-center font-bold">{idx + 1}</td>
+                                      <td className="border border-black p-2 pl-3 font-bold">{item.material_name}</td>
+                                      <td className="border border-black p-2 text-center font-bold">{item.current_stock || 0}</td>
+                                      <td className="border border-black p-2 text-center font-black text-sm">{item.quantity} ADET</td>
+                                      <td className="border border-black p-2 text-center"></td>
+                                  </tr>
+                              ))}
+                              {[...Array(Math.max(0, 10 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
+                                  <tr key={`empty-${i}`} className="h-8">
+                                      <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                      
+                      <div className="mt-6 text-right text-[10px] text-slate-500 font-medium">Sayfa 1 / 1</div>
                   </div>
               </div>
 
-              {/* BUTONLAR (YAZDIRIRKEN GİZLENİR) */}
-              <div className="flex justify-end gap-3 mt-6 print:hidden w-full border-t border-slate-100 pt-4">
+              <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-slate-100 bg-slate-50 print:hidden w-full">
                   <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-slate-300 text-slate-600 hover:bg-slate-100 h-12 px-6">Kapat</Button>
                   <Button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak Kaydet</Button>
               </div>
