@@ -7,7 +7,7 @@ import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { History, Search, PackageOpen, PlusCircle, Save, Loader2, Calendar } from "lucide-react"
+import { History, Search, PackageOpen, PlusCircle, Save, Loader2, Calendar, Edit2, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function PurchaseHistoryPage() {
@@ -25,6 +25,11 @@ export default function PurchaseHistoryPage() {
         description: "Manuel Arşiv Kaydı",
         created_at: new Date().toISOString().split('T')[0]
     })
+
+    // 🚀 DÜZENLEME STATELERİ
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+    const [editSaving, setEditSaving] = useState(false)
+    const [editForm, setEditForm] = useState<any>(null)
 
     useEffect(() => {
         fetchHistory()
@@ -58,7 +63,7 @@ export default function PurchaseHistoryPage() {
                 priority: 'NORMAL',
                 status: 'GELDI', // Doğrudan geçmişe düşsün
                 requested_by: user?.id,
-                created_at: new Date(manualForm.created_at).toISOString() // İstenen geçmiş tarih
+                created_at: new Date(manualForm.created_at).toISOString() 
             }])
             
             if (error) throw error
@@ -70,6 +75,51 @@ export default function PurchaseHistoryPage() {
             alert("Hata: " + error.message)
         } finally {
             setSaving(false)
+        }
+    }
+
+    // 🚀 SİLME FONKSİYONU
+    const handleDeleteHistory = async (id: number) => {
+        if(!confirm("Bu geçmiş kaydını tamamen silmek istediğinize emin misiniz?")) return;
+        const { error } = await supabase.from('material_requests').delete().eq('id', id)
+        if (error) alert("Hata: " + error.message)
+        else fetchHistory()
+    }
+
+    // 🚀 DÜZENLEME MODALINI AÇ
+    const openEditModal = (item: any) => {
+        setEditForm({
+            id: item.id,
+            material_name: item.material_name,
+            quantity: item.quantity,
+            description: item.description || "",
+            created_at: new Date(item.created_at).toISOString().split('T')[0]
+        })
+        setIsEditModalOpen(true)
+    }
+
+    // 🚀 DÜZENLEMEYİ KAYDET
+    const handleEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!editForm.material_name) return alert("Malzeme adı girmelisiniz.")
+        
+        setEditSaving(true)
+        try {
+            const { error } = await supabase.from('material_requests').update({
+                material_name: editForm.material_name,
+                quantity: Number(editForm.quantity),
+                description: editForm.description,
+                created_at: new Date(editForm.created_at).toISOString()
+            }).eq('id', editForm.id)
+            
+            if (error) throw error
+            alert("✅ Kayıt başarıyla güncellendi!")
+            setIsEditModalOpen(false)
+            fetchHistory()
+        } catch (error: any) {
+            alert("Hata: " + error.message)
+        } finally {
+            setEditSaving(false)
         }
     }
 
@@ -105,14 +155,15 @@ export default function PurchaseHistoryPage() {
 
             <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-sm rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
                 <div className="overflow-x-auto custom-scrollbar p-2">
-                    <table className="w-full text-left border-collapse min-w-[800px]">
+                    <table className="w-full text-left border-collapse min-w-[900px]">
                         <thead className="bg-white/40 border-b border-slate-100">
                             <tr>
                                 <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Tarih</th>
                                 <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Talep No</th>
                                 <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Malzeme & Detay</th>
                                 <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Miktar</th>
-                                <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Durum</th>
+                                <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
+                                <th className="px-6 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">İşlem</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/50">
@@ -132,23 +183,34 @@ export default function PurchaseHistoryPage() {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center"><span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-sm font-black border border-blue-100">{item.quantity} Adet</span></td>
-                                    <td className="px-6 py-4 text-right">
+                                    <td className="px-6 py-4 text-center">
                                         {item.status === 'GELDI' ? (
                                             <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm">DEPOYA GİRDİ</span>
                                         ) : (
                                             <span className="bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm">İPTAL EDİLDİ</span>
                                         )}
                                     </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex items-center justify-end gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => openEditModal(item)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Düzenle">
+                                                <Edit2 className="h-4 w-4" />
+                                            </button>
+                                            <button onClick={() => handleDeleteHistory(item.id)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Sil">
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
                             {filteredHistory.length === 0 && !loading && (
-                                <tr><td colSpan={5} className="py-20 text-center"><div className="flex flex-col items-center gap-3"><div className="bg-white p-5 rounded-full shadow-sm"><PackageOpen className="h-10 w-10 text-slate-300" /></div><p className="text-lg font-bold text-slate-500">Arşivde kayıt bulunmuyor.</p></div></td></tr>
+                                <tr><td colSpan={6} className="py-20 text-center"><div className="flex flex-col items-center gap-3"><div className="bg-white p-5 rounded-full shadow-sm"><PackageOpen className="h-10 w-10 text-slate-300" /></div><p className="text-lg font-bold text-slate-500">Arşivde kayıt bulunmuyor.</p></div></td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
 
+            {/* YENİ KAYIT MODALI */}
             <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
                 <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-md border-none shadow-2xl">
                     <DialogHeader className="mb-4"><DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2"><History className="h-6 w-6 text-slate-500"/> Geçmişe Kayıt Gir</DialogTitle></DialogHeader>
@@ -175,6 +237,37 @@ export default function PurchaseHistoryPage() {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* 🚀 DÜZENLEME MODALI */}
+            <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-md border-none shadow-2xl">
+                    <DialogHeader className="mb-4"><DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2"><Edit2 className="h-6 w-6 text-indigo-500"/> Kaydı Düzenle</DialogTitle></DialogHeader>
+                    {editForm && (
+                        <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kayıt Tarihi</Label>
+                                <Input required type="date" value={editForm.created_at} onChange={e=>setEditForm({...editForm, created_at: e.target.value})} className="h-12 rounded-xl border-slate-200 font-bold text-sm" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Malzeme Adı</Label>
+                                <Input required value={editForm.material_name} onChange={e=>setEditForm({...editForm, material_name: e.target.value})} className="h-12 rounded-xl border-slate-200 font-bold text-sm" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Alınan Miktar</Label>
+                                <Input required type="number" min="1" value={editForm.quantity} onChange={e=>setEditForm({...editForm, quantity: e.target.value})} className="h-12 rounded-xl border-slate-200 font-bold text-sm" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Açıklama (İsteğe Bağlı)</Label>
+                                <Input value={editForm.description} onChange={e=>setEditForm({...editForm, description: e.target.value})} className="h-12 rounded-xl border-slate-200 text-sm" />
+                            </div>
+                            <Button type="submit" disabled={editSaving} className="w-full h-14 mt-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black shadow-xl shadow-indigo-500/20">
+                                {editSaving ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : <Save className="h-5 w-5 mr-2" />} {editSaving ? "GÜNCELLENİYOR..." : "KAYDET"}
+                            </Button>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
         </div>
     )
 }
