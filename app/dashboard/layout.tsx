@@ -1,22 +1,21 @@
 "use client"
 
 import Image from 'next/image' 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import { 
-  Package2, Home, Package, ClipboardList, Tag, Users, Truck, 
+  Home, Package, ClipboardList, Users, Truck, 
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
-  LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront,
+  LogOut, UserCircle, Settings, ChevronDown, PieChart, TrendingUp,
   Wallet, FileText, Archive, ScanLine, History, Menu, X,
-  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Save, UploadCloud, File
+  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Printer
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -28,25 +27,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
 
-  // 🚀 YENİ PDF'Lİ SİPARİŞ FORMU STATELERİ
+  // 🚀 SİPARİŞ SEPETİ STATELERİ (GERİ DÖNDÜ VE GÜÇLENDİ)
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
-  const [orderForm, setOrderForm] = useState<{title: string, priority: string, description: string, file: File | null}>({ 
-      title: "", priority: "NORMAL", description: "", file: null 
-  })
+  const [orderHeader, setOrderHeader] = useState({ project_code: "", material_type: "", priority: "NORMAL" })
+  const [orderItemForm, setOrderItemForm] = useState({ material_name: "", current_stock: "0", quantity: "1" })
+  const [orderItems, setOrderItems] = useState<any[]>([]) 
   const [orderSubmitting, setOrderSubmitting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   
   // TAKİP STATELERİ
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false)
   const [allOrders, setAllOrders] = useState<any[]>([])
   
-  // DÜZENLEME STATELERİ
-  const [isEditOrderOpen, setIsEditOrderOpen] = useState(false)
-  const [editOrderData, setEditOrderData] = useState<any>(null)
-  const [editSaving, setEditSaving] = useState(false)
-
-  const [notifications, setNotifications] = useState<any[]>([])
+  // 🚀 ZM METAL FORM GÖRÜNTÜLEYİCİ STATELERİ
+  const [isFormViewerOpen, setIsFormViewerOpen] = useState(false)
+  const [viewingOrderGroup, setViewingOrderGroup] = useState<any>(null)
 
   useEffect(() => { fetchUserData() }, [])
 
@@ -57,207 +53,109 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const playSound = () => {
       const audio = document.getElementById('notif-sound') as HTMLAudioElement;
-      if (audio) {
-          audio.currentTime = 0;
-          audio.play().catch(e => console.warn("Tarayıcı sesi engelledi. Ekrana bir kez tıklayın:", e));
-      }
+      if (audio) { audio.currentTime = 0; audio.play().catch(e => console.warn("Ses engellendi:", e)); }
   }
 
+  // RADAR SİSTEMİ (Özetlenmiş)
   useEffect(() => {
       if (!profile?.id) return;
-
-      const channel = supabase.channel('global_all_tables')
-      .on('postgres_changes', { event: '*', schema: 'public' }, async (payload: any) => {
-          const table = payload.table;
-          const eventType = payload.eventType;
-          const newData = payload.new as any;
-          const oldData = payload.old as any;
-          
+      const channel = supabase.channel('global_all_tables').on('postgres_changes', { event: '*', schema: 'public' }, async (payload: any) => {
+          const table = payload.table; const eventType = payload.eventType; const newData = payload.new as any; const oldData = payload.old as any;
           const dept = (profile.department || "").toLowerCase();
           const isMaster = dept.includes('admin') || dept.includes('yönetim') || dept.includes('teknoloji');
-
-          let shouldNotify = false;
-          let notifObj: any = null;
-
-          if (table === 'notes' && eventType === 'INSERT') {
-              if (newData.user_id !== profile.id && (newData.receiver_id === profile.id || !newData.receiver_id)) {
-                  shouldNotify = true;
-                  const {data: u} = await supabase.from('profiles').select('first_name').eq('id', newData.user_id).single();
-                  notifObj = { id: Date.now(), type: 'msg', title: `Yeni Mesaj: ${u?.first_name || 'Biri'}`, desc: newData.content, color: 'bg-blue-100 text-blue-600', path: '/dashboard', icon: <MessageCircle className="h-4 w-4"/>, date: new Date().toISOString() };
-              }
-          }
+          let shouldNotify = false; let notifObj: any = null;
 
           if (table === 'material_requests' && eventType === 'INSERT' && newData.status !== 'GELDI' && (dept.includes('satın') || isMaster)) {
               shouldNotify = true;
-              notifObj = { id: Date.now(), type: 'sys', title: newData.priority === 'ACIL' ? '🔥 ACİL SİPARİŞ FORMU' : 'Yeni Sipariş Formu', desc: `Başlık: ${newData.material_name}`, color: newData.priority === 'ACIL' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600', path: '/dashboard/purchases', icon: <FileText className="h-4 w-4"/>, date: new Date().toISOString() };
+              notifObj = { id: Date.now(), type: 'sys', title: 'Yeni Sipariş Formu Geldi', desc: `Talep: ${newData.request_no}`, color: 'bg-amber-100 text-amber-600', path: '/dashboard/purchases', icon: <FileText className="h-4 w-4"/>, date: new Date().toISOString() };
           }
-
-          if (table === 'material_requests' && eventType === 'UPDATE' && newData.requested_by === profile.id && oldData?.status !== newData.status) {
-              shouldNotify = true;
-              notifObj = { id: Date.now(), type: 'sys', title: 'Siparişin Güncellendi', desc: `${newData.material_name} -> ${newData.status.replace('_', ' ')}`, color: 'bg-emerald-100 text-emerald-600', path: '/dashboard', icon: <Package className="h-4 w-4"/>, date: new Date().toISOString() };
-          }
-
-          if (table === 'tracking_sales' && eventType === 'INSERT' && (dept.includes('mühendis') || dept.includes('proje') || isMaster)) {
-              shouldNotify = true;
-              notifObj = { id: Date.now(), type: 'sys', title: 'Yeni Satış Geldi!', desc: `${newData.customer_name} firmasına satış yapıldı.`, color: 'bg-indigo-100 text-indigo-600', path: '/dashboard/engineering/projects', icon: <TrendingUp className="h-4 w-4"/>, date: new Date().toISOString() };
-          }
-
-          if (shouldNotify && notifObj) {
-              playSound();
-              setNotifications(prev => [notifObj, ...prev]);
-          }
-      })
-      .subscribe();
-
+          if (shouldNotify && notifObj) { playSound(); setNotifications(prev => [notifObj, ...prev]); }
+      }).subscribe();
       return () => { supabase.removeChannel(channel); }
   }, [profile])
-
-  const loadNotifications = async (userId: string, dept: string) => {
-      let notifs: any[] = [];
-      const userDept = dept.toLowerCase();
-      const isMaster = userDept.includes('admin') || userDept.includes('yönetim') || userDept.includes('teknoloji');
-
-      const { data: dms } = await supabase.from('notes').select('*, profiles!notes_user_id_fkey(first_name, last_name)').eq('receiver_id', userId).eq('is_read', false);
-      if (dms) { dms.forEach(dm => notifs.push({ id: `dm_${dm.id}`, type: 'msg', title: `Mesaj: ${dm.profiles?.first_name}`, desc: dm.content, date: dm.created_at, color: 'bg-blue-100 text-blue-600', path: '/dashboard', icon: <MessageCircle className="h-4 w-4" /> })) }
-
-      const lastRead = localStorage.getItem(`lastReadGenel_${userId}`);
-      let gq = supabase.from('notes').select('*, profiles!notes_user_id_fkey(first_name, last_name)').is('receiver_id', null);
-      if (lastRead) gq = gq.gt('created_at', lastRead);
-      const { data: gms } = await gq;
-      if (gms) { gms.forEach(gm => { if (gm.user_id !== userId) { notifs.push({ id: `gm_${gm.id}`, type: 'msg', title: `Genel Pano: ${gm.profiles?.first_name}`, desc: gm.content, date: gm.created_at, color: 'bg-emerald-100 text-emerald-600', path: '/dashboard', icon: <Users className="h-4 w-4" /> }) } }) }
-
-      if (userDept.includes('satın') || isMaster) {
-          const { data: reqs } = await supabase.from('material_requests').select('*, profiles(first_name)').eq('status', 'BEKLIYOR');
-          if (reqs) { reqs.forEach(req => notifs.push({ id: `req_${req.id}`, type: 'sys', title: req.priority === 'ACIL' ? '🔥 ACİL SİPARİŞ' : 'Sipariş Talebi', desc: `${req.profiles?.first_name || 'Biri'}: ${req.material_name}`, date: req.created_at, color: req.priority === 'ACIL' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600', path: '/dashboard/purchases', icon: <FileText className="h-4 w-4" /> })) }
-      }
-
-      if (userDept.includes('mühendis') || userDept.includes('proje') || isMaster) {
-          const { data: sales } = await supabase.from('tracking_sales').select('*').eq('status', 'BEKLIYOR');
-          if (sales) { sales.forEach(s => notifs.push({ id: `sale_${s.id}`, type: 'sys', title: 'Yeni Satış', desc: `${s.customer_name} firmasına. Onayınız bekleniyor.`, date: s.created_at, color: 'bg-indigo-100 text-indigo-600', path: '/dashboard/engineering/projects', icon: <TrendingUp className="h-4 w-4" /> })) }
-      }
-
-      const clearTime = localStorage.getItem(`clearedNotifsTime_${userId}`);
-      if (clearTime) {
-          notifs = notifs.filter(n => n.type === 'msg' || new Date(n.date).getTime() > new Date(clearTime).getTime());
-      }
-
-      notifs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setNotifications(notifs);
-  }
-
-  const handleMarkAllRead = async () => {
-      if (!profile?.id) return;
-      await supabase.from('notes').update({ is_read: true }).eq('receiver_id', profile.id).eq('is_read', false);
-      localStorage.setItem(`lastReadGenel_${profile.id}`, new Date().toISOString());
-      localStorage.setItem(`clearedNotifsTime_${profile.id}`, new Date().toISOString());
-      setNotifications([]);
-      setIsNotifOpen(false);
-  }
 
   const fetchUserData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        if (data) {
-            setProfile({ ...data, id: user.id })
-            fetchAllOrders()
-            loadNotifications(user.id, data.department || "") 
-        } else {
-            setProfile({ id: user.id, first_name: "Kaya", last_name: "", department: "Teknoloji Yön." }) 
-            loadNotifications(user.id, "Teknoloji Yön.")
-        }
-    } else {
-        router.push('/login')
-    }
+        if (data) { setProfile({ ...data, id: user.id }); fetchAllOrders(); } 
+        else { setProfile({ id: user.id, first_name: "Kaya", last_name: "", department: "Teknoloji Yön." }); }
+    } else router.push('/login')
   }
 
+  // TÜM SİPARİŞLERİ ÇEK VE FORMLARA GÖRE GRUPLA
   const fetchAllOrders = async () => {
-      const { data } = await supabase
-          .from('material_requests')
-          .select('*, profiles(first_name, last_name)')
-          .neq('status', 'GELDI') 
-          .order('created_at', { ascending: false })
-      if (data) setAllOrders(data)
-  }
-
-  // 🚀 YENİ PDF'Lİ SİPARİŞ GÖNDERME MOTORU
-  const handleOrderSubmit = async () => {
-      if (!orderForm.title) { alert("Lütfen Sipariş Başlığı / Proje Adı giriniz!"); return; }
-      if (!orderForm.file) { alert("Lütfen bir PDF veya Excel Sipariş Formu yükleyiniz!"); return; }
-      
-      setOrderSubmitting(true)
-      try {
-          // 1. Önce Dosyayı Supabase'e Yükle
-          const fileExt = orderForm.file.name.split('.').pop();
-          const fileName = `REQ_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-          
-          const { error: uploadError } = await supabase.storage.from('purchase_documents').upload(`requests/${fileName}`, orderForm.file);
-          if (uploadError) throw uploadError;
-
-          // 2. Dosyanın URL'sini al
-          const { data: { publicUrl } } = supabase.storage.from('purchase_documents').getPublicUrl(`requests/${fileName}`);
-
-          // 3. Veritabanına kaydet
-          const requestNo = `TLP-${Date.now().toString().slice(-6)}`
-          const payload = {
-              request_no: requestNo, 
-              material_name: orderForm.title, // Artık başlık olarak kullanıyoruz
-              description: orderForm.description, 
-              priority: orderForm.priority, 
-              quantity: 1, // Form bazlı olduğu için varsayılan 1
-              file_url: publicUrl,
-              file_name: orderForm.file.name,
-              status: 'BEKLIYOR',
-              requested_by: profile?.id
-          }
-
-          const { error } = await supabase.from('material_requests').insert([payload])
-          if (error) throw error
-          
-          alert(`✅ Sipariş formunuz Satın Almaya başarıyla iletildi! \nTalep No: ${requestNo}`)
-          setOrderForm({ title: "", priority: "NORMAL", description: "", file: null }) 
-          setIsOrderModalOpen(false) 
-          fetchAllOrders() 
-      } catch (err: any) { 
-          alert("Hata: " + err.message) 
-      } finally { 
-          setOrderSubmitting(false) 
+      const { data } = await supabase.from('material_requests').select('*, profiles(first_name, last_name, department)').neq('status', 'GELDI').order('created_at', { ascending: false })
+      if (data) {
+          const grouped = data.reduce((acc: any, req: any) => {
+              if (!acc[req.request_no]) {
+                  acc[req.request_no] = { 
+                      request_no: req.request_no, project_code: req.project_code, material_type: req.description, // description sütununu malzeme cinsi olarak kullanıyoruz
+                      status: req.status, created_at: req.created_at, requested_by: req.requested_by, profiles: req.profiles, priority: req.priority, items: [req] 
+                  }
+              } else {
+                  acc[req.request_no].items.push(req)
+              }
+              return acc
+          }, {})
+          setAllOrders(Object.values(grouped))
       }
   }
 
-  const handleDeleteOrder = async (id: number) => {
-      if (!confirm("Siparişi tamamen iptal edip silmek istediğinize emin misiniz?")) return;
-      // İleride file storage'dan da silebiliriz ama şimdilik tablodan siliyoruz
-      const { error } = await supabase.from('material_requests').delete().eq('id', id)
+  const handleAddOrderItem = () => {
+      if (!orderItemForm.material_name.trim()) return alert("Lütfen malzeme adı giriniz!");
+      if (Number(orderItemForm.quantity) < 1) return alert("Miktar en az 1 olmalıdır!");
+      setOrderItems([...orderItems, { ...orderItemForm }]);
+      setOrderItemForm({ material_name: "", current_stock: "0", quantity: "1" });
+  }
+
+  const handleRemoveOrderItem = (index: number) => {
+      const newItems = [...orderItems]; newItems.splice(index, 1); setOrderItems(newItems);
+  }
+
+  // 🚀 SEPETİ VERİTABANINA KAYDET
+  const handleOrderSubmit = async () => {
+      if (!orderHeader.material_type) return alert("Lütfen Malzeme Cinsi (Örn: Elektrik, Çelik) belirtiniz.");
+      if (orderItems.length === 0) return alert("Lütfen listeye en az 1 malzeme ekleyin!");
+      
+      setOrderSubmitting(true)
+      try {
+          const requestNo = `FRM-${Date.now().toString().slice(-5)}` // Form Numarası
+          const payloads = orderItems.map(item => ({
+              request_no: requestNo, 
+              project_code: orderHeader.project_code || "-", 
+              description: orderHeader.material_type, // Malzeme cinsini burada tutuyoruz
+              material_name: item.material_name, 
+              current_stock: Number(item.current_stock), 
+              quantity: Number(item.quantity),
+              priority: orderHeader.priority, 
+              status: 'BEKLIYOR',
+              requested_by: profile?.id
+          }))
+          
+          const { error } = await supabase.from('material_requests').insert(payloads)
+          if (error) throw error
+          
+          alert(`✅ Sipariş formu oluşturuldu ve Satın Almaya iletildi! \nForm No: ${requestNo}`)
+          setOrderItems([]); setOrderHeader({ project_code: "", material_type: "", priority: "NORMAL" });
+          setIsOrderModalOpen(false); fetchAllOrders();
+      } catch (err: any) { alert("Hata: " + err.message) }
+      finally { setOrderSubmitting(false) }
+  }
+
+  const handleDeleteForm = async (requestNo: string) => {
+      if (!confirm("Bu sipariş formunu tamamen iptal edip silmek istediğinize emin misiniz?")) return;
+      const { error } = await supabase.from('material_requests').delete().eq('request_no', requestNo)
       if (error) alert("Hata: " + error.message)
       else fetchAllOrders()
   }
 
-  const handleUpdateOrder = async () => {
-      if (!editOrderData.material_name) return alert("Sipariş başlığı boş olamaz!");
-      setEditSaving(true)
-      try {
-          const { error } = await supabase.from('material_requests').update({
-              material_name: editOrderData.material_name,
-              description: editOrderData.description,
-              priority: editOrderData.priority
-          }).eq('id', editOrderData.id);
-          
-          if (error) throw error;
-          alert("✅ Sipariş güncellendi!");
-          setIsEditOrderOpen(false);
-          fetchAllOrders();
-      } catch (e: any) {
-          alert("Hata: " + e.message);
-      } finally {
-          setEditSaving(false);
-      }
+  const openFormViewer = (orderGroup: any) => {
+      setViewingOrderGroup(orderGroup)
+      setIsFormViewerOpen(true)
   }
 
-  const handleLogout = async () => {
-      await supabase.auth.signOut()
-      router.push('/login')
-  }
+  const handleLogout = async () => { await supabase.auth.signOut(); router.push('/login'); }
 
   const menuGroups = [
     { title: "GENEL", allowedRoles: ["yönetim", "admin", "satış", "muhasebe", "mühendis", "üretim", "proje", "ressam", "satın"], items: [ { href: "/dashboard", label: "Ana Sayfa", icon: Home }, { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package }, { href: "/dashboard/customers", label: "Müşteriler", icon: Users }, { href: "/dashboard/suppliers", label: "Tedarikçiler", icon: Truck }, { href: "/dashboard/archive", label: "Üretim Arşivi", icon: ArchiveRestore } ] },
@@ -280,7 +178,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
       {isMobileMenuOpen && (<div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] lg:hidden animate-in fade-in" onClick={() => setIsMobileMenuOpen(false)}></div>)}
 
-      {/* SOL MENÜ */}
+      {/* SOL MENÜ (AYNI) */}
       <aside className={`fixed inset-y-0 left-0 z-[70] w-[280px] lg:w-[300px] transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col p-4 lg:p-5 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} lg:flex`}>
         <div className="flex-1 flex flex-col bg-white/95 lg:bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)] lg:shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] overflow-hidden relative">
           <div className="flex items-center justify-between gap-3 p-5 border-b border-gray-100/50">
@@ -317,21 +215,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       
       <main className="flex-1 lg:pl-[300px] flex flex-col min-h-screen relative w-full overflow-x-hidden">
         
-        <div className="lg:hidden flex items-center justify-between p-4 bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-            <div className="flex items-center gap-3">
-                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-600 hover:bg-indigo-100 transition-colors"><Menu className="h-6 w-6" /></button>
-                <Image src="/buvisan.png" alt="Logo" width={100} height={30} className="object-contain" />
-            </div>
-            <div className="flex items-center gap-2">
-                <button onClick={() => setIsOrderModalOpen(true)} className="p-2.5 bg-blue-600 text-white rounded-xl shadow-md active:scale-95 transition-transform" title="Sipariş Ver"><ShoppingCart className="h-5 w-5" /></button>
-                <button onClick={() => { fetchAllOrders(); setIsTrackingModalOpen(true); }} className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl shadow-sm active:scale-95 transition-transform" title="Sipariş Takip"><ListOrdered className="h-5 w-5" /></button>
-                <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false)}} className="relative p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-500">
-                    <Bell className="h-5 w-5" />
-                    {notifications.length > 0 && <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-rose-500 border-2 border-white animate-pulse"></span>}
-                </button>
-            </div>
-        </div>
-
         <header className="hidden lg:flex h-20 items-center justify-between px-8 mt-5 mx-8 bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_4px_20px_rgb(0,0,0,0.03)] rounded-[2rem] sticky top-5 z-30">
           <div className="flex items-center gap-4 shrink-0">
              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)] animate-pulse"></div>
@@ -340,7 +223,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <div className="flex-1 flex justify-end items-center gap-3 pr-6 border-r border-slate-200 mr-6">
               <Button onClick={() => setIsOrderModalOpen(true)} className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md shadow-blue-500/20 text-sm transition-transform active:scale-95 flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4" /> Sipariş Formu Yükle
+                  <ShoppingCart className="h-4 w-4" /> Sipariş Oluştur (Form)
               </Button>
               <Button variant="outline" onClick={() => { fetchAllOrders(); setIsTrackingModalOpen(true); }} className="h-11 px-5 font-bold rounded-xl border-2 border-slate-200 text-slate-600 hover:bg-slate-50 text-sm transition-transform active:scale-95 flex items-center gap-2">
                   <ListOrdered className="h-4 w-4" /> Sipariş Takip
@@ -349,55 +232,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           <div className="flex items-center gap-5 shrink-0">
              <div className="relative">
-                 <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false)}} className={`h-12 w-12 rounded-2xl border flex items-center justify-center transition-all relative ${isNotifOpen ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-inner' : 'bg-white/80 border-white text-slate-500 hover:text-blue-600 hover:shadow-md'}`}>
-                    <Bell className="h-5 w-5" />
-                    {notifications.length > 0 && <span className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-black border-2 border-white shadow-sm animate-bounce">{notifications.length > 9 ? '9+' : notifications.length}</span>}
-                 </button>
-
-                 {isNotifOpen && (
-                     <div className="absolute right-0 mt-3 w-[320px] md:w-[380px] bg-white/95 backdrop-blur-3xl border border-slate-100 rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 z-50">
-                         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                             <h3 className="font-black text-slate-800">Bildirimler</h3>
-                             {notifications.length > 0 && <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">{notifications.length} Yeni</span>}
-                         </div>
-                         <div className="max-h-[350px] overflow-y-auto p-2 custom-scrollbar">
-                             {notifications.length === 0 ? (
-                                 <div className="p-8 flex flex-col items-center justify-center text-slate-400">
-                                     <Bell className="h-8 w-8 mb-2 opacity-20" />
-                                     <p className="text-xs font-bold">Harika! Okunmamış bildirim yok.</p>
-                                 </div>
-                             ) : (
-                                 <div className="flex flex-col gap-1">
-                                     {notifications.map(notif => (
-                                         <div key={notif.id} onClick={() => { setIsNotifOpen(false); router.push(notif.path); }} className="p-3 hover:bg-slate-50 rounded-2xl cursor-pointer transition-colors flex gap-3 group">
-                                             <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${notif.color}`}>{notif.icon}</div>
-                                             <div className="flex flex-col flex-1 overflow-hidden">
-                                                 <div className="flex items-start justify-between gap-2"><p className="text-xs font-black text-slate-800 truncate">{notif.title}</p><span className="text-[9px] font-bold text-slate-400 shrink-0">{new Date(notif.date).toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'})}</span></div>
-                                                 <p className="text-[10px] font-medium text-slate-500 mt-0.5 truncate group-hover:text-slate-700 transition-colors">{notif.desc}</p>
-                                             </div>
-                                         </div>
-                                     ))}
-                                 </div>
-                             )}
-                         </div>
-                         {notifications.length > 0 && (
-                             <div className="p-3 border-t border-slate-100 text-center bg-slate-50/50"><button onClick={handleMarkAllRead} className="text-xs font-black text-blue-600 hover:text-blue-800 transition-colors w-full p-2 rounded-xl hover:bg-blue-50/50">Tüm Bildirimleri Okundu İşaretle</button></div>
-                         )}
-                     </div>
-                 )}
-             </div>
-
-             <div className="relative">
-                 <button onClick={() => {setIsUserMenuOpen(!isUserMenuOpen); setIsNotifOpen(false)}} className="flex items-center gap-3 h-12 pl-2 pr-4 rounded-2xl bg-white/80 border border-white hover:shadow-md transition-all">
+                 <button onClick={() => {setIsUserMenuOpen(!isUserMenuOpen)}} className="flex items-center gap-3 h-12 pl-2 pr-4 rounded-2xl bg-white/80 border border-white hover:shadow-md transition-all">
                      <div className="h-8 w-8 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">{profile?.first_name?.charAt(0) || "U"}</div>
                      <ChevronDown className="h-4 w-4 text-slate-400" />
                  </button>
                  {isUserMenuOpen && (
                      <div className="absolute right-0 mt-3 w-64 bg-white/95 backdrop-blur-3xl border border-slate-100 rounded-[2rem] shadow-2xl p-2 animate-in fade-in slide-in-from-top-4 z-50">
                         <div className="flex flex-col gap-1">
-                            <Link href="/dashboard/profile" onClick={() => setIsUserMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors"><UserCircle className="h-4 w-4" /> Profilim</Link>
-                            <Link href="/dashboard/settings" onClick={() => setIsUserMenuOpen(false)} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors"><Settings className="h-4 w-4" /> Ayarlar</Link>
-                            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-black text-rose-600 hover:bg-rose-50 rounded-xl transition-colors mt-1"><LogOut className="h-4 w-4" /> Sistemden Çıkış Yap</button>
+                            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-black text-rose-600 hover:bg-rose-50 rounded-xl transition-colors mt-1"><LogOut className="h-4 w-4" /> Çıkış Yap</button>
                         </div>
                      </div>
                  )}
@@ -411,151 +253,183 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       </main>
 
-      {/* 🚀 YENİ: PDF DESTEKLİ SİPARİŞ VER MODALI */}
+      {/* 🚀 SİPARİŞ OLUŞTURMA MODALI (FORM DOLDURMA) */}
       <Dialog open={isOrderModalOpen} onOpenChange={setIsOrderModalOpen}>
-          <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-xl border-none shadow-2xl z-[100]">
-              <DialogHeader className="mb-4">
-                  <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2">
-                      <ShoppingCart className="text-blue-500"/> Sipariş Formu Yükle
-                  </DialogTitle>
-                  <p className="text-xs font-bold text-slate-500 mt-1">Excel veya PDF formatındaki sipariş formunuzu sisteme yükleyin.</p>
+          <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none shadow-2xl z-[100] flex flex-col max-h-[90vh]">
+              <DialogHeader className="shrink-0 mb-4">
+                  <DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ShoppingCart className="text-blue-500"/> Malzeme İstek Formu Oluştur</DialogTitle>
+                  <p className="text-xs font-bold text-slate-500 mt-1">Malzemeleri sepete ekleyin. Sistem otomatik olarak standart istek formu oluşturacaktır.</p>
               </DialogHeader>
               
-              <div className="flex flex-col gap-5 py-2">
-                  <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sipariş Başlığı / Proje Adı</Label>
-                      <Input placeholder="Örn: 26-092 Çelik İhtiyaçları" value={orderForm.title} onChange={e=>setOrderForm({...orderForm, title: e.target.value})} className="h-12 font-bold border-slate-200 focus:ring-blue-500 bg-slate-50 rounded-xl" />
-                  </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6">
                   
-                  <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tedarik Süresi (Öncelik)</Label>
-                      <div className="flex bg-slate-100 p-1.5 rounded-xl">
-                          <button type="button" onClick={() => setOrderForm({...orderForm, priority: 'NORMAL'})} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${orderForm.priority === 'NORMAL' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>Normal</button>
-                          <button type="button" onClick={() => setOrderForm({...orderForm, priority: 'ACIL'})} className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${orderForm.priority === 'ACIL' ? 'bg-rose-500 shadow-md text-white' : 'text-slate-500 hover:text-rose-500'}`}>ACİL</button>
+                  {/* FORM ÜST BİLGİLERİ (BAŞLIK) */}
+                  <div className="bg-blue-50/50 border border-blue-100 rounded-[1.5rem] p-4 flex flex-col gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2"><Label className="text-[10px] font-bold text-blue-700 uppercase tracking-widest">Proje No (Varsa)</Label><Input placeholder="Örn: 26-092" value={orderHeader.project_code} onChange={e=>setOrderHeader({...orderHeader, project_code: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11 bg-white" /></div>
+                          <div className="space-y-2"><Label className="text-[10px] font-bold text-blue-700 uppercase tracking-widest">Malzeme Cinsi / Kategori</Label><Input placeholder="Örn: Elektrik, Çelik, Hırdavat..." value={orderHeader.material_type} onChange={e=>setOrderHeader({...orderHeader, material_type: e.target.value})} className="font-bold border-blue-200 focus:ring-blue-500 h-11 bg-white" /></div>
                       </div>
                   </div>
 
-                  <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Açıklama / Not</Label>
-                      <Textarea placeholder="Satın alma birimine iletmek istediğiniz özel notlar..." value={orderForm.description} onChange={(e: any) => setOrderForm({...orderForm, description: e.target.value})} className="font-medium border-slate-200 focus:ring-blue-500 min-h-[80px] resize-none bg-slate-50 rounded-xl p-3" />
+                  {/* KALEM EKLEME ALANI */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 flex flex-col gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                          <div className="space-y-2 col-span-2 md:col-span-3"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ürün Tanımı / Malzeme Adı</Label><Input placeholder="Örn: 6204 Rulman" value={orderItemForm.material_name} onChange={e=>setOrderItemForm({...orderItemForm, material_name: e.target.value})} className="font-bold border-slate-200 h-11 bg-white" /></div>
+                          <div className="space-y-2 col-span-1"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mevcut Stok</Label><Input type="number" value={orderItemForm.current_stock} onChange={e=>setOrderItemForm({...orderItemForm, current_stock: e.target.value})} className="font-bold border-slate-200 h-11 bg-white" /></div>
+                          <div className="space-y-2 col-span-1"><Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Miktar</Label><Input type="number" min="1" value={orderItemForm.quantity} onChange={e=>setOrderItemForm({...orderItemForm, quantity: e.target.value})} className="font-black text-blue-600 border-slate-200 h-11 bg-white" /></div>
+                      </div>
+                      <Button type="button" onClick={handleAddOrderItem} className="w-full h-11 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2"><Plus className="h-4 w-4" /> SATIR EKLE</Button>
                   </div>
 
-                  {/* DOSYA YÜKLEME ALANI */}
-                  <div className="space-y-2">
-                      <Label className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Sipariş Formu (PDF / Excel)</Label>
-                      <div 
-                          onClick={() => fileInputRef.current?.click()} 
-                          className={`relative flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-2xl transition-all cursor-pointer ${orderForm.file ? 'border-emerald-400 bg-emerald-50' : 'border-blue-200 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-400'}`}
-                      >
-                          <input type="file" ref={fileInputRef} className="hidden" accept=".pdf,.xls,.xlsx,.doc,.docx" onChange={(e) => setOrderForm({...orderForm, file: e.target.files?.[0] || null})} />
-                          <div className={`p-3 rounded-full mb-3 transition-colors ${orderForm.file ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
-                              {orderForm.file ? <File className="h-6 w-6" /> : <UploadCloud className="h-6 w-6" />}
+                  {/* EKLENEN LİSTE */}
+                  {orderItems.length > 0 && (
+                      <div className="flex flex-col gap-2">
+                          <h3 className="font-black text-slate-700 text-sm flex items-center gap-2">Forma Eklenecek Malzemeler <span className="bg-blue-600 text-white px-2 py-0.5 rounded-full text-xs">{orderItems.length}</span></h3>
+                          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                              <table className="w-full text-left text-xs md:text-sm">
+                                  <thead className="bg-slate-100 border-b border-slate-200 text-slate-500 font-bold"><tr><th className="px-3 py-3">No</th><th className="px-3 py-3">Ürün Tanımı</th><th className="px-3 py-3 text-center">Stok</th><th className="px-3 py-3 text-center">Miktar</th><th className="px-3 py-3 text-right">Sil</th></tr></thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                      {orderItems.map((item, index) => (
+                                          <tr key={index} className="bg-white hover:bg-slate-50">
+                                              <td className="px-3 py-3 font-bold text-slate-400">{index + 1}</td>
+                                              <td className="px-3 py-3 font-bold text-slate-800">{item.material_name}</td>
+                                              <td className="px-3 py-3 font-medium text-slate-600 text-center">{item.current_stock}</td>
+                                              <td className="px-3 py-3 font-black text-blue-600 text-center">{item.quantity} ADET</td>
+                                              <td className="px-3 py-3 text-right"><button onClick={() => handleRemoveOrderItem(index)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button></td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
                           </div>
-                          <span className={`font-black text-sm text-center ${orderForm.file ? 'text-emerald-700' : 'text-blue-700'}`}>
-                              {orderForm.file ? "Dosya Seçildi" : "Tıkla ve Dosya Seç"}
-                          </span>
-                          <span className="text-xs font-bold text-slate-400 text-center mt-1 truncate w-full max-w-[300px]">
-                              {orderForm.file ? orderForm.file.name : "Maksimum boyut: 10MB"}
-                          </span>
                       </div>
-                  </div>
+                  )}
               </div>
-
               <div className="shrink-0 pt-4 mt-2 border-t border-slate-100">
-                  <Button onClick={handleOrderSubmit} disabled={orderSubmitting} className="w-full h-14 md:h-16 bg-blue-600 hover:bg-blue-700 text-white font-black text-base md:text-lg rounded-xl shadow-xl shadow-blue-500/20 transition-all">
-                      {orderSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Send className="h-5 w-5 mr-2" />} 
-                      {orderSubmitting ? "YÜKLENİYOR..." : "SİPARİŞ FORMUNU İLET"}
+                  <Button onClick={handleOrderSubmit} disabled={orderSubmitting || orderItems.length === 0} className="w-full h-14 md:h-16 bg-blue-600 hover:bg-blue-700 text-white font-black text-base md:text-lg rounded-xl shadow-xl transition-all">
+                      {orderSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <FileText className="h-5 w-5 mr-2" />} {orderSubmitting ? "FORM OLUŞTURULUYOR..." : `FORMU OLUŞTUR VE İLET (${orderItems.length} Kalem)`}
                   </Button>
               </div>
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 SİPARİŞ TAKİP MODALI (HERKES TÜMÜNÜ GÖRÜR - PDF LİNKLİ) */}
+      {/* 🚀 SİPARİŞ TAKİP MODALI */}
       <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
           <DialogContent className="rounded-[2rem] p-6 max-w-5xl border-none shadow-2xl overflow-hidden max-h-[85vh] flex flex-col z-[100]">
-              <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ListOrdered className="text-blue-500"/> Şirket İçi Tüm Siparişler</DialogTitle></DialogHeader>
+              <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ListOrdered className="text-blue-500"/> Şirket İçi Tüm Formlar</DialogTitle></DialogHeader>
               <div className="overflow-y-auto custom-scrollbar flex-1 mt-4 border border-slate-100 rounded-xl">
                   <table className="w-full text-left border-collapse text-sm">
                       <thead className="bg-slate-50 sticky top-0">
                           <tr>
+                              <th className="px-4 py-3 font-bold text-slate-500">Form No</th>
                               <th className="px-4 py-3 font-bold text-slate-500">Talep Eden</th>
-                              <th className="px-4 py-3 font-bold text-slate-500">Sipariş Başlığı / Formu</th>
+                              <th className="px-4 py-3 font-bold text-slate-500">Malzeme Cinsi</th>
                               <th className="px-4 py-3 font-bold text-slate-500">Durum</th>
                               <th className="px-4 py-3 font-bold text-slate-500 text-right">İşlem</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                          {allOrders.map(o => {
-                              const isMyOrder = o.requested_by === profile?.id || isMaster;
-                              const canEdit = isMyOrder && o.status === 'BEKLIYOR';
+                          {allOrders.map(group => {
+                              const isMyOrder = group.requested_by === profile?.id || isMaster;
+                              const canEdit = isMyOrder && group.status === 'BEKLIYOR';
 
                               return (
-                              <tr key={o.id} className={`hover:bg-slate-50/50 ${isMyOrder ? 'bg-blue-50/20' : ''}`}>
-                                  <td className="px-4 py-3">
-                                      <div className="flex flex-col">
-                                          <span className="font-black text-slate-700">{o.profiles?.first_name} {o.profiles?.last_name}</span>
-                                          <span className="font-mono text-[9px] text-slate-400">{o.request_no}</span>
-                                      </div>
-                                  </td>
-                                  <td className="px-4 py-4">
-                                      <div className="flex flex-col gap-2">
-                                          <span className="font-bold text-slate-800 text-sm">{o.material_name}</span>
-                                          {o.file_url ? (
-                                              <a href={o.file_url} target="_blank" className="flex items-center gap-1.5 text-[10px] font-black uppercase bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg w-max border border-blue-100 hover:bg-blue-600 hover:text-white transition-colors">
-                                                  <FileText className="h-3.5 w-3.5" /> Formu İndir / Görüntüle
-                                              </a>
-                                          ) : (
-                                              <span className="text-[10px] text-slate-400 font-bold">Eski Kayıt (Dosya Yok)</span>
+                              <tr key={group.request_no} className={`hover:bg-slate-50/50 ${isMyOrder ? 'bg-blue-50/20' : ''}`}>
+                                  <td className="px-4 py-4 font-mono text-xs font-bold text-blue-600">{group.request_no}</td>
+                                  <td className="px-4 py-3 font-black text-slate-700">{group.profiles?.first_name} {group.profiles?.last_name}</td>
+                                  <td className="px-4 py-3 font-bold text-slate-700">{group.material_type || "Belirtilmedi"} <span className="text-[10px] text-slate-400 block">{group.items.length} Kalem İçeriyor</span></td>
+                                  <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${group.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' : group.status === 'SIPARIS_VERILDI' ? 'bg-blue-100 text-blue-700' : group.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{group.status.replace('_', ' ')}</span></td>
+                                  <td className="px-4 py-3 text-right">
+                                      <div className="flex items-center justify-end gap-2">
+                                          <Button onClick={() => openFormViewer(group)} size="sm" className="h-8 bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold text-xs">
+                                              <FileText className="h-3.5 w-3.5 mr-1" /> Formu Aç
+                                          </Button>
+                                          {canEdit && (
+                                              <button onClick={() => handleDeleteForm(group.request_no)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Formu İptal Et"><Trash2 className="h-4 w-4" /></button>
                                           )}
                                       </div>
                                   </td>
-                                  <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${o.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' : o.status === 'SIPARIS_VERILDI' ? 'bg-blue-100 text-blue-700' : o.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{o.status.replace('_', ' ')}</span></td>
-                                  <td className="px-4 py-3 text-right">
-                                      {canEdit ? (
-                                          <div className="flex items-center justify-end gap-1">
-                                              <button onClick={() => { setEditOrderData(o); setIsEditOrderOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Düzenle"><Edit2 className="h-4 w-4" /></button>
-                                              <button onClick={() => handleDeleteOrder(o.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Siparişi İptal Et"><Trash2 className="h-4 w-4" /></button>
-                                          </div>
-                                      ) : (
-                                          <span className="text-[10px] font-bold text-slate-300">Yetkisiz</span>
-                                      )}
-                                  </td>
                               </tr>
                           )})}
-                          {allOrders.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-slate-400 font-medium">Henüz verilen bir sipariş yok.</td></tr>}
+                          {allOrders.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-slate-400 font-medium">Henüz verilen bir sipariş yok.</td></tr>}
                       </tbody>
                   </table>
               </div>
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 SİPARİŞ DÜZENLEME MODALI */}
-      <Dialog open={isEditOrderOpen} onOpenChange={setIsEditOrderOpen}>
-          <DialogContent className="rounded-[2rem] p-6 max-w-md border-none shadow-2xl flex flex-col z-[110]">
-              <DialogHeader className="mb-4"><DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2"><Edit2 className="h-5 w-5 text-blue-500"/> Sipariş Bilgilerini Düzenle</DialogTitle></DialogHeader>
-              {editOrderData && (
-                  <div className="flex flex-col gap-4">
-                      <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sipariş Başlığı</Label>
-                          <Input value={editOrderData.material_name} onChange={e => setEditOrderData({...editOrderData, material_name: e.target.value})} className="font-bold border-slate-200" />
+      {/* 🚀 ZM METAL İSTEK FORMU GÖRÜNÜMÜ (DİJİTAL KAĞIT - YAZDIRILABİLİR) */}
+      <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
+          <DialogContent className="max-w-4xl p-0 border-none bg-transparent shadow-none overflow-hidden max-h-screen custom-scrollbar print:overflow-visible">
+              
+              <div className="bg-white text-black border-[3px] border-black w-full mx-auto print:border-none print:w-full" id="printable-form">
+                  {/* HEADER */}
+                  <div className="flex border-b-[3px] border-black">
+                      <div className="w-1/4 border-r-[3px] border-black flex flex-col items-center justify-center p-2 bg-yellow-100/30 print:bg-transparent">
+                          <h1 className="font-black text-xl text-center leading-tight">ZM METAL MAKİNA</h1>
+                          <h2 className="font-bold text-[10px] text-center leading-tight">İMALAT SANAYİ VE TİC. LTD. ŞTİ.</h2>
                       </div>
-                      <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Öncelik</Label>
-                          <select value={editOrderData.priority} onChange={e => setEditOrderData({...editOrderData, priority: e.target.value})} className="w-full h-10 px-3 rounded-md bg-white border border-slate-200 text-sm font-bold text-slate-700 outline-none">
-                              <option value="NORMAL">Normal</option>
-                              <option value="ACIL">ACİL</option>
-                          </select>
+                      <div className="w-2/4 border-r-[3px] border-black flex items-center justify-center p-4">
+                          <h2 className="text-2xl font-black tracking-widest text-slate-700">MALZEME İSTEK FORMU</h2>
                       </div>
-                      <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Açıklama / Not</Label>
-                          <Textarea value={editOrderData.description} onChange={e => setEditOrderData({...editOrderData, description: e.target.value})} className="font-medium border-slate-200 resize-none min-h-[60px]" />
+                      <div className="w-1/4 flex flex-col text-[11px] font-bold">
+                          <div className="flex border-b-[3px] border-black"><span className="w-1/2 border-r-[3px] border-black p-1.5 bg-slate-50 print:bg-transparent">Doküman No</span><span className="w-1/2 p-1.5">SD04.F01</span></div>
+                          <div className="flex border-b-[3px] border-black"><span className="w-1/2 border-r-[3px] border-black p-1.5 bg-slate-50 print:bg-transparent">Yayın Tarihi</span><span className="w-1/2 p-1.5">13.12.2017</span></div>
+                          <div className="flex border-b-[3px] border-black"><span className="w-1/2 border-r-[3px] border-black p-1.5 bg-slate-50 print:bg-transparent">Revizyon No</span><span className="w-1/2 p-1.5">--</span></div>
+                          <div className="flex"><span className="w-1/2 border-r-[3px] border-black p-1.5 bg-slate-50 print:bg-transparent">Revizyon Tarihi</span><span className="w-1/2 p-1.5">--</span></div>
                       </div>
-                      <p className="text-[10px] font-bold text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100">Not: Yüklenen PDF dosyasını değiştirmek için bu siparişi silip yeniden yüklemeniz gerekmektedir.</p>
-                      <Button onClick={handleUpdateOrder} disabled={editSaving} className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl mt-2">
-                          {editSaving ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5 mr-2" />} KAYDET
-                      </Button>
                   </div>
-              )}
+                  
+                  {/* INFO TABLE */}
+                  <div className="flex border-b-[3px] border-black text-[11px]">
+                      <div className="w-1/2 flex flex-col border-r-[3px] border-black">
+                          <div className="flex border-b-[3px] border-black"><span className="w-1/2 border-r-[3px] border-black p-1.5 font-black bg-slate-50 print:bg-transparent">Malzeme İstek Formu No</span><span className="w-1/2 p-1.5 font-bold uppercase">{viewingOrderGroup?.request_no}</span></div>
+                          <div className="flex border-b-[3px] border-black"><span className="w-1/2 border-r-[3px] border-black p-1.5 font-black bg-slate-50 print:bg-transparent">Proje No</span><span className="w-1/2 p-1.5 font-bold">{viewingOrderGroup?.project_code}</span></div>
+                          <div className="flex"><span className="w-1/2 border-r-[3px] border-black p-1.5 font-black bg-slate-50 print:bg-transparent">Tarih</span><span className="w-1/2 p-1.5 font-bold">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</span></div>
+                      </div>
+                      <div className="w-1/2 flex flex-col">
+                          <div className="flex border-b-[3px] border-black"><span className="w-1/2 border-r-[3px] border-black p-1.5 font-black bg-slate-50 print:bg-transparent">İstek Yapan Personel</span><span className="w-1/2 p-1.5 font-bold">{viewingOrderGroup?.profiles?.first_name} {viewingOrderGroup?.profiles?.last_name}</span></div>
+                          <div className="flex border-b-[3px] border-black"><span className="w-1/2 border-r-[3px] border-black p-1.5 font-black bg-slate-50 print:bg-transparent">İstek Yapan Bölüm</span><span className="w-1/2 p-1.5 font-bold">{viewingOrderGroup?.profiles?.department || "-"}</span></div>
+                          <div className="flex"><span className="w-1/2 border-r-[3px] border-black p-1.5 font-black bg-slate-50 print:bg-transparent">Malzeme Cinsi</span><span className="w-1/2 p-1.5 font-bold">{viewingOrderGroup?.material_type}</span></div>
+                      </div>
+                  </div>
+                  
+                  {/* ITEMS TABLE */}
+                  <table className="w-full text-xs border-collapse">
+                      <thead className="bg-slate-50 print:bg-transparent">
+                          <tr className="border-b-[3px] border-black">
+                              <th className="border-r-[3px] border-black p-2 text-center w-12 font-black">No</th>
+                              <th className="border-r-[3px] border-black p-2 text-left font-black">Ürün Tanımı</th>
+                              <th className="border-r-[3px] border-black p-2 text-center w-20 font-black">Stok</th>
+                              <th className="border-r-[3px] border-black p-2 text-center w-24 font-black">Miktar</th>
+                              <th className="p-2 text-center w-24 font-black">Termin</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {viewingOrderGroup?.items?.map((item: any, idx: number) => (
+                              <tr key={idx} className="border-b-[3px] border-black last:border-b-0">
+                                  <td className="border-r-[3px] border-black p-2.5 text-center font-bold">{idx + 1}</td>
+                                  <td className="border-r-[3px] border-black p-2.5 font-bold">{item.material_name}</td>
+                                  <td className="border-r-[3px] border-black p-2.5 text-center font-bold">{item.current_stock || 0}</td>
+                                  <td className="border-r-[3px] border-black p-2.5 text-center font-black text-sm">{item.quantity}</td>
+                                  <td className="p-2.5 text-center"></td>
+                              </tr>
+                          ))}
+                          {/* Kağıt gibi dolsun diye boş satırlar */}
+                          {[...Array(Math.max(0, 8 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
+                              <tr key={`empty-${i}`} className="border-b-[3px] border-black last:border-b-0 h-10">
+                                  <td className="border-r-[3px] border-black"></td><td className="border-r-[3px] border-black"></td><td className="border-r-[3px] border-black"></td><td className="border-r-[3px] border-black"></td><td></td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+
+              {/* BUTONLAR (YAZDIRIRKEN GİZLENİR) */}
+              <div className="flex justify-end gap-3 mt-4 print:hidden bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl w-max ml-auto">
+                  <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-slate-600 text-slate-300 hover:bg-slate-800">Kapat</Button>
+                  <Button onClick={() => window.print()} className="bg-blue-500 hover:bg-blue-600 text-white font-black shadow-lg"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF İndir</Button>
+              </div>
+
           </DialogContent>
       </Dialog>
 
