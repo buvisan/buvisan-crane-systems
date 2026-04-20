@@ -66,6 +66,7 @@ export default function PurchaseHistoryPage() {
         setSaving(true)
         try {
             const { data: { user } } = await supabase.auth.getUser()
+            
             const requestNo = `MNL-${Date.now().toString().slice(-5)}`
             const payloads = manualItems.map(item => ({
                 request_no: requestNo, 
@@ -81,9 +82,12 @@ export default function PurchaseHistoryPage() {
             }))
 
             const { error } = await supabase.from('material_requests').insert(payloads)
+            
             if (error) throw error
             alert("✅ Form başarıyla geçmiş arşive eklendi!")
-            setIsManualModalOpen(false); setManualItems([]); setManualHeader({ project_code: "", material_type: "", created_at: new Date().toISOString().split('T')[0] })
+            setIsManualModalOpen(false); 
+            setManualItems([]);
+            setManualHeader({ project_code: "", material_type: "", created_at: new Date().toISOString().split('T')[0] })
             fetchHistory();
         } catch (error: any) { alert("Hata: " + error.message) } 
         finally { setSaving(false) }
@@ -151,7 +155,6 @@ export default function PurchaseHistoryPage() {
                 </div>
             </div>
 
-            {/* YENİ MANUEL ARŞİV FORMU EKLME MODALI */}
             <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
                 <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-4xl border-none shadow-2xl flex flex-col max-h-[90vh]">
                     <DialogHeader className="shrink-0 mb-4"><DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2"><History className="h-6 w-6 text-slate-500"/> Geçmiş Sipariş Formu Gir</DialogTitle></DialogHeader>
@@ -200,19 +203,23 @@ export default function PurchaseHistoryPage() {
 
             {/* 🚀 KUSURSUZ ZM METAL İSTEK FORMU GÖRÜNÜMÜ */}
             <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
-                <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-white shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0">
+                <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-slate-50 shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0 print:bg-white">
                     
                     <style>{`
                         @media print {
                             @page { size: A4 portrait; margin: 10mm; }
-                            body * { visibility: hidden !important; }
-                            #printable-form, #printable-form * { visibility: visible !important; border-color: black !important; color: black !important; }
-                            #printable-form { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; padding: 0 !important; zoom: 1.20 !important; }
-                            .print\\:hidden, .print\\:hidden * { display: none !important; visibility: hidden !important; }
+                            body > *:not([data-radix-portal]) { display: none !important; }
+                            [data-radix-focus-guard] { display: none !important; }
+                            div[data-state="open"][class*="fixed inset-0"] { display: none !important; }
+                            [role="dialog"] { position: static !important; transform: none !important; box-shadow: none !important; width: 100% !important; max-width: 100% !important; height: auto !important; max-height: none !important; background: white !important; }
+                            .custom-scrollbar { overflow: visible !important; max-height: none !important; height: auto !important; padding: 0 !important; }
+                            #printable-form { zoom: 1.20 !important; border: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+                            #printable-form * { border-color: black !important; }
+                            .print\\:hidden { display: none !important; }
                         }
                     `}</style>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 bg-slate-50 print:bg-white print:p-0 w-full">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50 print:bg-white print:p-0 w-full">
                         <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
                             <table className="w-full border-collapse border border-black mb-4">
                                 <tbody>
@@ -222,8 +229,8 @@ export default function PurchaseHistoryPage() {
                                         <td className="border border-black w-1/4 p-0 align-top text-[11px]">
                                             <table className="w-full h-full border-collapse">
                                                 <tbody>
-                                                    <tr><td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Doküman No</td><td className="border-b border-black p-1.5 font-bold text-blue-700 uppercase">DOC-{viewingOrderGroup?.request_no?.split('-')[1] || '001'}</td></tr>
-                                                    <tr><td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Yayın Tarihi</td><td className="border-b border-black p-1.5 font-bold text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td></tr>
+                                                    <tr><td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Doküman No</td><td className="border-b border-black p-1.5 font-bold text-blue-700 uppercase">DOC-{viewingOrderGroup?.request_no?.replace(/\D/g, '') || '001'}</td></tr>
+                                                    <tr><td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Yayın Tarihi</td><td className="border-b border-black p-1.5 font-bold text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : '13.12.2017'}</td></tr>
                                                     <tr><td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Revizyon No</td><td className="border-b border-black p-1.5 font-bold">00</td></tr>
                                                     <tr><td className="border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Revizyon Tarihi</td><td className="p-1.5 font-bold">--</td></tr>
                                                 </tbody>
