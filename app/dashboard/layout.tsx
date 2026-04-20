@@ -10,7 +10,7 @@ import {
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
   LogOut, UserCircle, Settings, ChevronDown, Activity, PieChart, TrendingUp, CarFront,
   Wallet, FileText, Archive, ScanLine, History, Menu, X,
-  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle
+  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Save
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [orderItems, setOrderItems] = useState<any[]>([]) 
   const [orderForm, setOrderForm] = useState({ project_code: "", material_code: "", material_name: "", current_stock: "0", quantity: "1", priority: "NORMAL", description: "" })
   const [orderSubmitting, setOrderSubmitting] = useState(false)
-  const [myOrders, setMyOrders] = useState<any[]>([])
+  
+  // 🚀 YENİ: TÜM SİPARİŞLER HAFIZASI
+  const [allOrders, setAllOrders] = useState<any[]>([])
+  
+  // 🚀 YENİ: SİPARİŞ DÜZENLEME STATELERİ
+  const [isEditOrderOpen, setIsEditOrderOpen] = useState(false)
+  const [editOrderData, setEditOrderData] = useState<any>(null)
+  const [editSaving, setEditSaving] = useState(false)
 
   const [notifications, setNotifications] = useState<any[]>([])
 
@@ -55,7 +62,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
   }
 
-  // 🚀 ULTRA MEGA ANLIK RADAR (TÜM SİSTEMİ DİNLER)
   useEffect(() => {
       if (!profile?.id) return;
 
@@ -63,8 +69,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .on('postgres_changes', { event: '*', schema: 'public' }, async (payload: any) => {
           const table = payload.table;
           const eventType = payload.eventType;
-          
-          // 🚀 TYPESCRIPT HATALARINI GİDEREN SİHİRLİ DOKUNUŞ (as any)
           const newData = payload.new as any;
           const oldData = payload.old as any;
           
@@ -74,7 +78,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           let shouldNotify = false;
           let notifObj: any = null;
 
-          // 1. YENİ MESAJ GELDİ Mİ?
           if (table === 'notes' && eventType === 'INSERT') {
               if (newData.user_id !== profile.id && (newData.receiver_id === profile.id || !newData.receiver_id)) {
                   shouldNotify = true;
@@ -83,25 +86,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               }
           }
 
-          // 2. YENİ SİPARİŞ Mİ GEÇİLDİ? (Satın Almaya Gider)
           if (table === 'material_requests' && eventType === 'INSERT' && (dept.includes('satın') || isMaster)) {
               shouldNotify = true;
               notifObj = { id: Date.now(), type: 'sys', title: newData.priority === 'ACIL' ? '🔥 ACİL SİPARİŞ' : 'Yeni Malzeme Talebi', desc: `${newData.quantity} Adet ${newData.material_name}`, color: newData.priority === 'ACIL' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600', path: '/dashboard/purchases', icon: <ShoppingCart className="h-4 w-4"/>, date: new Date().toISOString() };
           }
 
-          // 3. SİPARİŞ DURUMU MU DEĞİŞTİ? (İsteyen kişiye gider)
           if (table === 'material_requests' && eventType === 'UPDATE' && newData.requested_by === profile.id && oldData?.status !== newData.status) {
               shouldNotify = true;
               notifObj = { id: Date.now(), type: 'sys', title: 'Siparişin Güncellendi', desc: `${newData.material_name} -> ${newData.status.replace('_', ' ')}`, color: 'bg-emerald-100 text-emerald-600', path: '/dashboard', icon: <Package className="h-4 w-4"/>, date: new Date().toISOString() };
           }
 
-          // 4. YENİ SATIŞ MI EKLENDİ? (Mühendise Gider)
           if (table === 'tracking_sales' && eventType === 'INSERT' && (dept.includes('mühendis') || dept.includes('proje') || isMaster)) {
               shouldNotify = true;
               notifObj = { id: Date.now(), type: 'sys', title: 'Yeni Satış Geldi!', desc: `${newData.customer_name} firmasına satış yapıldı.`, color: 'bg-indigo-100 text-indigo-600', path: '/dashboard/engineering/projects', icon: <TrendingUp className="h-4 w-4"/>, date: new Date().toISOString() };
           }
 
-          // 5. YENİ İŞ EMRİ Mİ AÇILDI? (Üretime Gider)
           if (table === 'projects' && eventType === 'INSERT' && (dept.includes('üretim') || dept.includes('imalat') || isMaster)) {
               shouldNotify = true;
               notifObj = { id: Date.now(), type: 'sys', title: 'Yeni İş Emri İndi', desc: `Proje No: ${newData.project_code}`, color: 'bg-orange-100 text-orange-600', path: '/dashboard/production-screen', icon: <HardHat className="h-4 w-4"/>, date: new Date().toISOString() };
@@ -165,7 +164,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
         if (data) {
             setProfile({ ...data, id: user.id })
-            fetchMyOrders(user.id)
+            fetchAllOrders()
             loadNotifications(user.id, data.department || "") 
         } else {
             setProfile({ id: user.id, first_name: "Kaya", last_name: "", department: "Teknoloji Yön." }) 
@@ -176,10 +175,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }
 
-  const fetchMyOrders = async (userId: string) => {
-      if (!userId) return;
-      const { data } = await supabase.from('material_requests').select('*').eq('requested_by', userId).order('created_at', { ascending: false })
-      if (data) setMyOrders(data)
+  // 🚀 YENİ: TÜM SİPARİŞLERİ ÇEK
+  const fetchAllOrders = async () => {
+      const { data } = await supabase
+          .from('material_requests')
+          .select('*, profiles(first_name, last_name)')
+          .neq('status', 'GELDI') // Gelenleri geçmişe attığımız için burada kalabalık yapmasın
+          .order('created_at', { ascending: false })
+      if (data) setAllOrders(data)
   }
 
   const handleAddOrderItem = () => {
@@ -208,9 +211,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           alert(`✅ ${orderItems.length} kalem siparişiniz Satın Almaya başarıyla iletildi! \nTalep No: ${requestNo}`)
           setOrderItems([]) 
           setIsOrderModalOpen(false) 
-          fetchMyOrders(profile?.id) 
+          fetchAllOrders() 
       } catch (err: any) { alert("Hata: " + err.message) }
       finally { setOrderSubmitting(false) }
+  }
+
+  // 🚀 YENİ: SİPARİŞ SİLME
+  const handleDeleteOrder = async (id: number) => {
+      if (!confirm("Siparişi tamamen iptal edip silmek istediğinize emin misiniz?")) return;
+      const { error } = await supabase.from('material_requests').delete().eq('id', id)
+      if (error) alert("Hata: " + error.message)
+      else fetchAllOrders()
+  }
+
+  // 🚀 YENİ: SİPARİŞ DÜZENLEME
+  const handleUpdateOrder = async () => {
+      if (!editOrderData.material_name) return alert("Malzeme adı boş olamaz!");
+      setEditSaving(true)
+      try {
+          const { error } = await supabase.from('material_requests').update({
+              material_name: editOrderData.material_name,
+              quantity: editOrderData.quantity,
+              description: editOrderData.description,
+              priority: editOrderData.priority
+          }).eq('id', editOrderData.id);
+          
+          if (error) throw error;
+          alert("✅ Sipariş güncellendi!");
+          setIsEditOrderOpen(false);
+          fetchAllOrders();
+      } catch (e: any) {
+          alert("Hata: " + e.message);
+      } finally {
+          setEditSaving(false);
+      }
   }
 
   const handleLogout = async () => {
@@ -218,18 +252,80 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login')
   }
 
+  // 🚀 YENİ: MENÜ YETKİLENDİRMELERİ
   const menuGroups = [
-    { title: "GENEL", allowedRoles: ["yönetim", "admin", "satış", "satın", "muhasebe", "mühendis", "üretim", "proje", "ressam",], items: [ { href: "/dashboard", label: "Ana Sayfa", icon: Home }, { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package }, { href: "/dashboard/purchases", label: "Satın Alma", icon: ClipboardList }, { href: "/dashboard/customers", label: "Müşteriler", icon: Users }, { href: "/dashboard/suppliers", label: "Tedarikçiler", icon: Truck }, { href: "/dashboard/archive", label: "Üretim Arşivi", icon: ArchiveRestore }, ] },
-    { title: "MÜHENDİSLİK & PROJE", allowedRoles: ["mühendis", "arge", "proje", "tasarım", "ressam"], items: [ { href: "/dashboard/engineering/projects", label: "Proje Paneli", icon: FileCog }, { href: "/dashboard/offers", label: "Teklif & Hesaplama", icon: Calculator }, ] },
-    { title: "İMALAT YÖNETİMİ", allowedRoles: ["imalat", "üretim", "fabrika"], items: [ { href: "/dashboard/manufacturing/dashboard", label: "İmalat Paneli", icon: Factory }, { href: "/dashboard/manufacturing/missing", label: "Eksik Malzemeler", icon: AlertCircle }, ] },
-    { title: "SAHA (ÜRETİM)", allowedRoles: ["imalat", "üretim", "saha", "montaj"], items: [ { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat }, ] },
-    { title: "DEPO & LOJİSTİK", allowedRoles: ["depo", "lojistik", "üretim", "satın", "teknik"], items: [ { href: "/dashboard/warehouse/products", label: "Depo Ürünleri (QR)", icon: Archive }, { href: "/dashboard/warehouse/entries", label: "Mal Kabul & İrsaliye", icon: ClipboardList }, { href: "/dashboard/warehouse/scanner", label: "QR Barkod Terminali", icon: ScanLine }, { href: "/dashboard/warehouse/logs", label: "Stok Hareket Analizi", icon: History }, ] },
-    { title: "MUHASEBE & FİNANS", allowedRoles: ["muhasebe", "finans", "yönetici", "admin"], items: [ 
-        { href: "/dashboard/finance/invoices", label: "Faturalar & İrsaliyeler", icon: FileText }, 
-        { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet }, 
-        { href: "/dashboard/finance/payroll", label: "Puantaj & Bordro", icon: Calculator } 
-    ] },
-    { title: "SATIŞ TAKİP", allowedRoles: ["satış", "pazarlama", "bayi", "üretim","muhasebe","proje" ], items: [ { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart }, { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package }, { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp }, { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users }, ] }
+    { 
+        title: "GENEL", 
+        allowedRoles: ["yönetim", "admin", "satış", "muhasebe", "mühendis", "üretim", "proje", "ressam", "satın"], 
+        items: [ 
+            { href: "/dashboard", label: "Ana Sayfa", icon: Home }, 
+            { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package }, 
+            { href: "/dashboard/customers", label: "Müşteriler", icon: Users }, 
+            { href: "/dashboard/suppliers", label: "Tedarikçiler", icon: Truck }, 
+            { href: "/dashboard/archive", label: "Üretim Arşivi", icon: ArchiveRestore } 
+        ] 
+    },
+    // 🚀 SATIN ALMA BİRİMİNE ÖZEL KİTLENMİŞ ALAN
+    { 
+        title: "SATIN ALMA BİRİMİ", 
+        allowedRoles: ["satın", "admin", "yönetim"], 
+        items: [ 
+            { href: "/dashboard/purchases", label: "Satın Alma Paneli", icon: ClipboardList },
+            { href: "/dashboard/purchase-history", label: "Sipariş Geçmişi", icon: History }
+        ] 
+    },
+    { 
+        title: "MÜHENDİSLİK & PROJE", 
+        allowedRoles: ["mühendis", "arge", "proje", "tasarım", "ressam"], 
+        items: [ 
+            { href: "/dashboard/engineering/projects", label: "Proje Paneli", icon: FileCog }, 
+            { href: "/dashboard/offers", label: "Teklif & Hesaplama", icon: Calculator } 
+        ] 
+    },
+    { 
+        title: "İMALAT YÖNETİMİ", 
+        allowedRoles: ["imalat", "üretim", "fabrika"], 
+        items: [ 
+            { href: "/dashboard/manufacturing/dashboard", label: "İmalat Paneli", icon: Factory }, 
+            { href: "/dashboard/manufacturing/missing", label: "Eksik Malzemeler", icon: AlertCircle } 
+        ] 
+    },
+    { 
+        title: "SAHA (ÜRETİM)", 
+        allowedRoles: ["imalat", "üretim", "saha", "montaj"], 
+        items: [ 
+            { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat } 
+        ] 
+    },
+    { 
+        title: "DEPO & LOJİSTİK", 
+        allowedRoles: ["depo", "lojistik", "üretim", "satın", "teknik"], 
+        items: [ 
+            { href: "/dashboard/warehouse/products", label: "Depo Ürünleri (QR)", icon: Archive }, 
+            { href: "/dashboard/warehouse/entries", label: "Mal Kabul & İrsaliye", icon: ClipboardList }, 
+            { href: "/dashboard/warehouse/scanner", label: "QR Barkod Terminali", icon: ScanLine }, 
+            { href: "/dashboard/warehouse/logs", label: "Stok Hareket Analizi", icon: History } 
+        ] 
+    },
+    { 
+        title: "MUHASEBE & FİNANS", 
+        allowedRoles: ["muhasebe", "finans", "yönetici", "admin"], 
+        items: [ 
+            { href: "/dashboard/finance/invoices", label: "Faturalar & İrsaliyeler", icon: FileText }, 
+            { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet }, 
+            { href: "/dashboard/finance/payroll", label: "Puantaj & Bordro", icon: Calculator } 
+        ] 
+    },
+    { 
+        title: "SATIŞ TAKİP", 
+        allowedRoles: ["satış", "pazarlama", "bayi", "üretim", "muhasebe", "proje" ], 
+        items: [ 
+            { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart }, 
+            { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package }, 
+            { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp }, 
+            { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users } 
+        ] 
+    }
   ]
 
   const userDept = (profile?.department || "").toLowerCase()
@@ -288,7 +384,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="flex items-center gap-2">
                 <button onClick={() => setIsOrderModalOpen(true)} className="p-2.5 bg-blue-600 text-white rounded-xl shadow-md active:scale-95 transition-transform" title="Sipariş Ver"><ShoppingCart className="h-5 w-5" /></button>
-                <button onClick={() => { fetchMyOrders(profile?.id); setIsTrackingModalOpen(true); }} className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl shadow-sm active:scale-95 transition-transform" title="Sipariş Takip"><ListOrdered className="h-5 w-5" /></button>
+                <button onClick={() => { fetchAllOrders(); setIsTrackingModalOpen(true); }} className="p-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl shadow-sm active:scale-95 transition-transform" title="Sipariş Takip"><ListOrdered className="h-5 w-5" /></button>
                 <button onClick={() => {setIsNotifOpen(!isNotifOpen); setIsUserMenuOpen(false)}} className="relative p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-500">
                     <Bell className="h-5 w-5" />
                     {notifications.length > 0 && <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-rose-500 border-2 border-white animate-pulse"></span>}
@@ -306,7 +402,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Button onClick={() => setIsOrderModalOpen(true)} className="h-11 px-5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md shadow-blue-500/20 text-sm transition-transform active:scale-95 flex items-center gap-2">
                   <ShoppingCart className="h-4 w-4" /> Sipariş Ver
               </Button>
-              <Button variant="outline" onClick={() => { fetchMyOrders(profile?.id); setIsTrackingModalOpen(true); }} className="h-11 px-5 font-bold rounded-xl border-2 border-slate-200 text-slate-600 hover:bg-slate-50 text-sm transition-transform active:scale-95 flex items-center gap-2">
+              <Button variant="outline" onClick={() => { fetchAllOrders(); setIsTrackingModalOpen(true); }} className="h-11 px-5 font-bold rounded-xl border-2 border-slate-200 text-slate-600 hover:bg-slate-50 text-sm transition-transform active:scale-95 flex items-center gap-2">
                   <ListOrdered className="h-4 w-4" /> Sipariş Takip
               </Button>
           </div>
@@ -440,28 +536,91 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogContent>
       </Dialog>
 
+      {/* 🚀 SİPARİŞ TAKİP MODALI (HERKES TÜMÜNÜ GÖRÜR) */}
       <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
-          <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none shadow-2xl overflow-hidden max-h-[85vh] flex flex-col z-[100]">
-              <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ListOrdered className="text-blue-500"/> Verdiğim Siparişler</DialogTitle></DialogHeader>
+          <DialogContent className="rounded-[2rem] p-6 max-w-5xl border-none shadow-2xl overflow-hidden max-h-[85vh] flex flex-col z-[100]">
+              <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-slate-800 flex items-center gap-2"><ListOrdered className="text-blue-500"/> Şirket İçi Tüm Siparişler</DialogTitle></DialogHeader>
               <div className="overflow-y-auto custom-scrollbar flex-1 mt-4 border border-slate-100 rounded-xl">
                   <table className="w-full text-left border-collapse text-sm">
-                      <thead className="bg-slate-50 sticky top-0"><tr><th className="px-4 py-3 font-bold text-slate-500">Talep No</th><th className="px-4 py-3 font-bold text-slate-500">Malzeme</th><th className="px-4 py-3 font-bold text-slate-500">Miktar</th><th className="px-4 py-3 font-bold text-slate-500">Tedarik</th><th className="px-4 py-3 font-bold text-slate-500">Durum</th></tr></thead>
+                      <thead className="bg-slate-50 sticky top-0">
+                          <tr>
+                              <th className="px-4 py-3 font-bold text-slate-500">Talep Eden</th>
+                              <th className="px-4 py-3 font-bold text-slate-500">Malzeme</th>
+                              <th className="px-4 py-3 font-bold text-slate-500">Miktar</th>
+                              <th className="px-4 py-3 font-bold text-slate-500">Durum</th>
+                              <th className="px-4 py-3 font-bold text-slate-500 text-right">İşlem</th>
+                          </tr>
+                      </thead>
                       <tbody className="divide-y divide-slate-100">
-                          {myOrders.map(o => (
-                              <tr key={o.id} className="hover:bg-slate-50/50">
-                                  <td className="px-4 py-3 font-mono font-bold text-slate-400">{o.request_no}</td>
+                          {allOrders.map(o => {
+                              const isMyOrder = o.requested_by === profile?.id || isMaster;
+                              const canEdit = isMyOrder && o.status === 'BEKLIYOR';
+
+                              return (
+                              <tr key={o.id} className={`hover:bg-slate-50/50 ${isMyOrder ? 'bg-blue-50/20' : ''}`}>
+                                  <td className="px-4 py-3">
+                                      <div className="flex flex-col">
+                                          <span className="font-black text-slate-700">{o.profiles?.first_name} {o.profiles?.last_name}</span>
+                                          <span className="font-mono text-[9px] text-slate-400">{o.request_no}</span>
+                                      </div>
+                                  </td>
                                   <td className="px-4 py-3 font-bold text-slate-700">{o.material_name} <span className="text-xs text-slate-400 block">{o.material_code}</span>{o.description && <span className="text-[10px] text-slate-400 italic mt-0.5 block truncate max-w-[150px]">{o.description}</span>}</td>
                                   <td className="px-4 py-3 font-black text-blue-600">{o.quantity}</td>
-                                  <td className="px-4 py-3">{o.priority === 'ACIL' ? <span className="text-[10px] font-black bg-rose-100 text-rose-600 px-2 py-1 rounded">ACİL</span> : <span className="text-[10px] font-bold text-slate-400">Normal</span>}</td>
                                   <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${o.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' : o.status === 'SIPARIS_VERILDI' ? 'bg-blue-100 text-blue-700' : o.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{o.status.replace('_', ' ')}</span></td>
+                                  <td className="px-4 py-3 text-right">
+                                      {canEdit ? (
+                                          <div className="flex items-center justify-end gap-1">
+                                              <button onClick={() => { setEditOrderData(o); setIsEditOrderOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="h-4 w-4" /></button>
+                                              <button onClick={() => handleDeleteOrder(o.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button>
+                                          </div>
+                                      ) : (
+                                          <span className="text-[10px] font-bold text-slate-300">Yetkisiz</span>
+                                      )}
+                                  </td>
                               </tr>
-                          ))}
-                          {myOrders.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-slate-400 font-medium">Henüz verdiğiniz bir sipariş yok.</td></tr>}
+                          )})}
+                          {allOrders.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-slate-400 font-medium">Henüz verilen bir sipariş yok.</td></tr>}
                       </tbody>
                   </table>
               </div>
           </DialogContent>
       </Dialog>
+
+      {/* 🚀 YENİ: SİPARİŞ DÜZENLEME MODALI */}
+      <Dialog open={isEditOrderOpen} onOpenChange={setIsEditOrderOpen}>
+          <DialogContent className="rounded-[2rem] p-6 max-w-md border-none shadow-2xl flex flex-col z-[110]">
+              <DialogHeader className="mb-4"><DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2"><Edit2 className="h-5 w-5 text-blue-500"/> Siparişi Düzenle</DialogTitle></DialogHeader>
+              {editOrderData && (
+                  <div className="flex flex-col gap-4">
+                      <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Malzeme Adı</Label>
+                          <Input value={editOrderData.material_name} onChange={e => setEditOrderData({...editOrderData, material_name: e.target.value})} className="font-bold border-slate-200" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Miktar</Label>
+                              <Input type="number" min="1" value={editOrderData.quantity} onChange={e => setEditOrderData({...editOrderData, quantity: e.target.value})} className="font-black text-blue-600 border-slate-200" />
+                          </div>
+                          <div className="space-y-1.5">
+                              <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Öncelik</Label>
+                              <select value={editOrderData.priority} onChange={e => setEditOrderData({...editOrderData, priority: e.target.value})} className="w-full h-10 px-3 rounded-md bg-white border border-slate-200 text-sm font-bold text-slate-700 outline-none">
+                                  <option value="NORMAL">Normal</option>
+                                  <option value="ACIL">ACİL</option>
+                              </select>
+                          </div>
+                      </div>
+                      <div className="space-y-1.5">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Açıklama / Not</Label>
+                          <Textarea value={editOrderData.description} onChange={e => setEditOrderData({...editOrderData, description: e.target.value})} className="font-medium border-slate-200 resize-none min-h-[60px]" />
+                      </div>
+                      <Button onClick={handleUpdateOrder} disabled={editSaving} className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl mt-2">
+                          {editSaving ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5 mr-2" />} KAYDET
+                      </Button>
+                  </div>
+              )}
+          </DialogContent>
+      </Dialog>
+
     </div>
   )
 }
