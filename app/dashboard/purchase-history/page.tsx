@@ -66,7 +66,6 @@ export default function PurchaseHistoryPage() {
         setSaving(true)
         try {
             const { data: { user } } = await supabase.auth.getUser()
-            
             const requestNo = `MNL-${Date.now().toString().slice(-5)}`
             const payloads = manualItems.map(item => ({
                 request_no: requestNo, 
@@ -82,12 +81,9 @@ export default function PurchaseHistoryPage() {
             }))
 
             const { error } = await supabase.from('material_requests').insert(payloads)
-            
             if (error) throw error
             alert("✅ Form başarıyla geçmiş arşive eklendi!")
-            setIsManualModalOpen(false); 
-            setManualItems([]);
-            setManualHeader({ project_code: "", material_type: "", created_at: new Date().toISOString().split('T')[0] })
+            setIsManualModalOpen(false); setManualItems([]); setManualHeader({ project_code: "", material_type: "", created_at: new Date().toISOString().split('T')[0] })
             fetchHistory();
         } catch (error: any) { alert("Hata: " + error.message) } 
         finally { setSaving(false) }
@@ -99,11 +95,7 @@ export default function PurchaseHistoryPage() {
         if (error) alert("Hata: " + error.message); else fetchHistory();
     }
 
-    const filteredHistory = historyGroups.filter(h => 
-        h.material_type?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        h.request_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        h.items.some((i:any) => i.material_name?.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
+    const filteredHistory = historyGroups.filter(h => h.material_type?.toLowerCase().includes(searchTerm.toLowerCase()) || h.request_no?.toLowerCase().includes(searchTerm.toLowerCase()) || h.items.some((i:any) => i.material_name?.toLowerCase().includes(searchTerm.toLowerCase())))
 
     return (
         <div className="flex flex-col gap-6 md:gap-8 max-w-[1400px] mx-auto w-full font-sans pb-10">
@@ -140,7 +132,7 @@ export default function PurchaseHistoryPage() {
                                     <td className="px-6 py-4">
                                         <div className="flex flex-col gap-2">
                                             <span className="font-black text-slate-800 text-sm">{group.material_type || "Belirtilmedi"} <span className="text-xs font-medium text-slate-400">({group.items.length} Kalem)</span></span>
-                                            <Button onClick={() => openFormViewer(group)} variant="outline" className="h-8 text-[10px] font-black uppercase text-blue-600 border-blue-200 hover:bg-blue-50 w-max"><FileText className="h-3.5 w-3.5 mr-1" /> ZM Metal Formunu Görüntüle</Button>
+                                            <Button onClick={() => openFormViewer(group)} variant="outline" className="h-8 text-[10px] font-black uppercase text-slate-600 border-slate-200 hover:bg-slate-800 hover:text-white w-max transition-colors"><FileText className="h-3.5 w-3.5 mr-1" /> ZM Metal Formunu Görüntüle</Button>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-center">
@@ -159,6 +151,7 @@ export default function PurchaseHistoryPage() {
                 </div>
             </div>
 
+            {/* YENİ MANUEL ARŞİV FORMU EKLME MODALI */}
             <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
                 <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-4xl border-none shadow-2xl flex flex-col max-h-[90vh]">
                     <DialogHeader className="shrink-0 mb-4"><DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2"><History className="h-6 w-6 text-slate-500"/> Geçmiş Sipariş Formu Gir</DialogTitle></DialogHeader>
@@ -205,23 +198,17 @@ export default function PurchaseHistoryPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* 🚀 KUSURSUZ ZM METAL FORMU */}
+            {/* 🚀 KUSURSUZ ZM METAL İSTEK FORMU GÖRÜNÜMÜ */}
             <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
-                <DialogContent className="w-[95vw] max-w-5xl p-0 border-none bg-white shadow-2xl flex flex-col max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0">
+                <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-white shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0">
                     
                     <style>{`
                         @media print {
                             @page { size: A4 portrait; margin: 10mm; }
-                            body > *:not([data-radix-portal]) { display: none !important; }
-                            [data-radix-focus-guard] { display: none !important; }
-                            div[data-state="open"][class*="fixed inset-0"] { display: none !important; }
-                            [data-radix-popper-content-wrapper] { position: static !important; transform: none !important; }
-                            div[role="dialog"] { position: static !important; transform: none !important; box-shadow: none !important; width: 100% !important; max-width: 100% !important; max-height: none !important; height: auto !important; overflow: visible !important; }
-                            .custom-scrollbar { overflow: visible !important; max-height: none !important; }
-                            
-                            #printable-form { zoom: 1.15; border: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
-                            #printable-form * { border-color: black !important; }
-                            .print\\:hidden { display: none !important; }
+                            body * { visibility: hidden !important; }
+                            #printable-form, #printable-form * { visibility: visible !important; border-color: black !important; color: black !important; }
+                            #printable-form { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; padding: 0 !important; zoom: 1.20 !important; }
+                            .print\\:hidden, .print\\:hidden * { display: none !important; visibility: hidden !important; }
                         }
                     `}</style>
 
@@ -273,7 +260,7 @@ export default function PurchaseHistoryPage() {
 
                     <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-slate-200 bg-white print:hidden w-full">
                         <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-slate-300 text-slate-600 hover:bg-slate-100 h-12 px-6">Kapat</Button>
-                        <Button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak İndir</Button>
+                        <Button onClick={() => window.print()} className="bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak Kaydet</Button>
                     </div>
                 </DialogContent>
             </Dialog>
