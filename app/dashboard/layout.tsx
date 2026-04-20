@@ -229,7 +229,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet }, 
         { href: "/dashboard/finance/payroll", label: "Puantaj & Bordro", icon: Calculator } 
     ] },
-    { title: "SATIŞ TAKİP", allowedRoles: ["satış", "pazarlama", "bayi","satın", "üretim","muhasebe","proje" ], items: [ { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart }, { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package }, { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp }, { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users }, ] }
+    { title: "SATIŞ TAKİP", allowedRoles: ["satış", "pazarlama", "bayi", "üretim","muhasebe","proje" ], items: [ { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart }, { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package }, { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp }, { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users }, ] }
   ]
 
   const userDept = (profile?.department || "").toLowerCase()
