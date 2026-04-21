@@ -493,7 +493,7 @@ export default function PurchasesPage() {
                           <tbody>
                               <tr>
                                   <td className="border border-black w-1/4 p-2 text-center align-middle">
-                                      <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain brightness-0" />
+                                      <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain" />
                                   </td>
                                   <td className="border border-black w-2/4 text-center align-middle">
                                       <h2 className="text-xl font-bold tracking-widest text-[#1e293b] uppercase">MALZEME İSTEK FORMU</h2>
