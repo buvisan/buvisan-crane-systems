@@ -53,19 +53,19 @@ export default function FinanceDashboardPage() {
     setLoading(false)
   }
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-12 w-12 text-blue-600" /></div>
+  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-12 w-12 text-primary" /></div>
 
   return (
     <div className="flex flex-col gap-8 max-w-[1600px] mx-auto w-full font-sans pb-10">
       
       {/* 🚀 ÜST BAŞLIK */}
-      <div className="flex items-center gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-6 rounded-[2rem] shadow-sm">
+      <div className="flex items-center gap-5 bg-card/60 backdrop-blur-2xl border border-border/50 p-6 rounded-[2rem] shadow-sm">
         <div className="bg-gradient-to-br from-indigo-500 to-blue-600 p-4 rounded-2xl shadow-lg shadow-blue-500/30">
-            <Wallet className="h-8 w-8 text-white" />
+            <Wallet className="h-8 w-8 text-primary-foreground" />
         </div>
         <div>
-            <h1 className="text-3xl font-black tracking-tight text-slate-900">Finans ve Gelir Özeti</h1>
-            <p className="text-slate-500 font-medium text-sm mt-1">Kesilen faturalar, tahsilat durumları ve nakit akış analizi.</p>
+            <h1 className="text-3xl font-black tracking-tight text-foreground">Finans ve Gelir Özeti</h1>
+            <p className="text-muted-foreground font-medium text-sm mt-1">Kesilen faturalar, tahsilat durumları ve nakit akış analizi.</p>
         </div>
       </div>
 
@@ -73,32 +73,32 @@ export default function FinanceDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
           {/* Toplam Kesilen Fatura */}
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all">
+          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm relative overflow-hidden group hover:shadow-xl transition-all">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><FileText className="h-24 w-24 text-blue-500" /></div>
               <div className="relative z-10 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-blue-600 bg-blue-50 w-max px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest"><TrendingUp className="h-4 w-4"/> Toplam Fatura Hacmi</div>
-                  <div className="text-4xl font-black text-slate-800 tracking-tight mt-2">{stats.total.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}</div>
-                  <p className="text-xs font-bold text-slate-400 mt-1">İptal edilenler hariç tüm faturalar.</p>
+                  <div className="flex items-center gap-2 text-primary bg-primary/10 w-max px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest"><TrendingUp className="h-4 w-4"/> Toplam Fatura Hacmi</div>
+                  <div className="text-4xl font-black text-foreground tracking-tight mt-2">{stats.total.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}</div>
+                  <p className="text-xs font-bold text-muted-foreground mt-1">İptal edilenler hariç tüm faturalar.</p>
               </div>
           </div>
 
           {/* Tahsilat Bekleyen (Piyasadaki Para) */}
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all">
+          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm relative overflow-hidden group hover:shadow-xl transition-all">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><AlertCircle className="h-24 w-24 text-amber-500" /></div>
               <div className="relative z-10 flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-amber-600 bg-amber-50 w-max px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest"><AlertCircle className="h-4 w-4"/> Tahsilat Bekleyen</div>
                   <div className="text-4xl font-black text-amber-600 tracking-tight mt-2">{stats.pending.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}</div>
-                  <p className="text-xs font-bold text-slate-400 mt-1">Müşterilerden beklenen ödemeler.</p>
+                  <p className="text-xs font-bold text-muted-foreground mt-1">Müşterilerden beklenen ödemeler.</p>
               </div>
           </div>
 
           {/* Tahsil Edilen (Kasaya Giren) */}
-          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all">
+          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm relative overflow-hidden group hover:shadow-xl transition-all">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><CheckCircle2 className="h-24 w-24 text-emerald-500" /></div>
               <div className="relative z-10 flex flex-col gap-2">
                   <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 w-max px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest"><CheckCircle2 className="h-4 w-4"/> Tahsil Edilen (Kasa)</div>
                   <div className="text-4xl font-black text-emerald-600 tracking-tight mt-2">{stats.paid.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 })}</div>
-                  <p className="text-xs font-bold text-slate-400 mt-1">Ödemesi tamamlanan faturalar.</p>
+                  <p className="text-xs font-bold text-muted-foreground mt-1">Ödemesi tamamlanan faturalar.</p>
               </div>
           </div>
       </div>
@@ -107,10 +107,10 @@ export default function FinanceDashboardPage() {
           
           {/* 🚀 GRAFİK ALANI: AYLIK CİRO TRENDİ */}
           <div className="xl:col-span-8 flex flex-col gap-6">
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
+              <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm h-[400px] flex flex-col">
                   <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-lg font-black text-slate-800">Aylık Fatura Hacmi (Ciro Trendi)</h3>
-                      <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-widest">2026 Yılı</span>
+                      <h3 className="text-lg font-black text-foreground">Aylık Fatura Hacmi (Ciro Trendi)</h3>
+                      <span className="text-[10px] font-bold bg-primary/10 text-primary px-3 py-1 rounded-full uppercase tracking-widest">2026 Yılı</span>
                   </div>
                   <div className="flex-1 w-full min-h-0">
                       <ResponsiveContainer width="100%" height="100%">
@@ -134,30 +134,30 @@ export default function FinanceDashboardPage() {
 
           {/* 🚀 SON KESİLEN FATURALAR VİDGETI */}
           <div className="xl:col-span-4 flex flex-col gap-6">
-              <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex-1 flex flex-col">
+              <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm flex-1 flex flex-col">
                   <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Activity className="h-4 w-4 text-indigo-500" /> Son Faturalar</h3>
+                      <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2"><Activity className="h-4 w-4 text-indigo-500" /> Son Faturalar</h3>
                   </div>
                   
                   <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
                       {recentInvoices.map((inv, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-indigo-200 transition-colors group">
+                          <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-muted border border-border hover:border-primary/30 transition-colors group">
                               <div className="flex flex-col w-[60%] truncate">
-                                  <span className="text-sm font-black text-slate-800 truncate">{inv.customer_name}</span>
-                                  <span className="text-[10px] text-slate-400 font-bold mt-1 flex items-center gap-1.5">
+                                  <span className="text-sm font-black text-foreground truncate">{inv.customer_name}</span>
+                                  <span className="text-[10px] text-muted-foreground font-bold mt-1 flex items-center gap-1.5">
                                       <span className={`px-2 py-0.5 rounded text-[9px] ${inv.status === 'ODENDI' ? 'bg-emerald-100 text-emerald-700' : inv.status === 'IPTAL' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>{inv.status}</span>
                                       {inv.document_no}
                                   </span>
                               </div>
                               <div className="flex flex-col items-end shrink-0">
-                                  <span className="text-sm font-black text-indigo-600">
+                                  <span className="text-sm font-black text-primary">
                                       {inv.grand_total.toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺
                                   </span>
-                                  <span className="text-[10px] text-slate-400 font-bold">{new Date(inv.issue_date).toLocaleDateString('tr-TR')}</span>
+                                  <span className="text-[10px] text-muted-foreground font-bold">{new Date(inv.issue_date).toLocaleDateString('tr-TR')}</span>
                               </div>
                           </div>
                       ))}
-                      {recentInvoices.length === 0 && <p className="text-sm text-slate-400 text-center mt-10 font-bold">Finansal hareket bulunmuyor.</p>}
+                      {recentInvoices.length === 0 && <p className="text-sm text-muted-foreground text-center mt-10 font-bold">Finansal hareket bulunmuyor.</p>}
                   </div>
               </div>
           </div>
