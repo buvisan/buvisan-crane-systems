@@ -288,24 +288,24 @@ export default function ProjectPanelPage() {
     <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1400px] mx-auto w-full pb-10 xl:pb-20">
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 md:gap-5 bg-card/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
+        <div className="flex items-center gap-4 md:gap-5 bg-card/60 backdrop-blur-2xl border border-border/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 md:p-4 rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
-                <Layers className="h-6 w-6 md:h-8 md:w-8 text-white" />
+                <Layers className="h-6 w-6 md:h-8 md:w-8 text-primary-foreground" />
             </div>
             <div>
-                <h1 className="text-xl md:text-3xl font-black tracking-tight text-slate-900">Mühendislik Paneli</h1>
-                <p className="text-slate-500 font-medium text-xs md:text-sm mt-1">İş emirleri, teknik çizimler ve revize yönetim merkezi.</p>
+                <h1 className="text-xl md:text-3xl font-black tracking-tight text-foreground">Mühendislik Paneli</h1>
+                <p className="text-muted-foreground font-medium text-xs md:text-sm mt-1">İş emirleri, teknik çizimler ve revize yönetim merkezi.</p>
             </div>
         </div>
       </div>
 
-      <div className="flex gap-2 p-1.5 md:p-2 bg-card/60 backdrop-blur-2xl border border-white/50 rounded-[1.5rem] md:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto custom-scrollbar w-full">
+      <div className="flex gap-2 p-1.5 md:p-2 bg-card/60 backdrop-blur-2xl border border-border/50 rounded-[1.5rem] md:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto custom-scrollbar w-full">
         {tabs.map((tab) => (
             <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-3.5 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold transition-all duration-300 whitespace-nowrap shrink-0 ${
-                    activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30' : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50'
+                    activeTab === tab.id ? 'bg-primary text-primary-foreground shadow-lg shadow-indigo-500/30' : 'text-muted-foreground hover:text-primary hover:bg-primary/10/50'
                 }`}
             >
                 {tab.icon} {tab.label}
@@ -315,66 +315,66 @@ export default function ProjectPanelPage() {
 
       <div className="relative w-full">
           {loading && activeTab !== "is_emri" ? (
-              <div className="flex h-64 items-center justify-center bg-card/40 backdrop-blur-xl rounded-[1.5rem] md:rounded-[2.5rem] border border-white/50 shadow-sm">
+              <div className="flex h-64 items-center justify-center bg-card/40 backdrop-blur-xl rounded-[1.5rem] md:rounded-[2.5rem] border border-border/50 shadow-sm">
                   <Loader2 className="animate-spin h-10 w-10 md:h-12 md:w-12 text-indigo-500" />
               </div>
           ) : (
-              <div className="bg-card/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-10 relative overflow-hidden w-full">
+              <div className="bg-card/60 backdrop-blur-2xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-10 relative overflow-hidden w-full">
                   
                   <div className="absolute top-0 right-0 -mr-20 -mt-20 w-48 h-48 md:w-64 md:h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
                   {activeTab === "bekleyen_satislar" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in w-full">
                           <h2 className="text-xl md:text-2xl font-black text-foreground flex items-center gap-2 md:gap-3 mb-2"><TrendingUp className="text-indigo-500 h-5 w-5 md:h-6 md:w-6"/> Satıştan Gelen İşler</h2>
-                          <div className="overflow-x-auto custom-scrollbar w-full border border-slate-100/50 rounded-2xl bg-card/40">
+                          <div className="overflow-x-auto custom-scrollbar w-full border border-border/50 rounded-2xl bg-card/40">
                               <table className="w-full text-left border-collapse min-w-[800px]">
                                   <thead>
-                                      <tr className="border-b border-slate-200">
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Tarih</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Satılan Makineler (Sepet)</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aksiyon</th>
+                                      <tr className="border-b border-border">
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">Tarih</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">Müşteri</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">Satılan Makineler (Sepet)</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest text-center">Durum</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest text-right">Aksiyon</th>
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
                                       {pendingSales.map((sale) => {
-                                          let statusBadge = <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-lg text-[10px] font-bold border border-slate-200">GÖNDERİLMEDİ</span>;
+                                          let statusBadge = <span className="bg-muted text-muted-foreground px-3 py-1 rounded-lg text-[10px] font-bold border border-border">GÖNDERİLMEDİ</span>;
                                           if (sale.status === 'ONAYLANDI') statusBadge = <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-emerald-200 flex items-center justify-center gap-1 w-max mx-auto"><CheckCircle2 className="h-3 w-3"/> GÖNDERİLDİ</span>;
                                           else if (sale.status === 'IPTAL') statusBadge = <span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-rose-200 flex items-center justify-center gap-1 w-max mx-auto"><AlertTriangle className="h-3 w-3"/> ONAYLANMADI</span>;
 
                                           const isExpanded = expandedSales.includes(sale.group_key);
 
                                           return (
-                                          <tr key={sale.group_key} className={`transition-colors group hover:bg-card/60 ${isExpanded ? 'bg-indigo-50/20' : ''}`}>
-                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-500 align-top pt-5">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
+                                          <tr key={sale.group_key} className={`transition-colors group hover:bg-card/60 ${isExpanded ? 'bg-primary/10/20' : ''}`}>
+                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-muted-foreground align-top pt-5">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-foreground align-top pt-5">{sale.customer_name}</td>
                                               
                                               <td className="py-4 md:py-5 px-4 align-top">
                                                   <div className="flex flex-col gap-2">
                                                       <div 
                                                           onClick={() => toggleExpand(sale.group_key)} 
-                                                          className="flex items-center gap-2 cursor-pointer hover:bg-indigo-50/80 p-1.5 -ml-1.5 rounded-lg transition-colors w-max"
+                                                          className="flex items-center gap-2 cursor-pointer hover:bg-primary/10/80 p-1.5 -ml-1.5 rounded-lg transition-colors w-max"
                                                       >
-                                                          <span className="bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md text-[10px] md:text-xs font-black flex items-center gap-1.5 shadow-sm border border-indigo-200/50">
+                                                          <span className="bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md text-[10px] md:text-xs font-black flex items-center gap-1.5 shadow-sm border border-primary/30/50">
                                                               <Package className="h-3 w-3 md:h-3.5 md:w-3.5" /> {sale.items.length} Kalem
                                                           </span>
                                                           <span className="text-xs md:text-sm font-bold text-slate-700 truncate max-w-[150px] md:max-w-[200px]">
                                                               {sale.items[0].tracking_products?.brand} {sale.items.length > 1 && '...'}
                                                           </span>
-                                                          <ChevronDown className={`h-4 w-4 md:h-5 md:w-5 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                                                          <ChevronDown className={`h-4 w-4 md:h-5 md:w-5 text-muted-foreground transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                                                       </div>
 
                                                       {isExpanded && (
-                                                          <div className="flex flex-col gap-1.5 mt-2 pl-2 md:pl-3 border-l-2 border-indigo-200 animate-in slide-in-from-top-2 fade-in duration-200 pb-2">
+                                                          <div className="flex flex-col gap-1.5 mt-2 pl-2 md:pl-3 border-l-2 border-primary/30 animate-in slide-in-from-top-2 fade-in duration-200 pb-2">
                                                               {sale.items.map((item: any, idx: number) => (
-                                                                  <div key={item.id} className="text-[10px] md:text-xs font-medium text-slate-600 bg-card border border-slate-200 px-3 py-2 rounded-lg shadow-sm flex items-center justify-between gap-4 w-max min-w-[250px] md:min-w-[300px]">
+                                                                  <div key={item.id} className="text-[10px] md:text-xs font-medium text-slate-600 bg-card border border-border px-3 py-2 rounded-lg shadow-sm flex items-center justify-between gap-4 w-max min-w-[250px] md:min-w-[300px]">
                                                                       <span className="flex items-center gap-1.5">
-                                                                          <span className="font-black text-indigo-600 w-4">{idx + 1}.</span> 
+                                                                          <span className="font-black text-primary w-4">{idx + 1}.</span> 
                                                                           <span className="font-bold text-foreground">{item.tracking_products?.brand}</span>
                                                                           <span className="opacity-60 hidden sm:inline">({item.tracking_products?.model})</span>
                                                                       </span>
-                                                                      <span className="font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 shrink-0">{item.quantity} Adet</span>
+                                                                      <span className="font-black text-blue-700 bg-primary/10 px-2 py-0.5 rounded border border-blue-100 shrink-0">{item.quantity} Adet</span>
                                                                   </div>
                                                               ))}
                                                           </div>
@@ -385,16 +385,16 @@ export default function ProjectPanelPage() {
                                               <td className="py-4 md:py-5 px-4 text-center align-top pt-5">{statusBadge}</td>
                                               <td className="py-4 md:py-5 px-4 text-right align-top pt-4">
                                                   {sale.status === 'BEKLIYOR' ? (
-                                                      <Button onClick={() => startWorkOrderFromSale(sale)} className="h-9 md:h-10 text-xs md:text-sm rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 group/btn">
+                                                      <Button onClick={() => startWorkOrderFromSale(sale)} className="h-9 md:h-10 text-xs md:text-sm rounded-xl bg-indigo-500 hover:bg-primary text-primary-foreground font-bold shadow-md shadow-indigo-500/20 group/btn">
                                                           İş Emrine Çevir <ArrowRight className="ml-1.5 md:ml-2 h-3 w-3 md:h-4 md:w-4 group-hover/btn:translate-x-1 transition-transform" />
                                                       </Button>
                                                   ) : (
-                                                      <span className="text-[10px] font-bold text-slate-400">İşlem Tamamlandı</span>
+                                                      <span className="text-[10px] font-bold text-muted-foreground">İşlem Tamamlandı</span>
                                                   )}
                                               </td>
                                           </tr>
                                       )})}
-                                      {pendingSales.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm font-bold text-slate-400">Satıştan gelen iş bulunmuyor.</td></tr>}
+                                      {pendingSales.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm font-bold text-muted-foreground">Satıştan gelen iş bulunmuyor.</td></tr>}
                                   </tbody>
                               </table>
                           </div>
@@ -404,24 +404,24 @@ export default function ProjectPanelPage() {
                   {activeTab === "is_emri" && (
                       <div className="flex flex-col gap-6 md:gap-8 relative z-10 animate-in fade-in">
                           <div className="flex items-center gap-2 md:gap-3 mb-2">
-                              <Hammer className="h-5 w-5 md:h-6 md:w-6 text-indigo-600" />
+                              <Hammer className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                               <h2 className="text-xl md:text-2xl font-black text-foreground">Yeni İş Emri Başlat</h2>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                               <div className="space-y-2 md:space-y-3">
-                                  <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">İş Emri (Proje) No</Label>
-                                  <Input placeholder="Örn: PRJ-2026-001" value={formData.project_code} onChange={(e) => setFormData({...formData, project_code: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-foreground px-4 md:px-5 shadow-sm text-sm" />
+                                  <Label className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">İş Emri (Proje) No</Label>
+                                  <Input placeholder="Örn: PRJ-2026-001" value={formData.project_code} onChange={(e) => setFormData({...formData, project_code: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-border focus:ring-2 focus:ring-indigo-500 font-bold text-foreground px-4 md:px-5 shadow-sm text-sm" />
                               </div>
                               <div className="space-y-2 md:space-y-3">
-                                  <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite / Makine Özeti</Label>
-                                  <Input placeholder="Örn: 2x 10 TON Çift Kiriş" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-foreground px-4 md:px-5 shadow-sm text-sm" />
+                                  <Label className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">Kapasite / Makine Özeti</Label>
+                                  <Input placeholder="Örn: 2x 10 TON Çift Kiriş" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-border focus:ring-2 focus:ring-indigo-500 font-bold text-foreground px-4 md:px-5 shadow-sm text-sm" />
                               </div>
                               
                               <div className="space-y-2 md:space-y-3 md:col-span-2 relative">
-                                  <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Müşteri / Firma</Label>
+                                  <Label className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">Müşteri / Firma</Label>
                                   {formData.customer_id ? (
-                                      <div className="flex items-center justify-between h-12 md:h-14 rounded-xl md:rounded-2xl bg-indigo-50 border border-indigo-200 px-4 md:px-5 shadow-sm animate-in fade-in">
+                                      <div className="flex items-center justify-between h-12 md:h-14 rounded-xl md:rounded-2xl bg-primary/10 border border-primary/30 px-4 md:px-5 shadow-sm animate-in fade-in">
                                           <div className="flex items-center gap-2 md:gap-3 overflow-hidden">
                                               <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-indigo-500 shrink-0" />
                                               <span className="font-black text-xs md:text-sm text-indigo-900 truncate">{selectedCustomerName}</span>
@@ -430,16 +430,16 @@ export default function ProjectPanelPage() {
                                       </div>
                                   ) : (
                                       <div className="relative z-50">
-                                          <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-slate-400" />
+                                          <Search className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                                           <Input 
                                               placeholder="Listeden ara veya yeni firma adını yazın..." value={customerSearch}
                                               onChange={(e) => { setCustomerSearch(e.target.value); setIsCustomerDropdownOpen(true); }} onFocus={() => setIsCustomerDropdownOpen(true)} onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
-                                              className="pl-10 md:pl-12 h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-foreground pr-4 md:pr-5 shadow-sm text-sm" 
+                                              className="pl-10 md:pl-12 h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-border focus:ring-2 focus:ring-indigo-500 font-bold text-foreground pr-4 md:pr-5 shadow-sm text-sm" 
                                           />
                                           {isCustomerDropdownOpen && (
-                                              <div className="absolute w-full mt-2 bg-card rounded-xl md:rounded-2xl border border-slate-100 shadow-xl max-h-48 md:max-h-60 overflow-y-auto p-1.5 md:p-2 animate-in fade-in slide-in-from-top-2">
+                                              <div className="absolute w-full mt-2 bg-card rounded-xl md:rounded-2xl border border-border shadow-xl max-h-48 md:max-h-60 overflow-y-auto p-1.5 md:p-2 animate-in fade-in slide-in-from-top-2">
                                                   {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
-                                                      <button key={c.id} type="button" onClick={() => { setFormData({...formData, customer_id: c.id.toString()}); setIsCustomerDropdownOpen(false); }} className="w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors">{c.name}</button>
+                                                      <button key={c.id} type="button" onClick={() => { setFormData({...formData, customer_id: c.id.toString()}); setIsCustomerDropdownOpen(false); }} className="w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold text-slate-700 hover:bg-muted hover:text-primary transition-colors">{c.name}</button>
                                                   ))}
                                                   {customerSearch.trim() !== "" && !customers.some(c => c.name.toLowerCase() === customerSearch.trim().toLowerCase()) && (
                                                       <button type="button" onClick={handleAddNewCustomer} disabled={addingCustomer} className="w-full mt-1 flex items-center justify-between px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-black text-emerald-700 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors">
@@ -454,7 +454,7 @@ export default function ProjectPanelPage() {
                           </div>
 
                           <div className="mt-2 md:mt-4">
-                              <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 md:mb-4 block">Resmi Evraklar ve Teknik Çizimler (PDF)</Label>
+                              <Label className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 md:mb-4 block">Resmi Evraklar ve Teknik Çizimler (PDF)</Label>
                               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 md:gap-4">
                                   {['IS_EMRI', 'FATURA', 'KOPRU', 'YURUYUS', 'KEDI', 'CELIK_KONSTRUKSIYON', 'GENEL_MONTAJ'].map((type) => {
                                       const fileKey = type.toLowerCase();
@@ -464,17 +464,17 @@ export default function ProjectPanelPage() {
                                       return (
                                       <div key={type} className={`relative flex flex-col items-center justify-center p-3 md:p-4 border-2 border-dashed rounded-xl md:rounded-2xl transition-all group ${file ? `border-${isEmriColor}-400 bg-${isEmriColor}-50/50` : 'border-slate-300 bg-card/50 hover:border-indigo-400'}`}>
                                           <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setFiles({...files, [fileKey]: e.target.files?.[0] || null})} />
-                                          <div className={`p-1.5 md:p-2 rounded-full mb-1.5 md:mb-2 transition-colors ${file ? `bg-${isEmriColor}-100 text-${isEmriColor}-600` : 'bg-slate-100 text-slate-400'}`}>
+                                          <div className={`p-1.5 md:p-2 rounded-full mb-1.5 md:mb-2 transition-colors ${file ? `bg-${isEmriColor}-100 text-${isEmriColor}-600` : 'bg-muted text-muted-foreground'}`}>
                                               {file ? <FileText className="h-4 w-4 md:h-5 md:w-5" /> : <UploadCloud className="h-4 w-4 md:h-5 md:w-5" />}
                                           </div>
                                           <span className={`font-black text-[9px] md:text-[10px] mb-0.5 md:mb-1 text-center ${file ? `text-${isEmriColor}-700` : 'text-slate-600'}`}>{type.replace('_', ' ')}</span>
-                                          <span className="text-[8px] md:text-[9px] font-bold text-slate-400 text-center px-1 truncate w-full">{file ? file.name : "Tıkla Yükle"}</span>
+                                          <span className="text-[8px] md:text-[9px] font-bold text-muted-foreground text-center px-1 truncate w-full">{file ? file.name : "Tıkla Yükle"}</span>
                                       </div>
                                   )})}
                               </div>
                           </div>
 
-                          <Button onClick={handleSubmit} disabled={uploading} className="w-full h-14 md:h-16 mt-2 md:mt-4 rounded-xl md:rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm md:text-lg shadow-xl shadow-slate-900/20 transition-all flex items-center justify-center gap-2 md:gap-3">
+                          <Button onClick={handleSubmit} disabled={uploading} className="w-full h-14 md:h-16 mt-2 md:mt-4 rounded-xl md:rounded-2xl bg-slate-900 hover:bg-slate-800 text-primary-foreground font-black text-sm md:text-lg shadow-xl shadow-slate-900/20 transition-all flex items-center justify-center gap-2 md:gap-3">
                               {uploading ? <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin" /> : <Send className="h-5 w-5 md:h-6 md:w-6 text-indigo-400" />}
                               {uploading ? "SİSTEME YÜKLENİYOR..." : "İŞ EMRİNİ ONAYA SUN"}
                           </Button>
@@ -484,26 +484,26 @@ export default function ProjectPanelPage() {
                   {activeTab === "revize_talepleri" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
                           <h2 className="text-xl md:text-2xl font-black text-foreground flex items-center gap-2 md:gap-3 mb-2"><AlertTriangle className="text-rose-500 h-5 w-5 md:h-6 md:w-6"/> Sahadan Gelen Revizeler</h2>
-                          <div className="overflow-x-auto custom-scrollbar border border-slate-100/50 rounded-2xl">
+                          <div className="overflow-x-auto custom-scrollbar border border-border/50 rounded-2xl">
                               <table className="w-full text-left border-collapse min-w-[600px]">
                                   <thead>
-                                      <tr className="border-b border-slate-200 bg-card/40">
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Proje No</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Revize Detayı</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Durum</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aksiyon</th>
+                                      <tr className="border-b border-border bg-card/40">
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">Proje No</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">Revize Detayı</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">Durum</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest text-right">Aksiyon</th>
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 bg-card/20">
                                       {dataList.map((item) => (
                                           <tr key={item.id} className="hover:bg-card/50 transition-colors group">
-                                              <td className="py-4 md:py-5 px-4 font-mono text-xs md:text-sm font-bold text-indigo-600">{item.projects?.project_code}</td>
-                                              <td className="py-4 md:py-5 px-4"><p className="text-xs md:text-sm font-medium text-slate-700 max-w-[200px] md:max-w-md truncate md:whitespace-normal" title={item.note}>{item.note}</p><span className="text-[9px] md:text-[10px] font-bold text-slate-400 mt-1 block">Bildiren: {item.reported_by}</span></td>
+                                              <td className="py-4 md:py-5 px-4 font-mono text-xs md:text-sm font-bold text-primary">{item.projects?.project_code}</td>
+                                              <td className="py-4 md:py-5 px-4"><p className="text-xs md:text-sm font-medium text-slate-700 max-w-[200px] md:max-w-md truncate md:whitespace-normal" title={item.note}>{item.note}</p><span className="text-[9px] md:text-[10px] font-bold text-muted-foreground mt-1 block">Bildiren: {item.reported_by}</span></td>
                                               <td className="py-4 md:py-5 px-4"><span className={`inline-flex items-center gap-1.5 px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold ${item.status === 'BEKLIYOR' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.status === 'BEKLIYOR' && <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-rose-500 animate-pulse"></span>}{item.status === 'YAPILDI' && <CheckCircle2 className="h-3 w-3 md:h-3.5 md:w-3.5" />}{item.status}</span></td>
-                                              <td className="py-4 md:py-5 px-4 text-right">{item.status === 'BEKLIYOR' && (<Button size="sm" onClick={() => completeRevision(item.id)} className="h-8 md:h-10 text-xs md:text-sm rounded-lg md:rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-md shadow-emerald-500/20"><CheckCircle2 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" /> Yapıldı</Button>)}</td>
+                                              <td className="py-4 md:py-5 px-4 text-right">{item.status === 'BEKLIYOR' && (<Button size="sm" onClick={() => completeRevision(item.id)} className="h-8 md:h-10 text-xs md:text-sm rounded-lg md:rounded-xl bg-emerald-500 hover:bg-emerald-600 text-primary-foreground font-bold shadow-md shadow-emerald-500/20"><CheckCircle2 className="mr-1 md:mr-2 h-3 w-3 md:h-4 md:w-4" /> Yapıldı</Button>)}</td>
                                           </tr>
                                       ))}
-                                      {dataList.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-sm font-bold text-slate-400">Revize talebi bulunmuyor.</td></tr>}
+                                      {dataList.length === 0 && <tr><td colSpan={4} className="py-10 text-center text-sm font-bold text-muted-foreground">Revize talebi bulunmuyor.</td></tr>}
                                   </tbody>
                               </table>
                           </div>
@@ -515,15 +515,15 @@ export default function ProjectPanelPage() {
                           <h2 className="text-xl md:text-2xl font-black text-foreground flex items-center gap-2 md:gap-3 mb-2">
                               <Clock className="text-amber-500 h-5 w-5 md:h-6 md:w-6"/> Üretim Onayı Bekleyenler
                           </h2>
-                          <div className="overflow-x-auto custom-scrollbar border border-slate-100/50 rounded-2xl">
+                          <div className="overflow-x-auto custom-scrollbar border border-border/50 rounded-2xl">
                               <table className="w-full text-left border-collapse min-w-[800px]">
                                   <thead>
-                                      <tr className="border-b border-slate-200 bg-card/40">
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">İş Emri</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri / Firma</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Dosyalar & Evraklar</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
-                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">İşlem</th>
+                                      <tr className="border-b border-border bg-card/40">
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">İş Emri</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">Müşteri / Firma</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">Dosyalar & Evraklar</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest text-center">Durum</th>
+                                          <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest text-right">İşlem</th>
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 bg-card/20">
@@ -535,7 +535,7 @@ export default function ProjectPanelPage() {
                                                   <div className="flex flex-wrap gap-1.5 md:gap-2">
                                                       {item.project_files && item.project_files.length > 0 ? (
                                                           item.project_files.map((file: any, idx: number) => {
-                                                              const isEmriColor = file.file_type === 'IS_EMRI' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100';
+                                                              const isEmriColor = file.file_type === 'IS_EMRI' ? 'bg-primary/10 text-blue-700 border-blue-200 hover:bg-blue-100' : file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-muted text-slate-600 border-border hover:bg-muted';
                                                               return (
                                                                   <a key={idx} href={file.file_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-[9px] md:text-[10px] font-black uppercase px-2 md:px-2.5 py-1 rounded-md border hover:shadow-sm transition-all ${isEmriColor}`}>
                                                                       <Download className="h-3 w-3" /> {file.file_type.replace('_', ' ')}
@@ -543,7 +543,7 @@ export default function ProjectPanelPage() {
                                                               )
                                                           })
                                                       ) : (
-                                                          <span className="text-[9px] md:text-[10px] text-slate-400 font-bold">Dosya Yok</span>
+                                                          <span className="text-[9px] md:text-[10px] text-muted-foreground font-bold">Dosya Yok</span>
                                                       )}
                                                   </div>
                                               </td>
@@ -553,7 +553,7 @@ export default function ProjectPanelPage() {
                                                   </span>
                                               </td>
                                               <td className="py-4 md:py-5 px-4 text-right flex justify-end gap-2 items-center">
-                                                  <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-8 md:h-9 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                                                  <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-8 md:h-9 text-xs font-bold text-primary border-primary/30 hover:bg-primary/10">
                                                       <Edit2 className="h-3.5 w-3.5 md:mr-1.5" /> <span className="hidden md:inline">Düzenle</span>
                                                   </Button>
                                                   <Button variant="outline" size="icon" onClick={() => deleteProject(item.id)} className="h-8 w-8 md:h-9 md:w-9 border-rose-200 text-rose-500 hover:bg-rose-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
@@ -562,7 +562,7 @@ export default function ProjectPanelPage() {
                                               </td>
                                           </tr>
                                       ))}
-                                      {dataList.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm font-bold text-slate-400">Kayıt bulunamadı.</td></tr>}
+                                      {dataList.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm font-bold text-muted-foreground">Kayıt bulunamadı.</td></tr>}
                                   </tbody>
                               </table>
                           </div>
@@ -579,7 +579,7 @@ export default function ProjectPanelPage() {
                               {Object.entries(getGroupedProductionProjects()).map(([customerName, groupItems]) => {
                                   const isExpanded = expandedProductionGroups.includes(customerName);
                                   return (
-                                      <div key={customerName} className="flex flex-col bg-card/60 border border-slate-200 rounded-[1.5rem] overflow-hidden shadow-sm transition-all duration-300">
+                                      <div key={customerName} className="flex flex-col bg-card/60 border border-border rounded-[1.5rem] overflow-hidden shadow-sm transition-all duration-300">
                                           <div 
                                               onClick={() => toggleProductionGroup(customerName)}
                                               className="flex items-center justify-between p-4 md:p-5 cursor-pointer bg-card/50 hover:bg-emerald-50/50 transition-colors select-none group"
@@ -590,25 +590,25 @@ export default function ProjectPanelPage() {
                                                       <h2 className="font-black text-base md:text-lg text-foreground group-hover:text-emerald-700 transition-colors">{customerName}</h2>
                                                       <div className="flex items-center gap-2 mt-1">
                                                           <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold">{groupItems.length} İş Emri</span>
-                                                          <span className="text-[10px] font-bold text-slate-400">Şu an Üretimde</span>
+                                                          <span className="text-[10px] font-bold text-muted-foreground">Şu an Üretimde</span>
                                                       </div>
                                                   </div>
                                               </div>
-                                              <div className={`p-2 rounded-full transition-all duration-300 ${isExpanded ? 'bg-emerald-100 text-emerald-600 rotate-180' : 'bg-slate-100 text-slate-400 group-hover:bg-emerald-50'}`}>
+                                              <div className={`p-2 rounded-full transition-all duration-300 ${isExpanded ? 'bg-emerald-100 text-emerald-600 rotate-180' : 'bg-muted text-muted-foreground group-hover:bg-emerald-50'}`}>
                                                   <ChevronDown className="h-5 w-5" />
                                               </div>
                                           </div>
                                           
                                           <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                                               <div className="overflow-hidden">
-                                                  <div className="overflow-x-auto custom-scrollbar border-t border-slate-100 bg-card/40">
+                                                  <div className="overflow-x-auto custom-scrollbar border-t border-border bg-card/40">
                                                       <table className="w-full text-left border-collapse min-w-[800px]">
                                                           <thead>
-                                                              <tr className="border-b border-slate-200 bg-slate-50/50">
-                                                                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">İş Emri</th>
-                                                                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Dosyalar & Evraklar</th>
-                                                                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Durum</th>
-                                                                  <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">İşlem</th>
+                                                              <tr className="border-b border-border bg-muted/50">
+                                                                  <th className="py-3 px-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">İş Emri</th>
+                                                                  <th className="py-3 px-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Dosyalar & Evraklar</th>
+                                                                  <th className="py-3 px-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Durum</th>
+                                                                  <th className="py-3 px-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">İşlem</th>
                                                               </tr>
                                                           </thead>
                                                           <tbody className="divide-y divide-slate-100">
@@ -619,7 +619,7 @@ export default function ProjectPanelPage() {
                                                                           <div className="flex flex-wrap gap-1.5 md:gap-2">
                                                                               {item.project_files && item.project_files.length > 0 ? (
                                                                                   item.project_files.map((file: any, idx: number) => {
-                                                                                      const isEmriColor = file.file_type === 'IS_EMRI' ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100' : file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100';
+                                                                                      const isEmriColor = file.file_type === 'IS_EMRI' ? 'bg-primary/10 text-blue-700 border-blue-200 hover:bg-blue-100' : file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-muted text-slate-600 border-border hover:bg-muted';
                                                                                       return (
                                                                                           <a key={idx} href={file.file_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-md border hover:shadow-sm transition-all ${isEmriColor}`}>
                                                                                               <Download className="h-3 w-3" /> {file.file_type.replace('_', ' ')}
@@ -627,7 +627,7 @@ export default function ProjectPanelPage() {
                                                                                       )
                                                                                   })
                                                                               ) : (
-                                                                                  <span className="text-[10px] text-slate-400 font-bold">Dosya Yok</span>
+                                                                                  <span className="text-[10px] text-muted-foreground font-bold">Dosya Yok</span>
                                                                               )}
                                                                           </div>
                                                                       </td>
@@ -637,7 +637,7 @@ export default function ProjectPanelPage() {
                                                                           </span>
                                                                       </td>
                                                                       <td className="py-4 px-4 text-right">
-                                                                          <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-9 text-xs font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                                                                          <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-9 text-xs font-bold text-primary border-primary/30 hover:bg-primary/10">
                                                                               <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Düzenle
                                                                           </Button>
                                                                       </td>
@@ -651,7 +651,7 @@ export default function ProjectPanelPage() {
                                       </div>
                                   )
                               })}
-                              {dataList.length === 0 && <div className="p-10 text-center text-sm font-bold text-slate-400 bg-card/40 rounded-[1.5rem] border border-slate-200">Kayıt bulunamadı.</div>}
+                              {dataList.length === 0 && <div className="p-10 text-center text-sm font-bold text-muted-foreground bg-card/40 rounded-[1.5rem] border border-border">Kayıt bulunamadı.</div>}
                           </div>
                       </div>
                   )}
@@ -667,18 +667,18 @@ export default function ProjectPanelPage() {
               <div className="flex flex-col gap-4 md:gap-6 py-2 overflow-y-auto custom-scrollbar pr-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                          <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">İş Emri (Proje) No</Label>
-                          <Input value={editProjectData?.project_code || ""} onChange={(e) => setEditProjectData({...editProjectData, project_code: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-foreground" />
+                          <Label className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">İş Emri (Proje) No</Label>
+                          <Input value={editProjectData?.project_code || ""} onChange={(e) => setEditProjectData({...editProjectData, project_code: e.target.value})} className="h-12 rounded-xl bg-muted border-border font-bold text-foreground" />
                       </div>
                       <div className="space-y-2">
-                          <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite / Açıklama</Label>
-                          <Input value={editProjectData?.capacity || ""} onChange={(e) => setEditProjectData({...editProjectData, capacity: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-foreground" />
+                          <Label className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">Kapasite / Açıklama</Label>
+                          <Input value={editProjectData?.capacity || ""} onChange={(e) => setEditProjectData({...editProjectData, capacity: e.target.value})} className="h-12 rounded-xl bg-muted border-border font-bold text-foreground" />
                       </div>
                   </div>
 
-                  <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-2xl">
+                  <div className="bg-primary/10/50 border border-blue-100 p-4 rounded-2xl">
                       <Label className="text-[10px] md:text-xs font-black text-blue-800 uppercase tracking-widest mb-3 block">Dosyaları Güncelle veya Yeni Ekle</Label>
-                      <p className="text-[10px] md:text-xs font-medium text-slate-500 mb-4">Buradan yüklediğiniz yeni dosyalar eskinin üzerine yazılır. Boş bıraktıklarınız eskisi gibi kalır.</p>
+                      <p className="text-[10px] md:text-xs font-medium text-muted-foreground mb-4">Buradan yüklediğiniz yeni dosyalar eskinin üzerine yazılır. Boş bıraktıklarınız eskisi gibi kalır.</p>
                       
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                           {['IS_EMRI', 'FATURA', 'KOPRU', 'YURUYUS', 'KEDI', 'CELIK_KONSTRUKSIYON', 'GENEL_MONTAJ'].map((type) => {
@@ -690,19 +690,19 @@ export default function ProjectPanelPage() {
                               return (
                               <div key={type} className={`relative flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl transition-all ${hasFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-card hover:border-indigo-400'}`}>
                                   <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setEditFiles({...editFiles, [fileKey]: e.target.files?.[0] || null})} />
-                                  <div className={`p-1.5 rounded-full mb-1 transition-colors ${hasFile ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                  <div className={`p-1.5 rounded-full mb-1 transition-colors ${hasFile ? 'bg-emerald-100 text-emerald-600' : 'bg-muted text-muted-foreground'}`}>
                                       {hasFile ? <CheckCircle2 className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
                                   </div>
                                   <span className={`font-black text-[9px] mb-0.5 text-center ${hasFile ? 'text-emerald-700' : 'text-slate-600'}`}>{type.replace('_', ' ')}</span>
-                                  <span className="text-[8px] font-bold text-slate-400 text-center px-1 truncate w-full">{newFile ? newFile.name : existingFile ? "Mevcut Yüklü" : "Tıkla Yükle"}</span>
+                                  <span className="text-[8px] font-bold text-muted-foreground text-center px-1 truncate w-full">{newFile ? newFile.name : existingFile ? "Mevcut Yüklü" : "Tıkla Yükle"}</span>
                               </div>
                           )})}
                       </div>
                   </div>
               </div>
               
-              <div className="mt-4 md:mt-6 pt-4 border-t border-slate-100 shrink-0">
-                  <Button onClick={handleEditSubmit} disabled={editUploading} className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm md:text-base shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2">
+              <div className="mt-4 md:mt-6 pt-4 border-t border-border shrink-0">
+                  <Button onClick={handleEditSubmit} disabled={editUploading} className="w-full h-12 md:h-14 rounded-xl md:rounded-2xl bg-primary hover:bg-indigo-700 text-primary-foreground font-black text-sm md:text-base shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2">
                       {editUploading ? <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" /> : <Send className="h-4 w-4 md:h-5 md:w-5" />}
                       {editUploading ? "GÜNCELLENİYOR..." : "DEĞİŞİKLİKLERİ KAYDET"}
                   </Button>
