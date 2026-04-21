@@ -288,7 +288,7 @@ export default function ProjectPanelPage() {
     <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1400px] mx-auto w-full pb-10 xl:pb-20">
       
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
+        <div className="flex items-center gap-4 md:gap-5 bg-card/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-3 md:p-4 rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
                 <Layers className="h-6 w-6 md:h-8 md:w-8 text-white" />
             </div>
@@ -299,7 +299,7 @@ export default function ProjectPanelPage() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1.5 md:p-2 bg-white/60 backdrop-blur-2xl border border-white/50 rounded-[1.5rem] md:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto custom-scrollbar w-full">
+      <div className="flex gap-2 p-1.5 md:p-2 bg-card/60 backdrop-blur-2xl border border-white/50 rounded-[1.5rem] md:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-x-auto custom-scrollbar w-full">
         {tabs.map((tab) => (
             <button
                 key={tab.id}
@@ -315,18 +315,18 @@ export default function ProjectPanelPage() {
 
       <div className="relative w-full">
           {loading && activeTab !== "is_emri" ? (
-              <div className="flex h-64 items-center justify-center bg-white/40 backdrop-blur-xl rounded-[1.5rem] md:rounded-[2.5rem] border border-white/50 shadow-sm">
+              <div className="flex h-64 items-center justify-center bg-card/40 backdrop-blur-xl rounded-[1.5rem] md:rounded-[2.5rem] border border-white/50 shadow-sm">
                   <Loader2 className="animate-spin h-10 w-10 md:h-12 md:w-12 text-indigo-500" />
               </div>
           ) : (
-              <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-10 relative overflow-hidden w-full">
+              <div className="bg-card/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] p-4 sm:p-6 md:p-10 relative overflow-hidden w-full">
                   
                   <div className="absolute top-0 right-0 -mr-20 -mt-20 w-48 h-48 md:w-64 md:h-64 bg-indigo-400/10 rounded-full blur-3xl pointer-events-none"></div>
 
                   {activeTab === "bekleyen_satislar" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in w-full">
-                          <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2"><TrendingUp className="text-indigo-500 h-5 w-5 md:h-6 md:w-6"/> Satıştan Gelen İşler</h2>
-                          <div className="overflow-x-auto custom-scrollbar w-full border border-slate-100/50 rounded-2xl bg-white/40">
+                          <h2 className="text-xl md:text-2xl font-black text-foreground flex items-center gap-2 md:gap-3 mb-2"><TrendingUp className="text-indigo-500 h-5 w-5 md:h-6 md:w-6"/> Satıştan Gelen İşler</h2>
+                          <div className="overflow-x-auto custom-scrollbar w-full border border-slate-100/50 rounded-2xl bg-card/40">
                               <table className="w-full text-left border-collapse min-w-[800px]">
                                   <thead>
                                       <tr className="border-b border-slate-200">
@@ -346,9 +346,9 @@ export default function ProjectPanelPage() {
                                           const isExpanded = expandedSales.includes(sale.group_key);
 
                                           return (
-                                          <tr key={sale.group_key} className={`transition-colors group hover:bg-white/60 ${isExpanded ? 'bg-indigo-50/20' : ''}`}>
+                                          <tr key={sale.group_key} className={`transition-colors group hover:bg-card/60 ${isExpanded ? 'bg-indigo-50/20' : ''}`}>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-500 align-top pt-5">{new Date(sale.sale_date).toLocaleDateString('tr-TR')}</td>
-                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-slate-800 align-top pt-5">{sale.customer_name}</td>
+                                              <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-black text-foreground align-top pt-5">{sale.customer_name}</td>
                                               
                                               <td className="py-4 md:py-5 px-4 align-top">
                                                   <div className="flex flex-col gap-2">
@@ -368,10 +368,10 @@ export default function ProjectPanelPage() {
                                                       {isExpanded && (
                                                           <div className="flex flex-col gap-1.5 mt-2 pl-2 md:pl-3 border-l-2 border-indigo-200 animate-in slide-in-from-top-2 fade-in duration-200 pb-2">
                                                               {sale.items.map((item: any, idx: number) => (
-                                                                  <div key={item.id} className="text-[10px] md:text-xs font-medium text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-lg shadow-sm flex items-center justify-between gap-4 w-max min-w-[250px] md:min-w-[300px]">
+                                                                  <div key={item.id} className="text-[10px] md:text-xs font-medium text-slate-600 bg-card border border-slate-200 px-3 py-2 rounded-lg shadow-sm flex items-center justify-between gap-4 w-max min-w-[250px] md:min-w-[300px]">
                                                                       <span className="flex items-center gap-1.5">
                                                                           <span className="font-black text-indigo-600 w-4">{idx + 1}.</span> 
-                                                                          <span className="font-bold text-slate-800">{item.tracking_products?.brand}</span>
+                                                                          <span className="font-bold text-foreground">{item.tracking_products?.brand}</span>
                                                                           <span className="opacity-60 hidden sm:inline">({item.tracking_products?.model})</span>
                                                                       </span>
                                                                       <span className="font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 shrink-0">{item.quantity} Adet</span>
@@ -405,17 +405,17 @@ export default function ProjectPanelPage() {
                       <div className="flex flex-col gap-6 md:gap-8 relative z-10 animate-in fade-in">
                           <div className="flex items-center gap-2 md:gap-3 mb-2">
                               <Hammer className="h-5 w-5 md:h-6 md:w-6 text-indigo-600" />
-                              <h2 className="text-xl md:text-2xl font-black text-slate-800">Yeni İş Emri Başlat</h2>
+                              <h2 className="text-xl md:text-2xl font-black text-foreground">Yeni İş Emri Başlat</h2>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                               <div className="space-y-2 md:space-y-3">
                                   <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">İş Emri (Proje) No</Label>
-                                  <Input placeholder="Örn: PRJ-2026-001" value={formData.project_code} onChange={(e) => setFormData({...formData, project_code: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-4 md:px-5 shadow-sm text-sm" />
+                                  <Input placeholder="Örn: PRJ-2026-001" value={formData.project_code} onChange={(e) => setFormData({...formData, project_code: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-foreground px-4 md:px-5 shadow-sm text-sm" />
                               </div>
                               <div className="space-y-2 md:space-y-3">
                                   <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite / Makine Özeti</Label>
-                                  <Input placeholder="Örn: 2x 10 TON Çift Kiriş" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 px-4 md:px-5 shadow-sm text-sm" />
+                                  <Input placeholder="Örn: 2x 10 TON Çift Kiriş" value={formData.capacity} onChange={(e) => setFormData({...formData, capacity: e.target.value})} className="h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-foreground px-4 md:px-5 shadow-sm text-sm" />
                               </div>
                               
                               <div className="space-y-2 md:space-y-3 md:col-span-2 relative">
@@ -434,10 +434,10 @@ export default function ProjectPanelPage() {
                                           <Input 
                                               placeholder="Listeden ara veya yeni firma adını yazın..." value={customerSearch}
                                               onChange={(e) => { setCustomerSearch(e.target.value); setIsCustomerDropdownOpen(true); }} onFocus={() => setIsCustomerDropdownOpen(true)} onBlur={() => setTimeout(() => setIsCustomerDropdownOpen(false), 200)}
-                                              className="pl-10 md:pl-12 h-12 md:h-14 rounded-xl md:rounded-2xl bg-white/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-slate-800 pr-4 md:pr-5 shadow-sm text-sm" 
+                                              className="pl-10 md:pl-12 h-12 md:h-14 rounded-xl md:rounded-2xl bg-card/80 border-slate-200 focus:ring-2 focus:ring-indigo-500 font-bold text-foreground pr-4 md:pr-5 shadow-sm text-sm" 
                                           />
                                           {isCustomerDropdownOpen && (
-                                              <div className="absolute w-full mt-2 bg-white rounded-xl md:rounded-2xl border border-slate-100 shadow-xl max-h-48 md:max-h-60 overflow-y-auto p-1.5 md:p-2 animate-in fade-in slide-in-from-top-2">
+                                              <div className="absolute w-full mt-2 bg-card rounded-xl md:rounded-2xl border border-slate-100 shadow-xl max-h-48 md:max-h-60 overflow-y-auto p-1.5 md:p-2 animate-in fade-in slide-in-from-top-2">
                                                   {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
                                                       <button key={c.id} type="button" onClick={() => { setFormData({...formData, customer_id: c.id.toString()}); setIsCustomerDropdownOpen(false); }} className="w-full text-left px-3 md:px-4 py-2 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors">{c.name}</button>
                                                   ))}
@@ -462,7 +462,7 @@ export default function ProjectPanelPage() {
                                       const isEmriColor = type === 'IS_EMRI' ? 'blue' : type === 'FATURA' ? 'amber' : 'emerald';
                                       
                                       return (
-                                      <div key={type} className={`relative flex flex-col items-center justify-center p-3 md:p-4 border-2 border-dashed rounded-xl md:rounded-2xl transition-all group ${file ? `border-${isEmriColor}-400 bg-${isEmriColor}-50/50` : 'border-slate-300 bg-white/50 hover:border-indigo-400'}`}>
+                                      <div key={type} className={`relative flex flex-col items-center justify-center p-3 md:p-4 border-2 border-dashed rounded-xl md:rounded-2xl transition-all group ${file ? `border-${isEmriColor}-400 bg-${isEmriColor}-50/50` : 'border-slate-300 bg-card/50 hover:border-indigo-400'}`}>
                                           <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setFiles({...files, [fileKey]: e.target.files?.[0] || null})} />
                                           <div className={`p-1.5 md:p-2 rounded-full mb-1.5 md:mb-2 transition-colors ${file ? `bg-${isEmriColor}-100 text-${isEmriColor}-600` : 'bg-slate-100 text-slate-400'}`}>
                                               {file ? <FileText className="h-4 w-4 md:h-5 md:w-5" /> : <UploadCloud className="h-4 w-4 md:h-5 md:w-5" />}
@@ -483,20 +483,20 @@ export default function ProjectPanelPage() {
 
                   {activeTab === "revize_talepleri" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
-                          <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2"><AlertTriangle className="text-rose-500 h-5 w-5 md:h-6 md:w-6"/> Sahadan Gelen Revizeler</h2>
+                          <h2 className="text-xl md:text-2xl font-black text-foreground flex items-center gap-2 md:gap-3 mb-2"><AlertTriangle className="text-rose-500 h-5 w-5 md:h-6 md:w-6"/> Sahadan Gelen Revizeler</h2>
                           <div className="overflow-x-auto custom-scrollbar border border-slate-100/50 rounded-2xl">
                               <table className="w-full text-left border-collapse min-w-[600px]">
                                   <thead>
-                                      <tr className="border-b border-slate-200 bg-white/40">
+                                      <tr className="border-b border-slate-200 bg-card/40">
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Proje No</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Revize Detayı</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Durum</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">Aksiyon</th>
                                       </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-slate-100 bg-white/20">
+                                  <tbody className="divide-y divide-slate-100 bg-card/20">
                                       {dataList.map((item) => (
-                                          <tr key={item.id} className="hover:bg-white/50 transition-colors group">
+                                          <tr key={item.id} className="hover:bg-card/50 transition-colors group">
                                               <td className="py-4 md:py-5 px-4 font-mono text-xs md:text-sm font-bold text-indigo-600">{item.projects?.project_code}</td>
                                               <td className="py-4 md:py-5 px-4"><p className="text-xs md:text-sm font-medium text-slate-700 max-w-[200px] md:max-w-md truncate md:whitespace-normal" title={item.note}>{item.note}</p><span className="text-[9px] md:text-[10px] font-bold text-slate-400 mt-1 block">Bildiren: {item.reported_by}</span></td>
                                               <td className="py-4 md:py-5 px-4"><span className={`inline-flex items-center gap-1.5 px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold ${item.status === 'BEKLIYOR' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>{item.status === 'BEKLIYOR' && <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-rose-500 animate-pulse"></span>}{item.status === 'YAPILDI' && <CheckCircle2 className="h-3 w-3 md:h-3.5 md:w-3.5" />}{item.status}</span></td>
@@ -512,13 +512,13 @@ export default function ProjectPanelPage() {
 
                   {activeTab === "onay_listesi" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
-                          <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2">
+                          <h2 className="text-xl md:text-2xl font-black text-foreground flex items-center gap-2 md:gap-3 mb-2">
                               <Clock className="text-amber-500 h-5 w-5 md:h-6 md:w-6"/> Üretim Onayı Bekleyenler
                           </h2>
                           <div className="overflow-x-auto custom-scrollbar border border-slate-100/50 rounded-2xl">
                               <table className="w-full text-left border-collapse min-w-[800px]">
                                   <thead>
-                                      <tr className="border-b border-slate-200 bg-white/40">
+                                      <tr className="border-b border-slate-200 bg-card/40">
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">İş Emri</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Müşteri / Firma</th>
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest">Dosyalar & Evraklar</th>
@@ -526,10 +526,10 @@ export default function ProjectPanelPage() {
                                           <th className="py-3 md:py-4 px-4 text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest text-right">İşlem</th>
                                       </tr>
                                   </thead>
-                                  <tbody className="divide-y divide-slate-100 bg-white/20">
+                                  <tbody className="divide-y divide-slate-100 bg-card/20">
                                       {dataList.map((item) => (
-                                          <tr key={item.id} className="hover:bg-white/50 transition-colors group">
-                                              <td className="py-4 md:py-5 px-4 font-mono text-xs md:text-sm font-bold text-slate-800">{item.project_code}</td>
+                                          <tr key={item.id} className="hover:bg-card/50 transition-colors group">
+                                              <td className="py-4 md:py-5 px-4 font-mono text-xs md:text-sm font-bold text-foreground">{item.project_code}</td>
                                               <td className="py-4 md:py-5 px-4 text-xs md:text-sm font-bold text-slate-600 truncate max-w-[150px]">{item.customers?.name}</td>
                                               <td className="py-4 md:py-5 px-4">
                                                   <div className="flex flex-wrap gap-1.5 md:gap-2">
@@ -572,22 +572,22 @@ export default function ProjectPanelPage() {
                   {/* 🚀 YENİ: ÜRETİME İNENLER (AKILLI GRUPLAMA) */}
                   {activeTab === "gonderilenler" && (
                       <div className="flex flex-col gap-4 md:gap-6 relative z-10 animate-in fade-in">
-                          <h2 className="text-xl md:text-2xl font-black text-slate-800 flex items-center gap-2 md:gap-3 mb-2">
+                          <h2 className="text-xl md:text-2xl font-black text-foreground flex items-center gap-2 md:gap-3 mb-2">
                               <Factory className="text-emerald-500 h-5 w-5 md:h-6 md:w-6"/> Sahaya İnen İşler (Üretimde)
                           </h2>
                           <div className="flex flex-col gap-4">
                               {Object.entries(getGroupedProductionProjects()).map(([customerName, groupItems]) => {
                                   const isExpanded = expandedProductionGroups.includes(customerName);
                                   return (
-                                      <div key={customerName} className="flex flex-col bg-white/60 border border-slate-200 rounded-[1.5rem] overflow-hidden shadow-sm transition-all duration-300">
+                                      <div key={customerName} className="flex flex-col bg-card/60 border border-slate-200 rounded-[1.5rem] overflow-hidden shadow-sm transition-all duration-300">
                                           <div 
                                               onClick={() => toggleProductionGroup(customerName)}
-                                              className="flex items-center justify-between p-4 md:p-5 cursor-pointer bg-white/50 hover:bg-emerald-50/50 transition-colors select-none group"
+                                              className="flex items-center justify-between p-4 md:p-5 cursor-pointer bg-card/50 hover:bg-emerald-50/50 transition-colors select-none group"
                                           >
                                               <div className="flex items-center gap-3 md:gap-4">
                                                   <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600 shadow-inner"><Building2 className="h-5 w-5" /></div>
                                                   <div className="flex flex-col">
-                                                      <h2 className="font-black text-base md:text-lg text-slate-800 group-hover:text-emerald-700 transition-colors">{customerName}</h2>
+                                                      <h2 className="font-black text-base md:text-lg text-foreground group-hover:text-emerald-700 transition-colors">{customerName}</h2>
                                                       <div className="flex items-center gap-2 mt-1">
                                                           <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold">{groupItems.length} İş Emri</span>
                                                           <span className="text-[10px] font-bold text-slate-400">Şu an Üretimde</span>
@@ -601,7 +601,7 @@ export default function ProjectPanelPage() {
                                           
                                           <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                                               <div className="overflow-hidden">
-                                                  <div className="overflow-x-auto custom-scrollbar border-t border-slate-100 bg-white/40">
+                                                  <div className="overflow-x-auto custom-scrollbar border-t border-slate-100 bg-card/40">
                                                       <table className="w-full text-left border-collapse min-w-[800px]">
                                                           <thead>
                                                               <tr className="border-b border-slate-200 bg-slate-50/50">
@@ -613,8 +613,8 @@ export default function ProjectPanelPage() {
                                                           </thead>
                                                           <tbody className="divide-y divide-slate-100">
                                                               {groupItems.map((item) => (
-                                                                  <tr key={item.id} className="hover:bg-white/80 transition-colors">
-                                                                      <td className="py-4 px-4 font-mono text-sm font-bold text-slate-800">{item.project_code}</td>
+                                                                  <tr key={item.id} className="hover:bg-card/80 transition-colors">
+                                                                      <td className="py-4 px-4 font-mono text-sm font-bold text-foreground">{item.project_code}</td>
                                                                       <td className="py-4 px-4">
                                                                           <div className="flex flex-wrap gap-1.5 md:gap-2">
                                                                               {item.project_files && item.project_files.length > 0 ? (
@@ -651,7 +651,7 @@ export default function ProjectPanelPage() {
                                       </div>
                                   )
                               })}
-                              {dataList.length === 0 && <div className="p-10 text-center text-sm font-bold text-slate-400 bg-white/40 rounded-[1.5rem] border border-slate-200">Kayıt bulunamadı.</div>}
+                              {dataList.length === 0 && <div className="p-10 text-center text-sm font-bold text-slate-400 bg-card/40 rounded-[1.5rem] border border-slate-200">Kayıt bulunamadı.</div>}
                           </div>
                       </div>
                   )}
@@ -662,17 +662,17 @@ export default function ProjectPanelPage() {
       {/* DÜZENLEME MODALI */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent className="rounded-[2rem] md:rounded-[3rem] p-6 md:p-8 max-w-[90vw] md:max-w-[700px] border-none shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              <DialogHeader className="shrink-0"><DialogTitle className="text-xl md:text-3xl font-black text-slate-800 flex items-center gap-2 md:gap-3"><Edit2 className="h-5 w-5 md:h-6 md:w-6 text-indigo-500" /> İş Emrini Düzenle</DialogTitle></DialogHeader>
+              <DialogHeader className="shrink-0"><DialogTitle className="text-xl md:text-3xl font-black text-foreground flex items-center gap-2 md:gap-3"><Edit2 className="h-5 w-5 md:h-6 md:w-6 text-indigo-500" /> İş Emrini Düzenle</DialogTitle></DialogHeader>
               
               <div className="flex flex-col gap-4 md:gap-6 py-2 overflow-y-auto custom-scrollbar pr-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                           <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">İş Emri (Proje) No</Label>
-                          <Input value={editProjectData?.project_code || ""} onChange={(e) => setEditProjectData({...editProjectData, project_code: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-slate-800" />
+                          <Input value={editProjectData?.project_code || ""} onChange={(e) => setEditProjectData({...editProjectData, project_code: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-foreground" />
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">Kapasite / Açıklama</Label>
-                          <Input value={editProjectData?.capacity || ""} onChange={(e) => setEditProjectData({...editProjectData, capacity: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-slate-800" />
+                          <Input value={editProjectData?.capacity || ""} onChange={(e) => setEditProjectData({...editProjectData, capacity: e.target.value})} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-bold text-foreground" />
                       </div>
                   </div>
 
@@ -688,7 +688,7 @@ export default function ProjectPanelPage() {
                               const hasFile = newFile || existingFile;
                               
                               return (
-                              <div key={type} className={`relative flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl transition-all ${hasFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-white hover:border-indigo-400'}`}>
+                              <div key={type} className={`relative flex flex-col items-center justify-center p-3 border-2 border-dashed rounded-xl transition-all ${hasFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 bg-card hover:border-indigo-400'}`}>
                                   <input type="file" accept=".pdf" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setEditFiles({...editFiles, [fileKey]: e.target.files?.[0] || null})} />
                                   <div className={`p-1.5 rounded-full mb-1 transition-colors ${hasFile ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
                                       {hasFile ? <CheckCircle2 className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
