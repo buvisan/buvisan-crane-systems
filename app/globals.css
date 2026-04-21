@@ -48,7 +48,7 @@
 :root {
   --radius: 0.625rem;
   
-  /* 🚀 VARSAYILAN RENKLER (LIGHT) */
+  /* 🚀 GÜNDÜZ MODU (LIGHT) */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -57,30 +57,21 @@
   --popover-foreground: oklch(0.145 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.45 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.90 0 0);
+  --input: oklch(0.90 0 0);
   --ring: oklch(0.708 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-
+  
   /* 🚀 TEMALAR İÇİN DEĞİŞKEN "PRİMARY" RENK SİSTEMİ */
-  /* Varsayılan (Mavi) */
-  --primary: oklch(0.546 0.245 262.881); /* Tailwind blue-600 */
+  --primary: oklch(0.546 0.245 262.881); /* Mavi (Varsayılan) */
   --primary-foreground: oklch(1 0 0);
 }
 
-/* 🎨 RENK PALETLERİ (LIGHT MODE İÇİN) */
+/* 🎨 GÜNDÜZ RENK PALETLERİ */
 :root[data-theme="blue"] { --primary: oklch(0.546 0.245 262.881); }
 :root[data-theme="red"] { --primary: oklch(0.577 0.245 27.325); }
 :root[data-theme="emerald"] { --primary: oklch(0.596 0.175 153.308); }
@@ -88,34 +79,30 @@
 :root[data-theme="orange"] { --primary: oklch(0.646 0.222 41.116); }
 :root[data-theme="zinc"] { --primary: oklch(0.278 0.033 256.018); }
 
-/* 🌙 DARK MODE (KARANLIK) AYARLARI */
+/* 🌙 GECE MODU (DARK) - Mükemmel Okunabilirlik İçin Optimize Edildi */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --background: oklch(0.13 0 0); /* Koyu Arka Plan */
+  --foreground: oklch(0.985 0 0); /* Bembeyaz Yazılar */
+  --card: oklch(0.18 0 0); /* Kartlar Biraz Daha Açık (Derinlik Hissi) */
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.18 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
+  --secondary: oklch(0.25 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: oklch(0.22 0 0); /* Gri Kutu ve Arka Planlar */
+  --muted-foreground: oklch(0.75 0 0); /* İkincil Yazılar (Net Görünür) */
+  --accent: oklch(0.26 0 0);
   --accent-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
+  --destructive: oklch(0.65 0.191 22.216);
+  --border: oklch(1 0 0 / 12%); /* Çizgiler Şık ve Görünür */
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
 
-  /* Dark mode için ana renkleri biraz daha pastel (açık) yapıyoruz ki okunsun */
-  --primary: oklch(0.646 0.222 262.881); /* Açık Mavi */
+  /* Karanlık Mod Ana Renk (Biraz Parlatıldı) */
+  --primary: oklch(0.646 0.222 262.881);
 }
 
-/* 🎨 RENK PALETLERİ (DARK MODE İÇİN) */
+/* 🎨 GECE MODU RENK PALETLERİ */
 .dark[data-theme="blue"] { --primary: oklch(0.646 0.222 262.881); }
 .dark[data-theme="red"] { --primary: oklch(0.677 0.245 27.325); }
 .dark[data-theme="emerald"] { --primary: oklch(0.696 0.175 153.308); }
@@ -124,20 +111,13 @@
 .dark[data-theme="zinc"] { --primary: oklch(0.878 0.033 256.018); }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground; }
 }
 
 /* TESLA/TOGG PREMIUM EFEKTLERI */
 @layer base {
-  ::selection {
-    background-color: var(--primary);
-    color: var(--primary-foreground);
-  }
+  ::selection { background-color: var(--primary); color: var(--primary-foreground); }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.2); border-radius: 10px; }
