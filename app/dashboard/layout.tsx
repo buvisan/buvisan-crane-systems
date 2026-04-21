@@ -371,7 +371,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                      <div className="absolute right-0 mt-3 w-[300px] bg-card/95 backdrop-blur-3xl border border-border rounded-[2rem] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4 z-50">
                          <div className="p-5 border-b border-border flex items-center gap-2 bg-muted/30">
                              <Palette className="h-5 w-5 text-primary" />
-                             <h3 className="font-black text-foreground">Tema Krallığı</h3>
+                             <h3 className="font-black text-foreground">Tema Ayarları</h3>
                          </div>
                          
                          <div className="p-5 flex flex-col gap-6">
