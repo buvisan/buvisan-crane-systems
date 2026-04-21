@@ -294,8 +294,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex-1 flex flex-col bg-card/95 lg:bg-card/60 backdrop-blur-2xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)] lg:shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] overflow-hidden relative transition-colors">
           <div className="flex items-center justify-between gap-3 p-5 border-b border-border/50">
             <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 flex-shrink-0">
-                {/* Gece modundaysa logoyu beyaz (invert) yapmak için ufak bir hile */}
-                <Image src="/buvisan.png" alt="Buvisan Logo" width={160} height={50} priority className={`object-contain ${isDarkMode ? 'brightness-0 invert' : ''}`} />
+                <div className="dark:bg-white/95 dark:p-1.5 dark:rounded-xl transition-all">
+                    <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={45} priority className="object-contain" />
+                </div>
             </Link>
             <button className="p-2 text-muted-foreground hover:text-foreground bg-muted/50 rounded-xl lg:hidden" onClick={() => setIsMobileMenuOpen(false)}><X className="h-5 w-5" /></button>
           </div>
@@ -332,7 +333,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="lg:hidden flex items-center justify-between p-4 bg-card/80 backdrop-blur-xl border-b border-border sticky top-0 z-40 shadow-sm print:hidden">
             <div className="flex items-center gap-3">
                 <button onClick={() => setIsMobileMenuOpen(true)} className="p-2.5 bg-primary/10 border border-primary/20 rounded-xl text-primary hover:bg-primary/20 transition-colors"><Menu className="h-6 w-6" /></button>
-                <Image src="/buvisan.png" alt="Logo" width={100} height={30} className={`object-contain ${isDarkMode ? 'brightness-0 invert' : ''}`} />
+                <div className="dark:bg-white/95 dark:px-2 dark:py-1 dark:rounded-lg transition-all">
+                    <Image src="/buvisan.png" alt="Logo" width={100} height={30} className="object-contain" />
+                </div>
             </div>
             <div className="flex items-center gap-2">
                 <button onClick={() => setIsOrderModalOpen(true)} className="p-2.5 bg-primary text-primary-foreground rounded-xl shadow-md active:scale-95 transition-transform"><ShoppingCart className="h-5 w-5" /></button>
