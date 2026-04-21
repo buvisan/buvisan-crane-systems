@@ -8,11 +8,12 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { 
   PlusCircle, Trash2, Edit2, PackageOpen, RefreshCcw, CheckCircle, Clock, 
-  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, FileCheck, Loader2, Copy, Inbox, Flame, Printer
+  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, FileCheck, Loader2, Copy, Inbox, Flame, Printer, Save
 } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function PurchasesPage() {
   const [orders, setOrders] = useState<any[]>([])
@@ -28,8 +29,16 @@ export default function PurchasesPage() {
   const [requests, setRequests] = useState<any[]>([])
   const [showRequests, setShowRequests] = useState(true)
   
+  // 🚀 ZM METAL FORM GÖRÜNTÜLEYİCİ STATELERİ
   const [isFormViewerOpen, setIsFormViewerOpen] = useState(false)
   const [viewingOrderGroup, setViewingOrderGroup] = useState<any>(null)
+
+  // 🚀 YENİ: FORM DÜZENLEME (REVİZE) STATELERİ
+  const [isFormEditModalOpen, setIsFormEditModalOpen] = useState(false)
+  const [editFormGroup, setEditFormGroup] = useState<any>(null)
+  const [editFormItems, setEditFormItems] = useState<any[]>([])
+  const [newItemForm, setNewItemForm] = useState({ material_name: "", current_stock: "0", quantity: "1" })
+  const [isSavingForm, setIsSavingForm] = useState(false)
 
   useEffect(() => {
     fetchOrders()
@@ -93,7 +102,91 @@ export default function PurchasesPage() {
       setIsFormViewerOpen(true)
   }
 
-  // 🚀 KUSURSUZ YAZDIRMA (PRINT) MOTORU
+  // 🚀 YENİ: DÜZENLEME MODALINI AÇ
+  const openFormEditor = (reqGroup: any) => {
+      setEditFormGroup({ ...reqGroup })
+      setEditFormItems(JSON.parse(JSON.stringify(reqGroup.items))) // Derin kopya
+      setIsFormEditModalOpen(true)
+  }
+
+  // 🚀 YENİ: YENİ KALEM EKLE (DÜZENLEME MODU)
+  const handleAddNewItemToForm = () => {
+      if (!newItemForm.material_name.trim()) return alert("Lütfen malzeme adı giriniz!");
+      if (Number(newItemForm.quantity) < 1) return alert("Miktar en az 1 olmalıdır!");
+      
+      const newItem = {
+          isNew: true, // Veritabanına INSERT atacağımızı belirtmek için
+          request_no: editFormGroup.request_no,
+          project_code: editFormGroup.project_code,
+          description: editFormGroup.material_type,
+          material_name: newItemForm.material_name,
+          current_stock: Number(newItemForm.current_stock),
+          quantity: Number(newItemForm.quantity),
+          priority: editFormGroup.priority,
+          status: editFormGroup.status,
+          requested_by: editFormGroup.requested_by
+      };
+
+      setEditFormItems([...editFormItems, newItem]);
+      setNewItemForm({ material_name: "", current_stock: "0", quantity: "1" });
+  }
+
+  // 🚀 YENİ: MEVCUT KALEMİ SİL (DÜZENLEME MODU)
+  const handleRemoveItemFromForm = (index: number) => {
+      const items = [...editFormItems];
+      const itemToDelete = items[index];
+      
+      if (itemToDelete.id) {
+          // Eğer zaten DB'de varsa, silindi olarak işaretle
+          itemToDelete.isDeleted = true;
+      } else {
+          // Eğer yeni eklendiyse, listeden çıkar
+          items.splice(index, 1);
+      }
+      setEditFormItems([...items]);
+  }
+
+  // 🚀 YENİ: FORMU KAYDET VE GÜNCELLE
+  const handleSaveFormChanges = async () => {
+      setIsSavingForm(true);
+      try {
+          // 1. Ana grup bilgilerini güncelle (Proje No, Cins)
+          await supabase.from('material_requests').update({
+              project_code: editFormGroup.project_code,
+              description: editFormGroup.material_type,
+              priority: editFormGroup.priority
+          }).eq('request_no', editFormGroup.request_no);
+
+          // 2. Kalemleri tek tek işle
+          for (const item of editFormItems) {
+              if (item.isDeleted && item.id) {
+                  // Silinenleri veritabanından uçur
+                  await supabase.from('material_requests').delete().eq('id', item.id);
+              } else if (item.isNew) {
+                  // Yeni eklenenleri INSERT yap
+                  delete item.isNew;
+                  await supabase.from('material_requests').insert([item]);
+              } else if (item.id) {
+                  // Mevcutları UPDATE yap
+                  await supabase.from('material_requests').update({
+                      material_name: item.material_name,
+                      current_stock: Number(item.current_stock),
+                      quantity: Number(item.quantity)
+                  }).eq('id', item.id);
+              }
+          }
+
+          alert("✅ Form başarıyla revize edildi!");
+          setIsFormEditModalOpen(false);
+          fetchRequests(); // Listeyi yenile
+      } catch (error: any) {
+          alert("Hata: " + error.message);
+      } finally {
+          setIsSavingForm(false);
+      }
+  }
+
+  // 🚀 KUSURSUZ YAZDIRMA MOTORU
   const handlePrint = () => {
       const printContent = document.getElementById('printable-form');
       if (!printContent) return;
@@ -238,7 +331,13 @@ export default function PurchasesPage() {
                                           </div>
                                           
                                           <div className="flex flex-col gap-2">
-                                              <span className="text-sm font-black text-slate-800">{reqGroup.material_type || "Belirtilmedi"} <span className="text-xs font-medium text-slate-500">({reqGroup.items.length} Kalem)</span></span>
+                                              <div className="flex items-center justify-between">
+                                                  <span className="text-sm font-black text-slate-800">{reqGroup.material_type || "Belirtilmedi"} <span className="text-xs font-medium text-slate-500">({reqGroup.items.length} Kalem)</span></span>
+                                                  {/* 🚀 FORM DÜZENLEME BUTONU */}
+                                                  {reqGroup.status === 'BEKLIYOR' && (
+                                                      <Button onClick={() => openFormEditor(reqGroup)} variant="outline" size="sm" className="h-8 text-[10px] font-bold text-indigo-600 border-indigo-200 hover:bg-indigo-50"><Edit2 className="h-3.5 w-3.5 mr-1" /> Formu Düzenle</Button>
+                                                  )}
+                                              </div>
                                               <Button onClick={() => openFormViewer(reqGroup)} className="w-full bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white transition-colors h-11 rounded-lg font-black text-xs shadow-sm mt-1">
                                                   <FileText className="h-4 w-4 mr-2" /> DİJİTAL SİPARİŞ FORMUNU GÖRÜNTÜLE
                                               </Button>
@@ -329,40 +428,93 @@ export default function PurchasesPage() {
           </div>
       </div>
 
-      {/* 🚀 KUSURSUZ ZM METAL FORMU (YÜZDE 120 ÖLÇEKLİ & BUTON FİXLİ) */}
+      {/* 🚀 YENİ: FORM DÜZENLEME (REVİZE) MODALI */}
+      <Dialog open={isFormEditModalOpen} onOpenChange={setIsFormEditModalOpen}>
+          <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none shadow-2xl flex flex-col max-h-[90vh]">
+              <DialogHeader className="shrink-0 mb-4">
+                  <DialogTitle className="text-xl font-black text-slate-800 flex items-center gap-2"><Edit2 className="h-5 w-5 text-indigo-500"/> Formu Revize Et (Düzenle)</DialogTitle>
+                  <p className="text-xs font-bold text-slate-500 mt-1">Burada yaptığınız değişiklikler siparişin orijinalini günceller ve her yerde görünür.</p>
+              </DialogHeader>
+
+              {editFormGroup && (
+                  <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6">
+                      <div className="bg-indigo-50/50 border border-indigo-100 rounded-[1.5rem] p-4 flex flex-col gap-4">
+                          <div className="grid grid-cols-3 gap-4">
+                              <div className="space-y-2"><Label className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">Proje No</Label><Input value={editFormGroup.project_code} onChange={e=>setEditFormGroup({...editFormGroup, project_code: e.target.value})} className="font-bold border-indigo-200 focus:ring-indigo-500 h-11 bg-white" /></div>
+                              <div className="space-y-2"><Label className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">Malzeme Cinsi</Label><Input value={editFormGroup.material_type} onChange={e=>setEditFormGroup({...editFormGroup, material_type: e.target.value})} className="font-bold border-indigo-200 focus:ring-indigo-500 h-11 bg-white" /></div>
+                              <div className="space-y-2"><Label className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">Öncelik</Label>
+                                  <select value={editFormGroup.priority} onChange={e => setEditFormGroup({...editFormGroup, priority: e.target.value})} className="w-full h-11 px-3 rounded-xl bg-white border border-indigo-200 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500">
+                                      <option value="NORMAL">Normal</option>
+                                      <option value="ACIL">ACİL</option>
+                                  </select>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="bg-slate-50 border border-slate-200 rounded-[1.5rem] p-4 flex flex-col gap-4">
+                          <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-[-5px]">Forma Yeni Kalem Ekle</Label>
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                              <div className="space-y-1 col-span-2 md:col-span-3"><Input placeholder="Ürün Tanımı" value={newItemForm.material_name} onChange={e=>setNewItemForm({...newItemForm, material_name: e.target.value})} className="font-bold border-slate-200 h-11 bg-white" /></div>
+                              <div className="space-y-1 col-span-1"><Input type="number" placeholder="Stok" value={newItemForm.current_stock} onChange={e=>setNewItemForm({...newItemForm, current_stock: e.target.value})} className="font-bold border-slate-200 h-11 bg-white" /></div>
+                              <div className="space-y-1 col-span-1"><Input type="number" placeholder="Miktar" min="1" value={newItemForm.quantity} onChange={e=>setNewItemForm({...newItemForm, quantity: e.target.value})} className="font-black text-blue-600 border-slate-200 h-11 bg-white" /></div>
+                          </div>
+                          <Button type="button" onClick={handleAddNewItemToForm} className="w-full h-10 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl"><PlusCircle className="h-4 w-4 mr-2" /> BU SATIRI FORMA EKLE</Button>
+                      </div>
+
+                      <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                          <table className="w-full text-left text-xs md:text-sm">
+                              <thead className="bg-slate-100 border-b border-slate-200 text-slate-500 font-bold"><tr><th className="px-3 py-3">Ürün Tanımı</th><th className="px-3 py-3 text-center w-20">Stok</th><th className="px-3 py-3 text-center w-24">Miktar</th><th className="px-3 py-3 text-right w-16">İşlem</th></tr></thead>
+                              <tbody className="divide-y divide-slate-100">
+                                  {editFormItems.map((item, index) => {
+                                      if (item.isDeleted) return null; // Silinenleri ekranda gösterme
+                                      return (
+                                      <tr key={index} className={`bg-white hover:bg-slate-50 ${item.isNew ? 'bg-emerald-50/50' : ''}`}>
+                                          <td className="px-3 py-2">
+                                              <Input value={item.material_name} onChange={e => { const items = [...editFormItems]; items[index].material_name = e.target.value; setEditFormItems(items); }} className="h-9 font-bold text-slate-800 border-transparent hover:border-slate-200 focus:border-blue-500" />
+                                          </td>
+                                          <td className="px-1 py-2">
+                                              <Input type="number" value={item.current_stock} onChange={e => { const items = [...editFormItems]; items[index].current_stock = e.target.value; setEditFormItems(items); }} className="h-9 text-center font-medium text-slate-600 border-transparent hover:border-slate-200 focus:border-blue-500 px-1" />
+                                          </td>
+                                          <td className="px-1 py-2">
+                                              <Input type="number" min="1" value={item.quantity} onChange={e => { const items = [...editFormItems]; items[index].quantity = e.target.value; setEditFormItems(items); }} className="h-9 text-center font-black text-blue-600 border-transparent hover:border-slate-200 focus:border-blue-500 px-1" />
+                                          </td>
+                                          <td className="px-3 py-2 text-right">
+                                              <button onClick={() => handleRemoveItemFromForm(index)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="h-4 w-4" /></button>
+                                          </td>
+                                      </tr>
+                                  )})}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              )}
+              <div className="shrink-0 pt-4 mt-2 border-t border-slate-100 flex gap-3">
+                  <Button variant="outline" onClick={() => setIsFormEditModalOpen(false)} className="h-14 px-6 rounded-xl font-bold">Vazgeç</Button>
+                  <Button onClick={handleSaveFormChanges} disabled={isSavingForm} className="flex-1 h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base rounded-xl shadow-xl shadow-indigo-500/20">
+                      {isSavingForm ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Save className="h-5 w-5 mr-2" />} DEĞİŞİKLİKLERİ KAYDET
+                  </Button>
+              </div>
+          </DialogContent>
+      </Dialog>
+
+      {/* ZM METAL İSTEK FORMU GÖRÜNÜMÜ */}
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
-          <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-slate-50 shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden">
+          <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-slate-50 shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0 print:bg-white">
               
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50 w-full">
-                  <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm" id="printable-form">
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50 print:bg-white print:p-0 w-full">
+                  <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
                       <table className="w-full border-collapse border border-black mb-4">
                           <tbody>
                               <tr>
-                                  <td className="border border-black w-1/4 p-2 text-center align-middle">
-                                      <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain" />
-                                  </td>
-                                  <td className="border border-black w-2/4 text-center align-middle">
-                                      <h2 className="text-xl font-bold tracking-widest text-slate-800 uppercase">MALZEME İSTEK FORMU</h2>
-                                  </td>
+                                  <td className="border border-black w-1/4 p-2 text-center align-middle"><Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain" /></td>
+                                  <td className="border border-black w-2/4 text-center align-middle"><h2 className="text-xl font-bold tracking-widest text-slate-800 uppercase">MALZEME İSTEK FORMU</h2></td>
                                   <td className="border border-black w-1/4 p-0 align-top text-[11px]">
                                       <table className="w-full h-full border-collapse">
                                           <tbody>
-                                              <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Doküman No</td>
-                                                  <td className="border-b border-black p-1.5 font-bold text-blue-700 uppercase">DOC-{viewingOrderGroup?.request_no?.replace(/\D/g, '') || '001'}</td>
-                                              </tr>
-                                              <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Yayın Tarihi</td>
-                                                  <td className="border-b border-black p-1.5 font-bold text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : '13.12.2017'}</td>
-                                              </tr>
-                                              <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Revizyon No</td>
-                                                  <td className="border-b border-black p-1.5 font-bold">00</td>
-                                              </tr>
-                                              <tr>
-                                                  <td className="border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Revizyon Tarihi</td>
-                                                  <td className="p-1.5 font-bold">--</td>
-                                              </tr>
+                                              <tr><td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Doküman No</td><td className="border-b border-black p-1.5 font-bold text-blue-700 uppercase">DOC-{viewingOrderGroup?.request_no?.replace(/\D/g, '') || '001'}</td></tr>
+                                              <tr><td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Yayın Tarihi</td><td className="border-b border-black p-1.5 font-bold text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : '13.12.2017'}</td></tr>
+                                              <tr><td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Revizyon No</td><td className="border-b border-black p-1.5 font-bold">00</td></tr>
+                                              <tr><td className="border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50 print:bg-transparent">Revizyon Tarihi</td><td className="p-1.5 font-bold">--</td></tr>
                                           </tbody>
                                       </table>
                                   </td>
@@ -372,61 +524,30 @@ export default function PurchasesPage() {
 
                       <table className="w-full border-collapse border border-black mb-4 text-[11px]">
                           <tbody>
-                              <tr>
-                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50 text-slate-700">Malzeme İstek Formu No</td>
-                                  <td className="border border-black p-2 w-1/4 font-black uppercase text-slate-900">{viewingOrderGroup?.request_no}</td>
-                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50 text-slate-700">İstek Yapan Personel</td>
-                                  <td className="border border-black p-2 font-black w-1/4 uppercase text-slate-900">{viewingOrderGroup?.profiles?.first_name} {viewingOrderGroup?.profiles?.last_name}</td>
-                              </tr>
-                              <tr>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Proje No</td>
-                                  <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.project_code}</td>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">İstek Yapan Bölüm</td>
-                                  <td className="border border-black p-2 font-black uppercase text-slate-900">{viewingOrderGroup?.profiles?.department || "-"}</td>
-                              </tr>
-                              <tr>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Tarih</td>
-                                  <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Malzeme Cinsi</td>
-                                  <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.material_type || viewingOrderGroup?.description || "-"}</td>
-                              </tr>
+                              <tr><td className="border border-black p-2 font-bold w-1/4 bg-slate-50 print:bg-transparent text-slate-700">Malzeme İstek Formu No</td><td className="border border-black p-2 w-1/4 font-black uppercase text-slate-900">{viewingOrderGroup?.request_no}</td><td className="border border-black p-2 font-bold w-1/4 bg-slate-50 print:bg-transparent text-slate-700">İstek Yapan Personel</td><td className="border border-black p-2 font-black w-1/4 uppercase text-slate-900">{viewingOrderGroup?.profiles?.first_name} {viewingOrderGroup?.profiles?.last_name}</td></tr>
+                              <tr><td className="border border-black p-2 font-bold bg-slate-50 print:bg-transparent text-slate-700">Proje No</td><td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.project_code}</td><td className="border border-black p-2 font-bold bg-slate-50 print:bg-transparent text-slate-700">İstek Yapan Bölüm</td><td className="border border-black p-2 font-black uppercase text-slate-900">{viewingOrderGroup?.profiles?.department || "-"}</td></tr>
+                              <tr><td className="border border-black p-2 font-bold bg-slate-50 print:bg-transparent text-slate-700">Tarih</td><td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td><td className="border border-black p-2 font-bold bg-slate-50 print:bg-transparent text-slate-700">Malzeme Cinsi</td><td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.material_type || viewingOrderGroup?.description || "-"}</td></tr>
                           </tbody>
                       </table>
 
                       <table className="w-full text-xs border-collapse border border-black">
                           <thead>
-                              <tr className="bg-slate-50 text-slate-800">
-                                  <th className="border border-black p-2 text-center w-12 font-bold">No</th>
-                                  <th className="border border-black p-2 text-left pl-3 font-bold">Ürün Tanımı</th>
-                                  <th className="border border-black p-2 text-center w-20 font-bold">Stok</th>
-                                  <th className="border border-black p-2 text-center w-28 font-bold">Miktar</th>
-                                  <th className="border border-black p-2 text-center w-32 font-bold">Termin</th>
-                              </tr>
+                              <tr className="bg-slate-50 print:bg-transparent text-slate-800"><th className="border border-black p-2 text-center w-12 font-bold">No</th><th className="border border-black p-2 text-left pl-3 font-bold">Ürün Tanımı</th><th className="border border-black p-2 text-center w-20 font-bold">Stok</th><th className="border border-black p-2 text-center w-28 font-bold">Miktar</th><th className="border border-black p-2 text-center w-32 font-bold">Termin</th></tr>
                           </thead>
                           <tbody>
                               {viewingOrderGroup?.items?.map((item: any, idx: number) => (
-                                  <tr key={idx} className="h-8">
-                                      <td className="border border-black p-2 text-center font-bold text-slate-800">{idx + 1}</td>
-                                      <td className="border border-black p-2 pl-3 font-black text-slate-900">{item.material_name}</td>
-                                      <td className="border border-black p-2 text-center font-bold text-slate-800">{item.current_stock || 0}</td>
-                                      <td className="border border-black p-2 text-center font-black text-sm text-slate-900">{item.quantity} ADET</td>
-                                      <td className="border border-black p-2 text-center"></td>
-                                  </tr>
+                                  <tr key={idx} className="h-8"><td className="border border-black p-2 text-center font-bold text-slate-800">{idx + 1}</td><td className="border border-black p-2 pl-3 font-black text-slate-900">{item.material_name}</td><td className="border border-black p-2 text-center font-bold text-slate-800">{item.current_stock || 0}</td><td className="border border-black p-2 text-center font-black text-sm text-slate-900">{item.quantity} ADET</td><td className="border border-black p-2 text-center"></td></tr>
                               ))}
                               {[...Array(Math.max(0, 10 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
-                                  <tr key={`empty-${i}`} className="h-8">
-                                      <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
-                                  </tr>
+                                  <tr key={`empty-${i}`} className="h-8"><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td></tr>
                               ))}
                           </tbody>
                       </table>
-                      
                       <div className="mt-4 pb-2 text-right text-[10px] text-slate-500 font-bold">Sayfa 1 / 1</div>
                   </div>
               </div>
 
-              {/* SABİT BUTON ALANI */}
-              <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-slate-200 bg-white w-full">
+              <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-slate-200 bg-white print:hidden w-full">
                   <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-slate-300 text-slate-600 hover:bg-slate-100 h-12 px-6">Kapat</Button>
                   <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak İndir</Button>
               </div>
