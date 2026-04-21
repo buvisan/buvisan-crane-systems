@@ -69,15 +69,15 @@ export default function ManufacturingDashboard() {
       </Card>
 
       {/* 🚀 AKIŞKAN TABLO LİSTESİ */}
-      <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
-        <div className="p-4 md:p-6 border-b bg-slate-50/50 flex items-center gap-2 md:gap-3">
+      <div className="bg-card/60 backdrop-blur-2xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
+        <div className="p-4 md:p-6 border-b bg-muted/50 flex items-center gap-2 md:gap-3">
             <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-orange-500" />
-            <span className="font-black text-sm md:text-base text-slate-800 uppercase tracking-widest">Onay Bekleyen İş Emirleri</span>
+            <span className="font-black text-sm md:text-base text-foreground uppercase tracking-widest">Onay Bekleyen İş Emirleri</span>
         </div>
 
         <div className="overflow-x-auto p-2 custom-scrollbar">
             <table className="w-full text-left border-collapse whitespace-nowrap min-w-[700px]">
-                <thead className="bg-blue-600/90 backdrop-blur-md">
+                <thead className="bg-primary/90 backdrop-blur-md">
                     <tr>
                         <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black text-blue-100 uppercase tracking-widest rounded-tl-xl md:rounded-tl-2xl">İş Emri No</th>
                         <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black text-blue-100 uppercase tracking-widest">Firma</th>
@@ -86,7 +86,7 @@ export default function ManufacturingDashboard() {
                         <th className="px-4 md:px-6 py-4 md:py-5 text-[10px] md:text-[11px] font-black text-blue-100 uppercase tracking-widest text-right rounded-tr-xl md:rounded-tr-2xl">İşlem</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100/50 bg-white/40">
+                <tbody className="divide-y divide-slate-100/50 bg-card/40">
                     {projects.map((project: any) => {
                         const getFile = (type: string) => project.project_files.find((f: any) => f.file_type === type);
                         
@@ -98,11 +98,11 @@ export default function ManufacturingDashboard() {
                         ];
 
                         return (
-                          <tr key={project.id} className="hover:bg-blue-50/40 transition-colors group">
+                          <tr key={project.id} className="hover:bg-primary/10/40 transition-colors group">
                             <td className="px-4 md:px-6 py-4 md:py-5 font-mono text-xs md:text-sm font-bold text-blue-900">{project.project_code}</td>
-                            <td className="px-4 md:px-6 py-4 md:py-5 text-xs md:text-sm font-black text-slate-800 truncate max-w-[150px] md:max-w-[200px]">{project.customers?.name}</td>
+                            <td className="px-4 md:px-6 py-4 md:py-5 text-xs md:text-sm font-black text-foreground truncate max-w-[150px] md:max-w-[200px]">{project.customers?.name}</td>
                             <td className="px-4 md:px-6 py-4 md:py-5">
-                                <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 shadow-sm font-bold text-[10px] md:text-xs py-1">
+                                <Badge variant="outline" className="bg-muted text-slate-700 border-border shadow-sm font-bold text-[10px] md:text-xs py-1">
                                     {project.capacity}
                                 </Badge>
                             </td>
@@ -116,7 +116,7 @@ export default function ManufacturingDashboard() {
                                                 href={f.data.file_url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-wider px-2 md:px-3 py-1.5 rounded-lg bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 hover:text-blue-800 hover:border-blue-300 transition-all shadow-sm"
+                                                className="flex items-center gap-1 text-[9px] md:text-[10px] font-black uppercase tracking-wider px-2 md:px-3 py-1.5 rounded-lg bg-card text-primary border border-primary/30 hover:bg-primary/10 hover:text-blue-800 hover:border-blue-300 transition-all shadow-sm"
                                                 title={`${f.label} Dosyasını Aç`}
                                             >
                                                 <FileText className="h-3 w-3" /> 
@@ -125,14 +125,14 @@ export default function ManufacturingDashboard() {
                                             </a>
                                         ) : null
                                     ))}
-                                    {!fileList.some(f => f.data) && <span className="text-slate-300 text-xs font-bold">-</span>}
+                                    {!fileList.some(f => f.data) && <span className="text-muted-foreground/50 text-xs font-bold">-</span>}
                                 </div>
                             </td>
 
                             <td className="px-4 md:px-6 py-4 md:py-5 text-right">
                                 <Button 
                                     onClick={() => approveProject(project.id)}
-                                    className="h-10 md:h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 font-bold text-xs md:text-sm px-4 md:px-6 transition-all"
+                                    className="h-10 md:h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-primary-foreground shadow-lg shadow-emerald-500/20 font-bold text-xs md:text-sm px-4 md:px-6 transition-all"
                                 >
                                     <CheckCircle className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" />
                                     ONAY VER
@@ -146,8 +146,8 @@ export default function ManufacturingDashboard() {
                         <tr>
                             <td colSpan={5} className="py-16 md:py-20 text-center">
                                 <div className="flex flex-col items-center gap-3">
-                                    <div className="bg-white p-4 md:p-5 rounded-full shadow-sm"><Factory className="h-8 w-8 md:h-10 md:w-10 text-slate-300" /></div>
-                                    <p className="text-base md:text-lg font-bold text-slate-500">Şu an onay bekleyen proje yok.</p>
+                                    <div className="bg-card p-4 md:p-5 rounded-full shadow-sm"><Factory className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground/50" /></div>
+                                    <p className="text-base md:text-lg font-bold text-muted-foreground">Şu an onay bekleyen proje yok.</p>
                                 </div>
                             </td>
                         </tr>

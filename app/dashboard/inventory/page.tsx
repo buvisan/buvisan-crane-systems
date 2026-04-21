@@ -27,7 +27,7 @@ function DeleteProductBtn({ id }: { id: number }) {
     }
 
     return (
-        <button onClick={handleDelete} className="p-2 md:p-2.5 bg-white border border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300 rounded-lg md:rounded-xl shadow-sm transition-all flex items-center justify-center h-full" title="Ürünü Sil">
+        <button onClick={handleDelete} className="p-2 md:p-2.5 bg-card border border-border text-muted-foreground hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300 rounded-lg md:rounded-xl shadow-sm transition-all flex items-center justify-center h-full" title="Ürünü Sil">
             <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
         </button>
     )
@@ -84,7 +84,7 @@ export default function InventoryPage() {
       return (
           <div className="flex flex-col gap-1 w-24 md:w-32">
               <div className="flex justify-between items-end">
-                  <span className={`text-base md:text-lg font-black leading-none ${current <= safeCritical ? 'text-rose-600' : 'text-slate-800'}`}>
+                  <span className={`text-base md:text-lg font-black leading-none ${current <= safeCritical ? 'text-rose-600' : 'text-foreground'}`}>
                       {current}
                   </span>
               </div>
@@ -100,13 +100,13 @@ export default function InventoryPage() {
       
       {/* 🚀 ÜST BAŞLIK ALANI (Mobil Uyumlu Flex-Col) */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 md:gap-5 bg-white/60 backdrop-blur-2xl border border-white/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
+        <div className="flex items-center gap-4 md:gap-5 bg-card/60 backdrop-blur-2xl border border-border/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
             <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-3 md:p-4 rounded-2xl shadow-lg shadow-blue-500/30 shrink-0">
-                <Boxes className="h-6 w-6 md:h-8 md:w-8 text-white" />
+                <Boxes className="h-6 w-6 md:h-8 md:w-8 text-primary-foreground" />
             </div>
             <div>
-                <h1 className="text-xl md:text-3xl font-black tracking-tight text-slate-900">Merkez Depo Envanteri</h1>
-                <p className="text-slate-500 font-medium text-xs md:text-sm mt-1">Tüm stokları, kritik seviyeleri ve giriş/çıkışları yönetin.</p>
+                <h1 className="text-xl md:text-3xl font-black tracking-tight text-foreground">Merkez Depo Envanteri</h1>
+                <p className="text-muted-foreground font-medium text-xs md:text-sm mt-1">Tüm stokları, kritik seviyeleri ve giriş/çıkışları yönetin.</p>
             </div>
         </div>
         
@@ -119,12 +119,12 @@ export default function InventoryPage() {
       </div>
 
       {/* 🚀 KONTROL PANELİ (Mobil Uyumlu Grid/Flex) */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white/60 backdrop-blur-2xl border border-white/50 p-4 md:p-5 rounded-[2rem] shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-card/60 backdrop-blur-2xl border border-border/50 p-4 md:p-5 rounded-[2rem] shadow-sm">
         
         <div className="relative w-full md:w-96 shrink-0">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input 
-                className="pl-12 h-14 bg-white/80 border-white text-sm font-medium focus:ring-2 focus:ring-blue-500 shadow-sm rounded-2xl w-full" 
+                className="pl-12 h-14 bg-card/80 border-white text-sm font-medium focus:ring-2 focus:ring-blue-500 shadow-sm rounded-2xl w-full" 
                 type="text" 
                 placeholder="Barkod, Kod veya Ürün Adı..." 
                 value={searchTerm}
@@ -132,16 +132,16 @@ export default function InventoryPage() {
             />
         </div>
 
-        <div className="flex w-full md:w-auto bg-slate-100/50 p-1 md:p-1.5 rounded-2xl border border-slate-200/50">
+        <div className="flex w-full md:w-auto bg-muted/50 p-1 md:p-1.5 rounded-2xl border border-border/50">
             <button 
                 onClick={() => setFilterType("ALL")}
-                className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${filterType === 'ALL' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${filterType === 'ALL' ? 'bg-card text-blue-700 shadow-sm' : 'text-muted-foreground hover:text-slate-700'}`}
             >
                 <Package className="h-4 w-4 shrink-0" /> Tüm Stoklar
             </button>
             <button 
                 onClick={() => setFilterType("CRITICAL")}
-                className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${filterType === 'CRITICAL' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' : 'text-slate-500 hover:text-rose-600'}`}
+                className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${filterType === 'CRITICAL' ? 'bg-rose-500 text-primary-foreground shadow-md shadow-rose-500/20' : 'text-muted-foreground hover:text-rose-600'}`}
             >
                 <AlertOctagon className="h-4 w-4 shrink-0" /> <span className="truncate">Kritik Seviye</span>
             </button>
@@ -149,38 +149,38 @@ export default function InventoryPage() {
       </div>
 
       {/* 🚀 AKIŞKAN TABLO ALANI */}
-      <div className="bg-white/60 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
+      <div className="bg-card/60 backdrop-blur-2xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
         <div className="overflow-x-auto p-2 custom-scrollbar">
             <table className="w-full text-left border-collapse min-w-[700px]">
-                <thead className="bg-white/40">
+                <thead className="bg-card/40">
                     <tr>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest rounded-tl-3xl">Ürün & Kod</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategori</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest">Depo Durumu (Bar)</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Alış / Satış</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest text-right rounded-tr-3xl">Aksiyonlar</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest rounded-tl-3xl">Ürün & Kod</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Kategori</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Depo Durumu (Bar)</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Alış / Satış</th>
+                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right rounded-tr-3xl">Aksiyonlar</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100/50">
                     {filteredProducts.map((product: any) => (
-                        <tr key={product.id} className="hover:bg-white/80 transition-colors group">
+                        <tr key={product.id} className="hover:bg-card/80 transition-colors group">
                             
                             <td className="px-4 md:px-6 py-4 md:py-5">
                                 <div className="flex flex-col gap-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className="font-mono text-[10px] md:text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                        <span className="font-mono text-[10px] md:text-xs font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">
                                             {product.sku || "KOD-YOK"}
                                         </span>
-                                        {product.barcode && <span className="font-mono text-[9px] md:text-[10px] text-slate-400">| B: {product.barcode}</span>}
+                                        {product.barcode && <span className="font-mono text-[9px] md:text-[10px] text-muted-foreground">| B: {product.barcode}</span>}
                                     </div>
-                                    <span className="text-sm md:text-base font-black text-slate-800 mt-1 max-w-[200px] md:max-w-[250px] truncate" title={product.name}>
+                                    <span className="text-sm md:text-base font-black text-foreground mt-1 max-w-[200px] md:max-w-[250px] truncate" title={product.name}>
                                         {product.name}
                                     </span>
                                 </div>
                             </td>
 
                             <td className="px-4 md:px-6 py-4 md:py-5">
-                                <span className="inline-flex items-center px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                <span className="inline-flex items-center px-2 md:px-3 py-1 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold bg-muted text-slate-600 border border-border">
                                     {product.categories?.name || "Kategorisiz"}
                                 </span>
                             </td>
@@ -188,16 +188,16 @@ export default function InventoryPage() {
                             <td className="px-4 md:px-6 py-4 md:py-5">
                                 <div className="flex items-center gap-2 md:gap-3">
                                     {renderStockBar(product.current_stock, product.critical_stock_level)}
-                                    <span className="text-[10px] md:text-xs font-bold text-slate-400 mt-4 md:mt-5">{product.units?.short_code}</span>
+                                    <span className="text-[10px] md:text-xs font-bold text-muted-foreground mt-4 md:mt-5">{product.units?.short_code}</span>
                                 </div>
                             </td>
 
                             <td className="px-4 md:px-6 py-4 md:py-5 text-right">
                                 <div className="flex flex-col gap-1 items-end">
-                                    <span className="text-xs md:text-sm font-bold text-slate-500" title="Alış Fiyatı">
+                                    <span className="text-xs md:text-sm font-bold text-muted-foreground" title="Alış Fiyatı">
                                         ↓ {product.purchase_price?.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
                                     </span>
-                                    <span className="text-xs md:text-sm font-black text-slate-800" title="Satış Fiyatı">
+                                    <span className="text-xs md:text-sm font-black text-foreground" title="Satış Fiyatı">
                                         ↑ {product.sale_price?.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
                                     </span>
                                 </div>
@@ -209,7 +209,7 @@ export default function InventoryPage() {
                                     <div className="h-8 md:h-10">
                                         <StockMovementDialog product={product} />
                                     </div>
-                                    <div className="h-8 md:h-10 p-1.5 md:p-2.5 bg-white border border-slate-200 text-slate-400 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300 rounded-lg md:rounded-xl shadow-sm transition-all flex items-center justify-center">
+                                    <div className="h-8 md:h-10 p-1.5 md:p-2.5 bg-card border border-border text-muted-foreground hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300 rounded-lg md:rounded-xl shadow-sm transition-all flex items-center justify-center">
                                         <AddProductDialog productToEdit={product} />
                                     </div>
                                     <div className="h-8 md:h-10">
@@ -224,9 +224,9 @@ export default function InventoryPage() {
                         <tr>
                             <td colSpan={5} className="py-16 md:py-20 text-center">
                                 <div className="flex flex-col items-center gap-3">
-                                    <div className="bg-white p-4 md:p-5 rounded-full shadow-sm"><Package className="h-8 w-8 md:h-10 md:w-10 text-slate-300" /></div>
+                                    <div className="bg-card p-4 md:p-5 rounded-full shadow-sm"><Package className="h-8 w-8 md:h-10 md:w-10 text-muted-foreground/50" /></div>
                                     <p className="text-base md:text-lg font-bold text-slate-600">Ürün bulunamadı.</p>
-                                    <p className="text-xs md:text-sm text-slate-400">Arama kriterlerinizi değiştirin veya yeni ürün ekleyin.</p>
+                                    <p className="text-xs md:text-sm text-muted-foreground">Arama kriterlerinizi değiştirin veya yeni ürün ekleyin.</p>
                                 </div>
                             </td>
                         </tr>
