@@ -114,7 +114,45 @@ export default function PurchasesPage() {
       } catch (error: any) { alert("Hata: " + error.message); } finally { setIsSavingForm(false); }
   }
 
-  const handlePrint = () => { window.print(); };
+  const handlePrint = () => {
+      const printContent = document.getElementById('printable-form');
+      if (!printContent) return;
+
+      const originalVisibility: {el: Element, display: string}[] = [];
+      Array.from(document.body.children).forEach((el) => {
+          if (el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE') {
+              originalVisibility.push({ el, display: (el as HTMLElement).style.display });
+              (el as HTMLElement).style.display = 'none';
+          }
+      });
+
+      const printWrapper = document.createElement('div');
+      printWrapper.id = 'print-wrapper';
+      printWrapper.style.width = '100%';
+      printWrapper.style.backgroundColor = 'white';
+      printWrapper.innerHTML = printContent.outerHTML;
+
+      const style = document.createElement('style');
+      style.id = 'print-style';
+      style.innerHTML = `
+          @media print {
+              @page { size: A4 portrait; margin: 10mm; }
+              body { background: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              #print-wrapper { display: block !important; zoom: 1.20 !important; }
+          }
+      `;
+
+      document.head.appendChild(style);
+      document.body.appendChild(printWrapper);
+
+      window.print();
+
+      document.body.removeChild(printWrapper);
+      document.head.removeChild(style);
+      originalVisibility.forEach(({ el, display }) => {
+          (el as HTMLElement).style.display = display;
+      });
+  };
 
   const formatOrderNumber = (id: number) => `SAS${String(id).padStart(5, '0')}`;
   const getDeadlineStatus = (termin: string, status: string) => {
@@ -314,9 +352,9 @@ export default function PurchasesPage() {
           </div>
       </div>
 
-      {/* 🚀 FORM DÜZENLEME (REVİZE) MODALI - BİRİM SEÇİMİ EKLENDİ */}
+      {/* 🚀 FORM DÜZENLEME (REVİZE) MODALI - TAM EKRAN YAPILDI VE BİRİMLER DÜZELTİLDİ */}
       <Dialog open={isFormEditModalOpen} onOpenChange={setIsFormEditModalOpen}>
-          <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none bg-card shadow-2xl flex flex-col max-h-[90vh] print:hidden">
+          <DialogContent className="rounded-[2rem] p-6 max-w-[95vw] w-[95vw] h-[90vh] border-none bg-card shadow-2xl flex flex-col max-h-[95vh] print:hidden">
               <DialogHeader className="shrink-0 mb-4">
                   <DialogTitle className="text-xl font-black text-foreground flex items-center gap-2"><Edit2 className="h-5 w-5 text-primary"/> Formu Revize Et (Düzenle)</DialogTitle>
                   <p className="text-xs font-bold text-muted-foreground mt-1">Burada yaptığınız değişiklikler siparişin orijinalini günceller ve her yerde görünür.</p>
@@ -355,6 +393,10 @@ export default function PurchasesPage() {
                                       <option value="KOLİ">Koli</option>
                                       <option value="BOY">Boy</option>
                                       <option value="TABAKA">Tabaka</option>
+                                      <option value="GRAM">Gram</option>
+                                      <option value="RULO">Rulo</option>
+                                      <option value="TENEKE">Teneke</option>
+                                      <option value="PALET">Palet</option>
                                   </select>
                               </div>
                           </div>
@@ -378,7 +420,7 @@ export default function PurchasesPage() {
                                           <td className="px-1 py-2 flex gap-1 items-center">
                                               <Input type="number" min="1" value={item.quantity} onChange={e => { const items = [...editFormItems]; items[index].quantity = e.target.value; setEditFormItems(items); }} className="h-9 text-center font-black text-primary border-transparent hover:border-border focus:border-primary bg-transparent px-1 w-16" />
                                               <select value={item.unit || 'ADET'} onChange={e => { const items = [...editFormItems]; items[index].unit = e.target.value; setEditFormItems(items); }} className="h-9 flex-1 rounded-md border-transparent bg-transparent text-foreground text-[10px] font-bold px-1 outline-none">
-                                                  <option value="ADET">Adet</option><option value="METRE">Metre</option><option value="KG">Kg</option><option value="LİTRE">Litre</option><option value="TAKIM">Takım</option><option value="PAKET">Paket</option><option value="KUTU">Kutu</option><option value="KOLİ">Koli</option><option value="BOY">Boy</option><option value="TABAKA">Tabaka</option>
+                                                  <option value="ADET">Adet</option><option value="METRE">Metre</option><option value="KG">Kg</option><option value="LİTRE">Litre</option><option value="TAKIM">Takım</option><option value="PAKET">Paket</option><option value="KUTU">Kutu</option><option value="KOLİ">Koli</option><option value="BOY">Boy</option><option value="TABAKA">Tabaka</option><option value="GRAM">Gram</option><option value="RULO">Rulo</option><option value="TENEKE">Teneke</option><option value="PALET">Palet</option>
                                               </select>
                                           </td>
                                           <td className="px-3 py-2 text-right">
@@ -400,9 +442,9 @@ export default function PurchasesPage() {
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 KUSURSUZ ZM METAL FORMU - BİRİM BURADA ŞIKIR ŞIKIR GÖRÜNECEK */}
+      {/* 🚀 KUSURSUZ ZM METAL FORMU (TAM EKRAN VE LOGOSU DÜZELTİLDİ) */}
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
-          <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-muted shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0 print:bg-white">
+          <DialogContent className="w-[95vw] max-w-[95vw] h-[95vh] p-0 border-none bg-muted shadow-2xl flex flex-col max-h-[95vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0 print:bg-white">
               
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 print:bg-white print:p-0 w-full">
                   <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
@@ -410,7 +452,7 @@ export default function PurchasesPage() {
                           <tbody>
                               <tr>
                                   <td className="border border-black w-1/4 p-2 text-center align-middle">
-                                      <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain brightness-0" />
+                                      <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain" />
                                   </td>
                                   <td className="border border-black w-2/4 text-center align-middle">
                                       <h2 className="text-xl font-bold tracking-widest text-[#1e293b] uppercase">MALZEME İSTEK FORMU</h2>
@@ -480,11 +522,12 @@ export default function PurchasesPage() {
                                       <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{idx + 1}</td>
                                       <td className="border border-black p-2 pl-3 font-black text-black">{item.material_name}</td>
                                       <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{item.current_stock || 0}</td>
-                                      {/* 🚀 BİRİM ARTIK BURADA GÖRÜNÜYOR */}
+                                      {/* 🚀 BİRİM BURADA KUSURSUZ ŞEKİLDE KAĞIDA BASILIYOR */}
                                       <td className="border border-black p-2 text-center font-black text-sm text-black">{item.quantity} {item.unit || 'ADET'}</td>
                                       <td className="border border-black p-2 text-center"></td>
                                   </tr>
                               ))}
+                              {/* Boş Satırlar */}
                               {[...Array(Math.max(0, 10 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
                                   <tr key={`empty-${i}`} className="h-8">
                                       <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
@@ -499,7 +542,7 @@ export default function PurchasesPage() {
 
               {/* SABİT BUTON ALANI */}
               <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-border bg-card w-full print:hidden">
-                  <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-border text-foreground hover:bg-muted/50 h-12 px-6">Kapat</Button>
+                  <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-border text-foreground hover:bg-muted h-12 px-6">Kapat</Button>
                   <Button onClick={handlePrint} className="bg-primary hover:bg-primary/90 text-primary-foreground font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak İndir</Button>
               </div>
           </DialogContent>
