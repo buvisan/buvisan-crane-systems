@@ -553,8 +553,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                               <td className="px-3 py-3 font-bold text-muted-foreground">{index + 1}</td>
                                               <td className="px-3 py-3 font-bold text-foreground">{item.material_name}</td>
                                               <td className="px-3 py-3 font-medium text-muted-foreground text-center">{item.current_stock}</td>
-                                              {/* BİRİMİ GÖSTERİYORUZ */}
-                                              <td className="px-3 py-3 font-black text-primary text-center">{item.quantity} {item.unit}</td>
+                                              <td className="px-3 py-3 font-black text-primary text-center">{item.quantity} {item.unit || 'ADET'}</td>
                                               <td className="px-3 py-3 text-right"><button onClick={() => handleRemoveOrderItem(index)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"><Trash2 className="h-4 w-4" /></button></td>
                                           </tr>
                                       ))}
@@ -572,13 +571,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogContent>
       </Dialog>
 
-      {/* SİPARİŞ TAKİP MODALI */}
+      {/* 🚀 SİPARİŞ TAKİP MODALI (TAM EKRAN YAPILDI) */}
       <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
-          <DialogContent className="rounded-[2rem] p-6 max-w-5xl border-none bg-card shadow-2xl overflow-hidden max-h-[85vh] flex flex-col z-[100]">
+          <DialogContent className="rounded-[2rem] p-6 max-w-[95vw] w-[95vw] border-none bg-card shadow-2xl overflow-hidden max-h-[90vh] flex flex-col z-[100]">
               <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-foreground flex items-center gap-2"><ListOrdered className="text-primary"/> Şirket İçi Tüm Formlar</DialogTitle></DialogHeader>
               <div className="overflow-y-auto custom-scrollbar flex-1 mt-4 border border-border rounded-xl">
                   <table className="w-full text-left border-collapse text-sm">
-                      <thead className="bg-muted sticky top-0">
+                      <thead className="bg-muted sticky top-0 z-10">
                           <tr>
                               <th className="px-4 py-3 font-bold text-muted-foreground">Form No</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground">Talep Eden</th>
@@ -622,7 +621,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-muted shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0 print:bg-white">
               
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 print:bg-white print:p-0 w-full">
-                  {/* Kağıt her zaman beyaz ve yazılar siyahtır (Karanlık Moddan Etkilenmez) */}
                   <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
                       <table className="w-full border-collapse border border-black mb-4">
                           <tbody>
@@ -631,26 +629,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                       <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain" />
                                   </td>
                                   <td className="border border-black w-2/4 text-center align-middle">
-                                      <h2 className="text-xl font-bold tracking-widest text-slate-800 uppercase">MALZEME İSTEK FORMU</h2>
+                                      <h2 className="text-xl font-bold tracking-widest text-[#1e293b] uppercase">MALZEME İSTEK FORMU</h2>
                                   </td>
                                   <td className="border border-black w-1/4 p-0 align-top text-[11px]">
                                       <table className="w-full h-full border-collapse">
                                           <tbody>
                                               <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Doküman No</td>
-                                                  <td className="border-b border-black p-1.5 font-bold text-slate-900 uppercase">DOC-{viewingOrderGroup?.request_no?.replace(/\D/g, '') || '001'}</td>
+                                                  <td className="border-b border-r border-black p-1.5 text-[#334155] font-bold bg-[#f8fafc]">Doküman No</td>
+                                                  <td className="border-b border-black p-1.5 font-bold text-black uppercase">DOC-{viewingOrderGroup?.request_no?.replace(/\D/g, '') || '001'}</td>
                                               </tr>
                                               <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Yayın Tarihi</td>
-                                                  <td className="border-b border-black p-1.5 font-bold text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : '13.12.2017'}</td>
+                                                  <td className="border-b border-r border-black p-1.5 text-[#334155] font-bold bg-[#f8fafc]">Yayın Tarihi</td>
+                                                  <td className="border-b border-black p-1.5 font-bold text-black">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : '13.12.2017'}</td>
                                               </tr>
                                               <tr>
-                                                  <td className="border-b border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Revizyon No</td>
-                                                  <td className="border-b border-black p-1.5 font-bold text-slate-900">00</td>
+                                                  <td className="border-b border-r border-black p-1.5 text-[#334155] font-bold bg-[#f8fafc]">Revizyon No</td>
+                                                  <td className="border-b border-black p-1.5 font-bold text-black">00</td>
                                               </tr>
                                               <tr>
-                                                  <td className="border-r border-black p-1.5 text-slate-700 font-bold bg-slate-50">Revizyon Tarihi</td>
-                                                  <td className="p-1.5 font-bold text-slate-900">--</td>
+                                                  <td className="border-r border-black p-1.5 text-[#334155] font-bold bg-[#f8fafc]">Revizyon Tarihi</td>
+                                                  <td className="p-1.5 font-bold text-black">--</td>
                                               </tr>
                                           </tbody>
                                       </table>
@@ -662,29 +660,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <table className="w-full border-collapse border border-black mb-4 text-[11px]">
                           <tbody>
                               <tr>
-                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50 text-slate-700">Malzeme İstek Formu No</td>
-                                  <td className="border border-black p-2 w-1/4 font-black uppercase text-slate-900">{viewingOrderGroup?.request_no}</td>
-                                  <td className="border border-black p-2 font-bold w-1/4 bg-slate-50 text-slate-700">İstek Yapan Personel</td>
-                                  <td className="border border-black p-2 font-black w-1/4 uppercase text-slate-900">{viewingOrderGroup?.profiles?.first_name} {viewingOrderGroup?.profiles?.last_name}</td>
+                                  <td className="border border-black p-2 font-bold w-1/4 bg-[#f8fafc] text-[#334155]">Malzeme İstek Formu No</td>
+                                  <td className="border border-black p-2 w-1/4 font-black uppercase text-black">{viewingOrderGroup?.request_no}</td>
+                                  <td className="border border-black p-2 font-bold w-1/4 bg-[#f8fafc] text-[#334155]">İstek Yapan Personel</td>
+                                  <td className="border border-black p-2 font-black w-1/4 uppercase text-black">{viewingOrderGroup?.profiles?.first_name} {viewingOrderGroup?.profiles?.last_name}</td>
                               </tr>
                               <tr>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Proje No</td>
-                                  <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.project_code}</td>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">İstek Yapan Bölüm</td>
-                                  <td className="border border-black p-2 font-black uppercase text-slate-900">{viewingOrderGroup?.profiles?.department || "-"}</td>
+                                  <td className="border border-black p-2 font-bold bg-[#f8fafc] text-[#334155]">Proje No</td>
+                                  <td className="border border-black p-2 font-black text-black">{viewingOrderGroup?.project_code}</td>
+                                  <td className="border border-black p-2 font-bold bg-[#f8fafc] text-[#334155]">İstek Yapan Bölüm</td>
+                                  <td className="border border-black p-2 font-black uppercase text-black">{viewingOrderGroup?.profiles?.department || "-"}</td>
                               </tr>
                               <tr>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Tarih</td>
-                                  <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td>
-                                  <td className="border border-black p-2 font-bold bg-slate-50 text-slate-700">Malzeme Cinsi</td>
-                                  <td className="border border-black p-2 font-black text-slate-900">{viewingOrderGroup?.material_type || viewingOrderGroup?.description || "-"}</td>
+                                  <td className="border border-black p-2 font-bold bg-[#f8fafc] text-[#334155]">Tarih</td>
+                                  <td className="border border-black p-2 font-black text-black">{viewingOrderGroup?.created_at ? new Date(viewingOrderGroup.created_at).toLocaleDateString('tr-TR') : ''}</td>
+                                  <td className="border border-black p-2 font-bold bg-[#f8fafc] text-[#334155]">Malzeme Cinsi</td>
+                                  <td className="border border-black p-2 font-black text-black">{viewingOrderGroup?.material_type || viewingOrderGroup?.description || "-"}</td>
                               </tr>
                           </tbody>
                       </table>
 
                       <table className="w-full text-xs border-collapse border border-black">
                           <thead>
-                              <tr className="bg-slate-50 text-slate-800">
+                              <tr className="bg-[#f8fafc] text-[#1e293b]">
                                   <th className="border border-black p-2 text-center w-12 font-bold">No</th>
                                   <th className="border border-black p-2 text-left pl-3 font-bold">Ürün Tanımı</th>
                                   <th className="border border-black p-2 text-center w-20 font-bold">Stok</th>
@@ -695,11 +693,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           <tbody>
                               {viewingOrderGroup?.items?.map((item: any, idx: number) => (
                                   <tr key={idx} className="h-8">
-                                      <td className="border border-black p-2 text-center font-bold text-slate-800">{idx + 1}</td>
-                                      <td className="border border-black p-2 pl-3 font-black text-slate-900">{item.material_name}</td>
-                                      <td className="border border-black p-2 text-center font-bold text-slate-800">{item.current_stock || 0}</td>
-                                      {/* BİRİM KAĞIDA BASILIYOR (Eğer eskiden eklenmişse ve unit yoksa ADET yazar) */}
-                                      <td className="border border-black p-2 text-center font-black text-sm text-slate-900">{item.quantity} {item.unit || 'ADET'}</td>
+                                      <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{idx + 1}</td>
+                                      <td className="border border-black p-2 pl-3 font-black text-black">{item.material_name}</td>
+                                      <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{item.current_stock || 0}</td>
+                                      {/* 🚀 BİRİM BURADA KUSURSUZ ŞEKİLDE KAĞIDA BASILIYOR */}
+                                      <td className="border border-black p-2 text-center font-black text-sm text-black">{item.quantity} {item.unit || 'ADET'}</td>
                                       <td className="border border-black p-2 text-center"></td>
                                   </tr>
                               ))}
@@ -712,7 +710,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           </tbody>
                       </table>
                       
-                      <div className="mt-4 pb-2 text-right text-[10px] text-slate-500 font-bold">Sayfa 1 / 1</div>
+                      <div className="mt-4 pb-2 text-right text-[10px] text-[#64748b] font-bold">Sayfa 1 / 1</div>
                   </div>
               </div>
 

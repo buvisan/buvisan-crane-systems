@@ -35,43 +35,28 @@ export default function PurchasesPage() {
   const [isFormEditModalOpen, setIsFormEditModalOpen] = useState(false)
   const [editFormGroup, setEditFormGroup] = useState<any>(null)
   const [editFormItems, setEditFormItems] = useState<any[]>([])
-  const [newItemForm, setNewItemForm] = useState({ material_name: "", current_stock: "0", quantity: "1" })
+  const [newItemForm, setNewItemForm] = useState({ material_name: "", current_stock: "0", quantity: "1", unit: "ADET" })
   const [isSavingForm, setIsSavingForm] = useState(false)
 
-  useEffect(() => {
-    fetchOrders()
-    fetchRequests() 
-  }, [])
+  useEffect(() => { fetchOrders(); fetchRequests(); }, [])
 
   const fetchOrders = async () => {
     setLoading(true)
     try {
         const { data } = await supabase.from('purchase_orders').select(`*, suppliers ( name ), profiles ( first_name, last_name, department )`).order('created_at', { ascending: false })
         if (data) setOrders(data)
-        
-        if (selectedOrder && data) {
-            const updatedSelected = data.find(o => o.id === selectedOrder.id)
-            setSelectedOrder(updatedSelected || null)
-        }
+        if (selectedOrder && data) setSelectedOrder(data.find(o => o.id === selectedOrder.id) || null)
     } finally { setLoading(false) }
   }
 
   const fetchRequests = async () => {
       try {
-          const { data, error } = await supabase.from('material_requests')
-              .select(`*, profiles ( first_name, last_name, department )`)
-              .neq('status', 'GELDI') 
-              .order('created_at', { ascending: false })
-          
+          const { data, error } = await supabase.from('material_requests').select(`*, profiles ( first_name, last_name, department )`).neq('status', 'GELDI').order('created_at', { ascending: false })
           if (error) throw error;
           if (data) {
               const grouped = data.reduce((acc: any, req: any) => {
                   if (!acc[req.request_no]) {
-                      acc[req.request_no] = { 
-                          request_no: req.request_no, project_code: req.project_code, material_type: req.description,
-                          status: req.status, created_at: req.created_at, requested_by: req.requested_by, profiles: req.profiles, priority: req.priority,
-                          items: [req] 
-                      }
+                      acc[req.request_no] = { request_no: req.request_no, project_code: req.project_code, material_type: req.description, status: req.status, created_at: req.created_at, requested_by: req.requested_by, profiles: req.profiles, priority: req.priority, items: [req] }
                   } else {
                       acc[req.request_no].items.push(req)
                       if (req.priority === 'ACIL') acc[req.request_no].priority = 'ACIL' 
@@ -95,10 +80,7 @@ export default function PurchasesPage() {
       fetchRequests()
   }
 
-  const openFormViewer = (reqGroup: any) => {
-      setViewingOrderGroup(reqGroup)
-      setIsFormViewerOpen(true)
-  }
+  const openFormViewer = (reqGroup: any) => { setViewingOrderGroup(reqGroup); setIsFormViewerOpen(true); }
 
   const openFormEditor = (reqGroup: any) => {
       setEditFormGroup({ ...reqGroup })
@@ -109,118 +91,37 @@ export default function PurchasesPage() {
   const handleAddNewItemToForm = () => {
       if (!newItemForm.material_name.trim()) return alert("Lütfen malzeme adı giriniz!");
       if (Number(newItemForm.quantity) < 1) return alert("Miktar en az 1 olmalıdır!");
-      
-      const newItem = {
-          isNew: true, 
-          request_no: editFormGroup.request_no,
-          project_code: editFormGroup.project_code,
-          description: editFormGroup.material_type,
-          material_name: newItemForm.material_name,
-          current_stock: Number(newItemForm.current_stock),
-          quantity: Number(newItemForm.quantity),
-          priority: editFormGroup.priority,
-          status: editFormGroup.status,
-          requested_by: editFormGroup.requested_by
-      };
-
-      setEditFormItems([...editFormItems, newItem]);
-      setNewItemForm({ material_name: "", current_stock: "0", quantity: "1" });
+      const newItem = { isNew: true, request_no: editFormGroup.request_no, project_code: editFormGroup.project_code, description: editFormGroup.material_type, material_name: newItemForm.material_name, current_stock: Number(newItemForm.current_stock), quantity: Number(newItemForm.quantity), unit: newItemForm.unit, priority: editFormGroup.priority, status: editFormGroup.status, requested_by: editFormGroup.requested_by };
+      setEditFormItems([...editFormItems, newItem]); setNewItemForm({ material_name: "", current_stock: "0", quantity: "1", unit: "ADET" });
   }
 
   const handleRemoveItemFromForm = (index: number) => {
-      const items = [...editFormItems];
-      const itemToDelete = items[index];
-      
-      if (itemToDelete.id) {
-          itemToDelete.isDeleted = true;
-      } else {
-          items.splice(index, 1);
-      }
+      const items = [...editFormItems]; const itemToDelete = items[index];
+      if (itemToDelete.id) itemToDelete.isDeleted = true; else items.splice(index, 1);
       setEditFormItems([...items]);
   }
 
   const handleSaveFormChanges = async () => {
       setIsSavingForm(true);
       try {
-          await supabase.from('material_requests').update({
-              project_code: editFormGroup.project_code,
-              description: editFormGroup.material_type,
-              priority: editFormGroup.priority
-          }).eq('request_no', editFormGroup.request_no);
-
+          await supabase.from('material_requests').update({ project_code: editFormGroup.project_code, description: editFormGroup.material_type, priority: editFormGroup.priority }).eq('request_no', editFormGroup.request_no);
           for (const item of editFormItems) {
-              if (item.isDeleted && item.id) {
-                  await supabase.from('material_requests').delete().eq('id', item.id);
-              } else if (item.isNew) {
-                  delete item.isNew;
-                  await supabase.from('material_requests').insert([item]);
-              } else if (item.id) {
-                  await supabase.from('material_requests').update({
-                      material_name: item.material_name,
-                      current_stock: Number(item.current_stock),
-                      quantity: Number(item.quantity)
-                  }).eq('id', item.id);
-              }
+              if (item.isDeleted && item.id) await supabase.from('material_requests').delete().eq('id', item.id);
+              else if (item.isNew) { delete item.isNew; await supabase.from('material_requests').insert([item]); } 
+              else if (item.id) { await supabase.from('material_requests').update({ material_name: item.material_name, current_stock: Number(item.current_stock), quantity: Number(item.quantity), unit: item.unit }).eq('id', item.id); }
           }
-
-          alert("✅ Form başarıyla revize edildi!");
-          setIsFormEditModalOpen(false);
-          fetchRequests(); 
-      } catch (error: any) {
-          alert("Hata: " + error.message);
-      } finally {
-          setIsSavingForm(false);
-      }
+          alert("✅ Form başarıyla revize edildi!"); setIsFormEditModalOpen(false); fetchRequests(); 
+      } catch (error: any) { alert("Hata: " + error.message); } finally { setIsSavingForm(false); }
   }
 
-  const handlePrint = () => {
-      const printContent = document.getElementById('printable-form');
-      if (!printContent) return;
-
-      const originalVisibility: {el: Element, display: string}[] = [];
-      Array.from(document.body.children).forEach((el) => {
-          if (el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE') {
-              originalVisibility.push({ el, display: (el as HTMLElement).style.display });
-              (el as HTMLElement).style.display = 'none';
-          }
-      });
-
-      const printWrapper = document.createElement('div');
-      printWrapper.id = 'print-wrapper';
-      printWrapper.style.width = '100%';
-      printWrapper.style.backgroundColor = 'white';
-      printWrapper.innerHTML = printContent.outerHTML;
-
-      const style = document.createElement('style');
-      style.id = 'print-style';
-      style.innerHTML = `
-          @media print {
-              @page { size: A4 portrait; margin: 10mm; }
-              body { background: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-              #print-wrapper { display: block !important; zoom: 1.20 !important; }
-          }
-      `;
-
-      document.head.appendChild(style);
-      document.body.appendChild(printWrapper);
-
-      window.print();
-
-      document.body.removeChild(printWrapper);
-      document.head.removeChild(style);
-      originalVisibility.forEach(({ el, display }) => {
-          (el as HTMLElement).style.display = display;
-      });
-  };
+  const handlePrint = () => { window.print(); };
 
   const formatOrderNumber = (id: number) => `SAS${String(id).padStart(5, '0')}`;
-
   const getDeadlineStatus = (termin: string, status: string) => {
       if (status === 'TAMAMLANDI') return { text: "Teslim Alındı", classes: "bg-emerald-500 text-white shadow-emerald-500/30", icon: <CheckCircle className="h-3.5 w-3.5"/> }
       if (status === 'IPTAL') return { text: "İptal Edildi", classes: "bg-muted text-muted-foreground line-through", icon: <X className="h-3.5 w-3.5"/> }
       if (!termin) return { text: "Termin Bekleniyor", classes: "bg-muted text-foreground", icon: <Clock className="h-3.5 w-3.5"/> }
-      const today = new Date(); today.setHours(0,0,0,0);
-      const terminDate = new Date(termin); terminDate.setHours(0,0,0,0);
+      const today = new Date(); today.setHours(0,0,0,0); const terminDate = new Date(termin); terminDate.setHours(0,0,0,0);
       const diffDays = Math.round((terminDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
       if (diffDays < 0) return { text: `${Math.abs(diffDays)} GÜN GECİKTİ`, classes: "bg-destructive text-destructive-foreground shadow-destructive/40 animate-pulse", icon: <AlertTriangle className="h-3.5 w-3.5"/> }
       if (diffDays === 0) return { text: "BUGÜN TESLİM", classes: "bg-orange-500 text-white shadow-orange-500/40", icon: <AlertTriangle className="h-3.5 w-3.5"/> }
@@ -277,7 +178,7 @@ export default function PurchasesPage() {
   const filteredOrders = orders.filter(o => formatOrderNumber(o.id).toLowerCase().includes(searchTerm.toLowerCase()) || (o.suppliers?.name || "").toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="flex flex-col gap-6 font-sans xl:h-[calc(100vh-100px)] w-full pb-10 xl:pb-0 overflow-hidden">
+    <div className="flex flex-col gap-6 font-sans xl:h-[calc(100vh-100px)] w-full pb-10 xl:pb-0 overflow-hidden transition-colors">
       
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 shrink-0">
         <div><h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Satın Alma Kokpiti</h1><p className="text-xs md:text-sm text-muted-foreground mt-1 font-medium">Tedarikçi siparişlerini ve formları akıllı ekrandan yönetin.</p></div>
@@ -413,7 +314,7 @@ export default function PurchasesPage() {
           </div>
       </div>
 
-      {/* 🚀 YENİ: FORM DÜZENLEME (REVİZE) MODALI */}
+      {/* 🚀 FORM DÜZENLEME (REVİZE) MODALI - BİRİM SEÇİMİ EKLENDİ */}
       <Dialog open={isFormEditModalOpen} onOpenChange={setIsFormEditModalOpen}>
           <DialogContent className="rounded-[2rem] p-6 max-w-4xl border-none bg-card shadow-2xl flex flex-col max-h-[90vh] print:hidden">
               <DialogHeader className="shrink-0 mb-4">
@@ -438,17 +339,31 @@ export default function PurchasesPage() {
 
                       <div className="bg-muted border border-border rounded-[1.5rem] p-4 flex flex-col gap-4">
                           <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-[-5px]">Forma Yeni Kalem Ekle</Label>
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                               <div className="space-y-1 col-span-2 md:col-span-3"><Input placeholder="Ürün Tanımı" value={newItemForm.material_name} onChange={e=>setNewItemForm({...newItemForm, material_name: e.target.value})} className="font-bold border-border h-11 bg-background text-foreground" /></div>
                               <div className="space-y-1 col-span-1"><Input type="number" placeholder="Stok" value={newItemForm.current_stock} onChange={e=>setNewItemForm({...newItemForm, current_stock: e.target.value})} className="font-bold border-border h-11 bg-background text-foreground" /></div>
-                              <div className="space-y-1 col-span-1"><Input type="number" placeholder="Miktar" min="1" value={newItemForm.quantity} onChange={e=>setNewItemForm({...newItemForm, quantity: e.target.value})} className="font-black text-primary border-border h-11 bg-background" /></div>
+                              <div className="space-y-1 col-span-1 md:col-span-2 flex gap-1">
+                                  <Input type="number" placeholder="Miktar" min="1" value={newItemForm.quantity} onChange={e=>setNewItemForm({...newItemForm, quantity: e.target.value})} className="font-black text-primary border-border h-11 bg-background w-20" />
+                                  <select value={newItemForm.unit} onChange={e=>setNewItemForm({...newItemForm, unit: e.target.value})} className="h-11 flex-1 rounded-md border border-border bg-background text-foreground text-[10px] font-bold px-1 outline-none">
+                                      <option value="ADET">Adet</option>
+                                      <option value="METRE">Metre</option>
+                                      <option value="KG">Kg</option>
+                                      <option value="LİTRE">Litre</option>
+                                      <option value="TAKIM">Takım</option>
+                                      <option value="PAKET">Paket</option>
+                                      <option value="KUTU">Kutu</option>
+                                      <option value="KOLİ">Koli</option>
+                                      <option value="BOY">Boy</option>
+                                      <option value="TABAKA">Tabaka</option>
+                                  </select>
+                              </div>
                           </div>
                           <Button type="button" onClick={handleAddNewItemToForm} className="w-full h-10 bg-foreground hover:bg-foreground/90 text-background font-bold text-xs rounded-xl"><PlusCircle className="h-4 w-4 mr-2" /> BU SATIRI FORMA EKLE</Button>
                       </div>
 
                       <div className="border border-border rounded-2xl overflow-hidden">
                           <table className="w-full text-left text-xs md:text-sm">
-                              <thead className="bg-muted/80 border-b border-border text-muted-foreground font-bold"><tr><th className="px-3 py-3">Ürün Tanımı</th><th className="px-3 py-3 text-center w-20">Stok</th><th className="px-3 py-3 text-center w-24">Miktar</th><th className="px-3 py-3 text-right w-16">İşlem</th></tr></thead>
+                              <thead className="bg-muted/80 border-b border-border text-muted-foreground font-bold"><tr><th className="px-3 py-3">Ürün Tanımı</th><th className="px-3 py-3 text-center w-20">Stok</th><th className="px-3 py-3 text-center w-40">Miktar & Birim</th><th className="px-3 py-3 text-right w-16">İşlem</th></tr></thead>
                               <tbody className="divide-y divide-border">
                                   {editFormItems.map((item, index) => {
                                       if (item.isDeleted) return null; 
@@ -460,8 +375,11 @@ export default function PurchasesPage() {
                                           <td className="px-1 py-2">
                                               <Input type="number" value={item.current_stock} onChange={e => { const items = [...editFormItems]; items[index].current_stock = e.target.value; setEditFormItems(items); }} className="h-9 text-center font-medium text-muted-foreground border-transparent hover:border-border focus:border-primary bg-transparent px-1" />
                                           </td>
-                                          <td className="px-1 py-2">
-                                              <Input type="number" min="1" value={item.quantity} onChange={e => { const items = [...editFormItems]; items[index].quantity = e.target.value; setEditFormItems(items); }} className="h-9 text-center font-black text-primary border-transparent hover:border-border focus:border-primary bg-transparent px-1" />
+                                          <td className="px-1 py-2 flex gap-1 items-center">
+                                              <Input type="number" min="1" value={item.quantity} onChange={e => { const items = [...editFormItems]; items[index].quantity = e.target.value; setEditFormItems(items); }} className="h-9 text-center font-black text-primary border-transparent hover:border-border focus:border-primary bg-transparent px-1 w-16" />
+                                              <select value={item.unit || 'ADET'} onChange={e => { const items = [...editFormItems]; items[index].unit = e.target.value; setEditFormItems(items); }} className="h-9 flex-1 rounded-md border-transparent bg-transparent text-foreground text-[10px] font-bold px-1 outline-none">
+                                                  <option value="ADET">Adet</option><option value="METRE">Metre</option><option value="KG">Kg</option><option value="LİTRE">Litre</option><option value="TAKIM">Takım</option><option value="PAKET">Paket</option><option value="KUTU">Kutu</option><option value="KOLİ">Koli</option><option value="BOY">Boy</option><option value="TABAKA">Tabaka</option>
+                                              </select>
                                           </td>
                                           <td className="px-3 py-2 text-right">
                                               <button onClick={() => handleRemoveItemFromForm(index)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"><Trash2 className="h-4 w-4" /></button>
@@ -482,18 +400,17 @@ export default function PurchasesPage() {
           </DialogContent>
       </Dialog>
 
-      {/* KUSURSUZ ZM METAL FORMU (SABİT BEYAZ KAĞIT TASARIMI - TEMADAN ETKİLENMEZ) */}
+      {/* 🚀 KUSURSUZ ZM METAL FORMU - BİRİM BURADA ŞIKIR ŞIKIR GÖRÜNECEK */}
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
           <DialogContent className="w-[95vw] max-w-4xl p-0 border-none bg-muted shadow-2xl flex flex-col h-[90vh] max-h-[90vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0 print:bg-white">
               
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 print:bg-white print:p-0 w-full">
-                  {/* DİKKAT: BURASI GERÇEK BİR KAĞIT OLDUĞU İÇİN TEMADAN ETKİLENMEMESİ GEREKİR. BEYAZ VE SİYAH KODLAR KORUNDU */}
                   <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
                       <table className="w-full border-collapse border border-black mb-4">
                           <tbody>
                               <tr>
                                   <td className="border border-black w-1/4 p-2 text-center align-middle">
-                                      <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain" />
+                                      <Image src="/buvisan.png" alt="Buvisan Logo" width={150} height={50} className="mx-auto object-contain brightness-0" />
                                   </td>
                                   <td className="border border-black w-2/4 text-center align-middle">
                                       <h2 className="text-xl font-bold tracking-widest text-[#1e293b] uppercase">MALZEME İSTEK FORMU</h2>
@@ -563,11 +480,11 @@ export default function PurchasesPage() {
                                       <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{idx + 1}</td>
                                       <td className="border border-black p-2 pl-3 font-black text-black">{item.material_name}</td>
                                       <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{item.current_stock || 0}</td>
-                                      <td className="border border-black p-2 text-center font-black text-sm text-black">{item.quantity} ADET</td>
+                                      {/* 🚀 BİRİM ARTIK BURADA GÖRÜNÜYOR */}
+                                      <td className="border border-black p-2 text-center font-black text-sm text-black">{item.quantity} {item.unit || 'ADET'}</td>
                                       <td className="border border-black p-2 text-center"></td>
                                   </tr>
                               ))}
-                              {/* Boş Satırlar */}
                               {[...Array(Math.max(0, 10 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
                                   <tr key={`empty-${i}`} className="h-8">
                                       <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>
@@ -582,7 +499,7 @@ export default function PurchasesPage() {
 
               {/* SABİT BUTON ALANI */}
               <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-border bg-card w-full print:hidden">
-                  <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-border text-foreground hover:bg-muted h-12 px-6">Kapat</Button>
+                  <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-border text-foreground hover:bg-muted/50 h-12 px-6">Kapat</Button>
                   <Button onClick={handlePrint} className="bg-primary hover:bg-primary/90 text-primary-foreground font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak İndir</Button>
               </div>
           </DialogContent>
