@@ -11,7 +11,11 @@ export function DashboardNotes() {
   const [newNote, setNewNote] = useState("")
   const [loading, setLoading] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  
+  // 🚀 PROJELER VE SON KONUŞULANLAR İÇİN STATELER
   const [projects, setProjects] = useState<any[]>([])
+  const [activeProjectChats, setActiveProjectChats] = useState<any[]>([]) 
+
   const [selectedProjectId, setSelectedProjectId] = useState("")
   const [users, setUsers] = useState<any[]>([]) 
   const [activeView, setActiveView] = useState<"list" | "chat">("list") 
@@ -34,22 +38,53 @@ export function DashboardNotes() {
         const { data: profiles } = await supabase.from('profiles').select('*').order('first_name')
         if (profiles) setUsers(profiles)
 
+        // 1. Önce sistemdeki tüm projeleri çekelim (Dropdown menü için lazım olacak)
         const { data: projs } = await supabase.from('projects').select('id, project_code').order('created_at', { ascending: false })
         if (projs) setProjects(projs)
+
+        // 2. 🚀 EN SON KONUŞULAN PROJELERİ ÇEKELİM
+        fetchActiveProjectChats(projs || []);
     }
     init()
   }, [])
 
+  // 🚀 AKILLI ALGORİTMA: SOHBETTEKİ PROJE ID'LERİNİ TARAYIP SIRALAR
+  const fetchActiveProjectChats = async (allProjects: any[]) => {
+      if (allProjects.length === 0) return;
+
+      // Notes tablosunda project_id si dolu olan son 200 mesajı çeker (Sıralamayı bulmak için)
+      const { data: latestNotes } = await supabase
+          .from('notes')
+          .select('project_id')
+          .not('project_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+      if (latestNotes) {
+          // En son mesaj atılan project_id'leri tekrar etmeyecek şekilde (unique) dizer
+          const uniqueProjectIds = Array.from(new Set(latestNotes.map(n => n.project_id)));
+
+          // Bu unique ID sırasına göre tüm projeleri filtreleyip "Son Konuşulanlar" listesini oluştururuz
+          const sortedProjects = uniqueProjectIds
+              .map(id => allProjects.find(p => p.id === id))
+              .filter(p => p !== undefined); // Tanımsız olanları çıkar
+
+          setActiveProjectChats(sortedProjects);
+      }
+  }
+
+  // Biri yeni mesaj attığında hem sohbeti hem de listeyi güncellesin
   useEffect(() => {
     if (!currentUser) return;
     const channel = supabase
       .channel('public:notes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => {
           setRefreshTrigger(prev => prev + 1)
+          fetchActiveProjectChats(projects); // Listeyi de anında canlı tutar
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [currentUser])
+  }, [currentUser, projects])
 
   useEffect(() => {
     if (activeView === "chat" && activeChat) {
@@ -63,7 +98,6 @@ export function DashboardNotes() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [notes])
 
-  // 🚀 SOHBET FİLTRELEME MOTORU (Proje vs Genel)
   const fetchNotes = async () => {
     if (!currentUser || !activeChat) return;
     let query = supabase.from('notes').select(`*, profiles (first_name, last_name, department), projects (project_code), reply_to:reply_to_id ( content, profiles (first_name, last_name) )`).order('created_at', { ascending: true });
@@ -74,7 +108,6 @@ export function DashboardNotes() {
         query = query.is('receiver_id', null); 
     } else if (isProjectChat) {
         const pId = activeChat.replace("project_", "");
-        // Sadece bu projeye ait "Genel" mesajlar
         query = query.eq('project_id', pId).is('receiver_id', null);
     } else {
         query = query.or(`and(user_id.eq.${currentUser.id},receiver_id.eq.${activeChat}),and(user_id.eq.${activeChat},receiver_id.eq.${currentUser.id})`);
@@ -85,7 +118,6 @@ export function DashboardNotes() {
     if (data) {
         setNotes(data);
         
-        // GRUP VEYA PROJE SOHBETİ İÇİN GÖRÜLDÜ
         if (activeChat === "genel" || isProjectChat) {
             const unreadGroup = data.filter(n => n.user_id !== currentUser.id && !(n.read_by || []).includes(currentUser.id));
             if (unreadGroup.length > 0) {
@@ -122,7 +154,6 @@ export function DashboardNotes() {
     }
   }
 
-  // 🚀 MESAJ GÖNDERİRKEN PROJE ODASI KONTROLÜ
   const addNote = async () => {
     if (!newNote.trim()) return
     setLoading(true)
@@ -133,7 +164,7 @@ export function DashboardNotes() {
 
     if (isProjectChat) {
         pId = Number(activeChat?.replace("project_", ""));
-        rId = null; // Proje mesajları özel DM değildir, şirkette o projeyi açan herkes görebilir.
+        rId = null; 
     }
 
     const payload = { 
@@ -182,7 +213,6 @@ export function DashboardNotes() {
   const formatTime = (dateStr: string) => new Date(dateStr).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
   const activeChatUser = users.find(u => u.id === activeChat)
 
-  // 🚀 ÜST BAŞLIK LOGİC
   const isProjectChat = activeChat?.startsWith("project_");
   let chatTitle = "";
   let chatSubtitle = "";
@@ -236,16 +266,20 @@ export function DashboardNotes() {
                       </button>
                   ))}
 
-                  {/* 🚀 LİSTEDE YENİ: PROJE ODALARI */}
-                  {projects.length > 0 && (
+                  {/* 🚀 AKILLI LİSTE: EN SON KONUŞULAN PROJELER */}
+                  {activeProjectChats.length > 0 && (
                       <>
-                          <div className="pt-4 pb-2 px-3"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Açık Proje Odaları (Son 10)</span></div>
-                          {projects.slice(0, 10).map((p) => (
-                              <button key={`proj_${p.id}`} onClick={() => { setActiveChat(`project_${p.id}`); setActiveView("chat"); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-200/50 transition-all border border-transparent hover:border-slate-200 relative">
-                                  <div className="h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0"><HardHat className="h-5 w-5" /></div>
+                          <div className="pt-4 pb-2 px-3 flex items-center gap-2">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Son Konuşulan Projeler</span>
+                              <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span></span>
+                          </div>
+                          
+                          {activeProjectChats.slice(0, 10).map((p) => (
+                              <button key={`proj_${p.id}`} onClick={() => { setActiveChat(`project_${p.id}`); setActiveView("chat"); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-blue-50 transition-all border border-transparent hover:border-blue-100 relative group">
+                                  <div className="h-12 w-12 bg-white border-2 border-blue-500 rounded-full flex items-center justify-center text-blue-600 font-black text-sm shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors"><HardHat className="h-5 w-5" /></div>
                                   <div className="flex flex-col items-start overflow-hidden flex-1">
-                                      <span className="font-bold text-slate-800 text-sm truncate w-full text-left">{p.project_code}</span>
-                                      <span className="text-[10px] font-bold text-blue-600 truncate w-full text-left">Proje Özel Odası</span>
+                                      <span className="font-bold text-slate-800 text-sm truncate w-full text-left group-hover:text-blue-700 transition-colors">{p.project_code}</span>
+                                      <span className="text-[10px] font-bold text-slate-500 truncate w-full text-left">Son Etkinlik...</span>
                                   </div>
                               </button>
                           ))}
@@ -289,7 +323,7 @@ export function DashboardNotes() {
                               <div className={`relative max-w-[85%] p-2.5 rounded-2xl shadow-sm border group ${isMe ? 'bg-[#dcf8c6] border-[#c0e8a8] rounded-tr-sm' : 'bg-white border-slate-200 rounded-tl-sm'}`}>
                                   {note.reply_to && <div className="bg-black/5 border-l-4 border-emerald-500 p-1.5 rounded-lg mb-1.5 text-[10px] text-slate-700 font-medium"><span className="font-black text-emerald-600 block">{note.reply_to.profiles?.first_name || "Biri"}</span><p className="truncate opacity-80">{note.reply_to.content}</p></div>}
                                   
-                                  {/* 🚀 TIKLANABİLİR PROJE ETİKETİ (SADECE GENEL SOHBETTE İSE TIKLANIR) */}
+                                  {/* TIKLANABİLİR PROJE ETİKETİ */}
                                   {note.projects && !isProjectChat && (
                                       <button 
                                           onClick={() => { setActiveChat(`project_${note.project_id}`); setActiveView("chat"); }} 
@@ -354,7 +388,6 @@ export function DashboardNotes() {
                   {replyTo && <div className="absolute bottom-full left-0 right-0 p-2 bg-[#f0f2f5] z-10"><div className="bg-white p-2 rounded-xl border-l-4 border-blue-500 flex items-start justify-between shadow-sm mx-1"><div className="flex flex-col overflow-hidden"><span className="text-[10px] font-black text-blue-600">Yanıtlanıyor: {replyTo.profiles?.first_name}</span><span className="text-[10px] text-slate-500 truncate">{replyTo.content}</span></div><button onClick={() => setReplyTo(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded-full shrink-0"><X className="h-4 w-4"/></button></div></div>}
                   <div className="flex flex-col gap-1.5 px-1 relative z-20">
                       
-                      {/* PROJE ODASINDA DEĞİLSEK PROJE SEÇME DROPDOWN ÇIKSIN */}
                       {!isProjectChat && (
                           <div className="flex bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm h-8">
                               <div className="bg-slate-100 px-2 flex items-center border-r border-slate-200"><LinkIcon className="h-3 w-3 text-slate-500" /></div>

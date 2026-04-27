@@ -530,6 +530,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                       <option value="LİTRE">Litre</option>
                                       <option value="PAKET">Paket</option>
                                       <option value="TAKIM">Takım</option>
+                                      <option value="KUTU">Kutu</option>
+                                      <option value="KOLİ">Koli</option>
+                                      <option value="BOY">Boy</option>
+                                      <option value="TABAKA">Tabaka</option>
                                   </select>
                               </div>
                           </div>
