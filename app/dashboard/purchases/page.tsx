@@ -444,7 +444,7 @@ export default function PurchasesPage() {
 
       {/* 🚀 KUSURSUZ ZM METAL FORMU (TAM EKRAN VE LOGOSU DÜZELTİLDİ) */}
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
-          <DialogContent className="w-[95vw] max-w-[95vw] h-[95vh] p-0 border-none bg-muted shadow-2xl flex flex-col max-h-[95vh] z-[200] overflow-hidden print:w-full print:max-w-none print:h-auto print:max-h-none print:shadow-none print:block print:p-0 print:m-0 print:bg-white">
+          <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[95vh] p-0 border-none bg-muted shadow-2xl flex flex-col z-[200] overflow-hidden print:!w-full print:!max-w-none print:!h-auto print:!shadow-none print:block print:p-0 print:m-0 print:bg-white">
               
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 print:bg-white print:p-0 w-full">
                   <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
