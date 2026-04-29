@@ -243,8 +243,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { title: "SAHA (ÜRETİM)", allowedRoles: ["imalat", "üretim", "saha", "montaj", "proje",], items: [ { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat } ] },
     { title: "DEPO & LOJİSTİK", allowedRoles: ["depo", "lojistik", "üretim", "satın", "mühendis", "proje",], items: [ { href: "/dashboard/warehouse/products", label: "Depo Ürünleri (QR)", icon: Archive }, { href: "/dashboard/warehouse/entries", label: "Mal Kabul & İrsaliye", icon: ClipboardList }, { href: "/dashboard/warehouse/scanner", label: "QR Barkod Terminali", icon: ScanLine }, { href: "/dashboard/warehouse/logs", label: "Stok Hareket Analizi", icon: History } ] },
     { title: "MUHASEBE & FİNANS", allowedRoles: ["muhasebe", "finans", "yönetici", "admin", "proje",], items: [ { href: "/dashboard/finance/invoices", label: "Faturalar & İrsaliyeler", icon: FileText }, { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet }, { href: "/dashboard/finance/payroll", label: "Puantaj & Bordro", icon: Calculator } ] },
-    { title: "SATIŞ TAKİP", allowedRoles: ["satış", "pazarlama", "bayi", "üretim", "muhasebe", "proje" ], items: [ { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart }, { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package }, { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp }, { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users } ] }
-  ]
+    { title: "SATIŞ TAKİP", allowedRoles: ["satış", "pazarlama", "bayi", "üretim", "muhasebe", "proje" ], items: [ { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart }, { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package }, { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp }, { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users } ] },
+    { 
+        title: "ÇELİK KASA ÜRETİMİ", 
+        allowedRoles: ["çelik kasa sorumlusu", "admin", "yönetim", "kurucu", "teknoloji", "kasa"], 
+        items: [ 
+            { href: "/dashboard/steel-cases/shift-logs", label: "Vardiya Seyir Defteri", icon: ClipboardList }, 
+            { href: "/dashboard/steel-cases/work-orders", label: "Günlük İş Emirleri", icon: HardHat }, 
+            { href: "/dashboard/steel-cases/costs", label: "Maliyet & Hak Ediş", icon: Calculator } 
+        ] 
+    }
+]
 
   const userDept = (profile?.department || "").toLowerCase()
   const isMaster = userDept.includes("teknoloji") || userDept.includes("admin") || userDept.includes("yönetim") || userDept.includes("kurucu")
