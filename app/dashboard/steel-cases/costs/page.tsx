@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
   Calculator, PlusCircle, Loader2, Search, 
-  Trash2, TrendingUp, Wallet, ArrowDownToLine, ChevronDown, FolderKanban, HardHat
+  Trash2, Edit2, TrendingUp, Wallet, ArrowDownToLine, ChevronDown, FolderKanban, HardHat, Save
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -16,14 +16,21 @@ export default function CostsPage() {
   const [costs, setCosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  // 🚀 DÜZENLEME (EDIT) MODALI İÇİN YENİ STATELER
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const [editFormData, setEditFormData] = useState<any>(null)
+
   const [expandedProjects, setExpandedProjects] = useState<string[]>([])
 
   const [formData, setFormData] = useState({
     operator_name: "",
     task_name: "",
-    work_order_no: "", // Örn: KP 717 - 01
+    work_order_no: "", 
     hours: "",
     quantity: "",
     hourly_rate: "650", 
@@ -43,6 +50,7 @@ export default function CostsPage() {
     setLoading(false)
   }
 
+  // YENİ KAYIT EKLEME
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
@@ -69,6 +77,37 @@ export default function CostsPage() {
     setSubmitting(false)
   }
 
+  // 🚀 MEVCUT KAYDI DÜZENLEME VE GÜNCELLEME
+  const openEditModal = (cost: any) => {
+    setEditFormData({ ...cost })
+    setIsEditModalOpen(true)
+  }
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEditSubmitting(true)
+    
+    const payload = {
+        operator_name: editFormData.operator_name,
+        task_name: editFormData.task_name,
+        work_order_no: editFormData.work_order_no,
+        hours: Number(editFormData.hours),
+        quantity: Number(editFormData.quantity),
+        hourly_rate: Number(editFormData.hourly_rate),
+        unit_price: Number(editFormData.unit_price),
+    }
+
+    const { error } = await supabase.from('sc_costs').update(payload).eq('id', editFormData.id)
+    
+    if (!error) {
+      setIsEditModalOpen(false)
+      fetchCosts()
+    } else {
+      alert("Hata: " + error.message)
+    }
+    setEditSubmitting(false)
+  }
+
   const deleteCost = async (id: number) => {
     if(!confirm("Maliyet kaydını silmek istediğinize emin misiniz?")) return
     await supabase.from('sc_costs').delete().eq('id', id)
@@ -79,44 +118,43 @@ export default function CostsPage() {
       setExpandedProjects(prev => prev.includes(projectName) ? prev.filter(p => p !== projectName) : [...prev, projectName])
   }
 
-  // 🚀 FOTOĞRAFTAKİ MANTIĞA GÖRE YENİ AKILLI GRUPLAMA MOTORU
-  const groupedProjects: Record<string, any[]> = {}
+  // 🚀 AKILLI GRUPLAMA MOTORU (BOŞLUK VE KÜÇÜK/BÜYÜK HARF DUYARSIZ)
+  const groupedProjects: Record<string, { displayName: string, tasks: any[] }> = {}
   
   costs.forEach(cost => {
-      // "KP 717 - 01" gibi bir kod girildiyse tireden öncesini (KP 717) proje adı olarak alır.
-      const projectName = cost.work_order_no?.includes('-') ? cost.work_order_no.split('-')[0].trim() : cost.work_order_no?.trim() || "Diğer İşler"
+      // Önce tireden (-) öncesini alır (Örn: "KP 717 - 01" -> "KP 717")
+      const rawBase = cost.work_order_no?.includes('-') ? cost.work_order_no.split('-')[0] : (cost.work_order_no || "Diğer İşler")
       
-      if (!groupedProjects[projectName]) {
-          groupedProjects[projectName] = []
+      // BÜYÜK ZEKİCE HAMLE: Tüm boşlukları siler ve harfleri büyütür. (KP 717 ile kp717 artık aynı şey!)
+      const normalizedKey = rawBase.replace(/\s+/g, '').toUpperCase()
+      
+      if (!groupedProjects[normalizedKey]) {
+          groupedProjects[normalizedKey] = {
+              displayName: rawBase.trim().toUpperCase(), // Ekranda ilk gördüğünü gösterir
+              tasks: []
+          }
       }
-      groupedProjects[projectName].push(cost)
+      groupedProjects[normalizedKey].tasks.push(cost)
   })
 
-  // Projelerin kendi içindeki matematiği hesaplanır
-  const projectSummaries = Object.entries(groupedProjects).map(([projName, tasks]) => {
-      // 1. İşçilik Maliyeti (Alt görevlerin saat * saatlik ücret toplamı)
+  // Projelerin kendi içindeki matematiği
+  const projectSummaries = Object.values(groupedProjects).map(({ displayName, tasks }) => {
       const laborCost = tasks.reduce((sum, t) => sum + (Number(t.hours) * Number(t.hourly_rate)), 0)
-      
-      // 2. Adet ve Birim Fiyatı (O projedeki girilen maksimum adet ve fiyatı baz alır)
       const maxQty = Math.max(...tasks.map(t => Number(t.quantity) || 0))
       const unitPrice = Math.max(...tasks.map(t => Number(t.unit_price) || 0))
-      
-      // 3. Hak Ediş = Adet x Kasa Fiyatı
       const revenue = maxQty * unitPrice
-      
-      // 4. Net Kar = Hak Ediş - İşçilik Maliyeti
       const profit = revenue - laborCost
 
-      return { projName, tasks, laborCost, maxQty, unitPrice, revenue, profit }
+      return { projName: displayName, tasks, laborCost, maxQty, unitPrice, revenue, profit }
   })
 
-  // EN ÜSTTEKİ GENEL FİNANS KARTLARI İÇİN TOPLAM HESAPLAR
+  // GENEL FİNANS KARTLARI İÇİN TOPLAM HESAPLAR
   const totalGlobalLabor = projectSummaries.reduce((sum, p) => sum + p.laborCost, 0)
   const totalGlobalRevenue = projectSummaries.reduce((sum, p) => sum + p.revenue, 0)
   const totalGlobalProfit = totalGlobalRevenue - totalGlobalLabor
 
   const filteredProjects = projectSummaries.filter(p => 
-      p.projName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.projName.toLowerCase().includes(searchTerm.replace(/\s+/g, '').toLowerCase()) || 
       p.tasks.some(t => t.operator_name.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
@@ -125,7 +163,6 @@ export default function CostsPage() {
   return (
     <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1600px] mx-auto w-full pb-10 transition-colors duration-300">
       
-      {/* ÜST BAŞLIK */}
       <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 md:gap-6 bg-card/60 backdrop-blur-2xl border border-border/50 p-5 md:p-6 lg:p-8 rounded-[1.5rem] md:rounded-[2.5rem] shadow-sm">
         <div className="flex items-center gap-4 md:gap-5 w-full xl:w-auto">
             <div className="bg-primary p-3 md:p-4 rounded-2xl shadow-lg shadow-primary/30 shrink-0">
@@ -148,7 +185,6 @@ export default function CostsPage() {
         </div>
       </div>
 
-      {/* 🚀 GENEL FİNANSAL METRİKLER */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           <div className="bg-card/60 backdrop-blur-md border border-rose-500/20 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 group-hover:scale-110 transition-all"><ArrowDownToLine className="h-16 w-16 text-rose-500" /></div>
@@ -167,7 +203,6 @@ export default function CostsPage() {
           </div>
       </div>
 
-      {/* 🚀 YENİ: PROJE BAZLI AKILLI LİSTELEME */}
       <div className="flex flex-col gap-4">
           {filteredProjects.map((project) => {
               const isExpanded = expandedProjects.includes(project.projName)
@@ -175,7 +210,6 @@ export default function CostsPage() {
               return (
               <div key={project.projName} className="flex flex-col bg-card/60 backdrop-blur-md border border-border/80 shadow-sm rounded-[1.5rem] md:rounded-[2rem] overflow-hidden transition-all duration-300">
                   
-                  {/* PROJE ANA KARTI (TIKLANABİLİR) */}
                   <div onClick={() => toggleProjectExpand(project.projName)} className="p-4 md:p-6 cursor-pointer hover:bg-muted/30 transition-colors flex flex-col md:flex-row items-start md:items-center justify-between gap-4 select-none group">
                       
                       <div className="flex items-center gap-4">
@@ -219,7 +253,6 @@ export default function CostsPage() {
                       </div>
                   </div>
 
-                  {/* PROJEYE AİT İŞLEMLER (AÇILIR KAPANIR TABLO) */}
                   <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                       <div className="overflow-hidden">
                           <div className="p-4 pt-0 bg-muted/10 border-t border-border/50">
@@ -254,9 +287,15 @@ export default function CostsPage() {
                                                       </div>
                                                   </td>
                                                   <td className="px-5 py-3 text-right">
-                                                      <button onClick={() => deleteCost(cost.id)} className="p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                                                          <Trash2 className="h-4 w-4" />
-                                                      </button>
+                                                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                          {/* DÜZENLEME BUTONU BURAYA GELDİ */}
+                                                          <button onClick={() => openEditModal(cost)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors">
+                                                              <Edit2 className="h-4 w-4" />
+                                                          </button>
+                                                          <button onClick={() => deleteCost(cost.id)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
+                                                              <Trash2 className="h-4 w-4" />
+                                                          </button>
+                                                      </div>
                                                   </td>
                                               </tr>
                                           )})}
@@ -315,11 +354,11 @@ export default function CostsPage() {
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase tracking-widest text-rose-500">Saatlik Ücr. (₺)</Label>
-                          <Input type="number" required value={formData.hourly_rate} onChange={e=>setFormData({...formData, hourly_rate: e.target.value})} className="h-12 bg-rose-50 border-rose-200 text-rose-700 rounded-xl focus:ring-2 focus:ring-rose-500 font-black text-center" />
+                          <Input type="number" required value={formData.hourly_rate} onChange={e=>setFormData({...formData, hourly_rate: e.target.value})} className="h-12 bg-rose-50/50 border-rose-200 text-rose-700 rounded-xl focus:ring-2 focus:ring-rose-500 font-black text-center" />
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Birim Satış (₺)</Label>
-                          <Input type="number" required value={formData.unit_price} onChange={e=>setFormData({...formData, unit_price: e.target.value})} className="h-12 bg-emerald-50 border-emerald-200 text-emerald-700 rounded-xl focus:ring-2 focus:ring-emerald-500 font-black text-center" />
+                          <Input type="number" required value={formData.unit_price} onChange={e=>setFormData({...formData, unit_price: e.target.value})} className="h-12 bg-emerald-50/50 border-emerald-200 text-emerald-700 rounded-xl focus:ring-2 focus:ring-emerald-500 font-black text-center" />
                       </div>
                   </div>
 
@@ -328,6 +367,60 @@ export default function CostsPage() {
                       {submitting ? "SİSTEME İŞLENİYOR..." : "KAYDET VE BİLANÇOYU GÜNCELLE"}
                   </Button>
               </form>
+          </DialogContent>
+      </Dialog>
+
+      {/* 🚀 DÜZENLEME (EDIT) MODALI */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+          <DialogContent className="bg-card text-foreground border-none shadow-2xl rounded-[2rem] max-w-2xl">
+              <DialogHeader>
+                  <DialogTitle className="text-2xl font-black flex items-center gap-2">
+                      <Edit2 className="text-indigo-500" /> Operasyon Kaydını Düzenle
+                  </DialogTitle>
+              </DialogHeader>
+              {editFormData && (
+                  <form onSubmit={handleEditSubmit} className="space-y-5 pt-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Operatör Adı</Label>
+                              <Input required value={editFormData.operator_name} onChange={e=>setEditFormData({...editFormData, operator_name: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-indigo-500 font-bold uppercase" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Yapılan İş / Aşama</Label>
+                              <Input required value={editFormData.task_name} onChange={e=>setEditFormData({...editFormData, task_name: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-indigo-500" />
+                          </div>
+                      </div>
+
+                      <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">İş Emri & Proje Kodu</Label>
+                          <Input required value={editFormData.work_order_no} onChange={e=>setEditFormData({...editFormData, work_order_no: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-indigo-500 font-mono font-bold" />
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-muted/30 p-4 rounded-2xl border border-border">
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mesai (Saat)</Label>
+                              <Input type="number" step="0.5" required value={editFormData.hours} onChange={e=>setEditFormData({...editFormData, hours: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-indigo-500 font-black text-center" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Adet</Label>
+                              <Input type="number" required value={editFormData.quantity} onChange={e=>setEditFormData({...editFormData, quantity: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-indigo-500 font-black text-center" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold uppercase tracking-widest text-rose-500">Saatlik Ücr. (₺)</Label>
+                              <Input type="number" required value={editFormData.hourly_rate} onChange={e=>setEditFormData({...editFormData, hourly_rate: e.target.value})} className="h-12 bg-rose-50/50 border-rose-200 text-rose-700 rounded-xl focus:ring-2 focus:ring-rose-500 font-black text-center" />
+                          </div>
+                          <div className="space-y-2">
+                              <Label className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Birim Satış (₺)</Label>
+                              <Input type="number" required value={editFormData.unit_price} onChange={e=>setEditFormData({...editFormData, unit_price: e.target.value})} className="h-12 bg-emerald-50/50 border-emerald-200 text-emerald-700 rounded-xl focus:ring-2 focus:ring-emerald-500 font-black text-center" />
+                          </div>
+                      </div>
+
+                      <Button type="submit" disabled={editSubmitting} className="w-full h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base rounded-xl shadow-xl shadow-indigo-500/20 mt-2 transition-colors">
+                          {editSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2 h-5 w-5" />}
+                          {editSubmitting ? "GÜNCELLENİYOR..." : "DEĞİŞİKLİKLERİ KAYDET"}
+                      </Button>
+                  </form>
+              )}
           </DialogContent>
       </Dialog>
     </div>
