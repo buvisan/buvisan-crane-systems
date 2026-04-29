@@ -119,7 +119,7 @@ export default function CostsPage() {
       setExpandedProjects(prev => prev.includes(projectName) ? prev.filter(p => p !== projectName) : [...prev, projectName])
   }
 
-  // 🚀 KUSURSUZ YAZDIRMA MOTORU EKLENDİ
+  // 🚀 KUSURSUZ YAZDIRMA MOTORU (BEYAZ EKRAN HATASI ÇÖZÜLDÜ)
   const handlePrint = (project: any) => {
       const printContent = document.getElementById(`print-report-${project.projName.replace(/\s+/g, '')}`);
       if (!printContent) return;
@@ -135,22 +135,20 @@ export default function CostsPage() {
       const printWrapper = document.createElement('div');
       printWrapper.id = 'print-wrapper';
       printWrapper.style.width = '100%';
-      printWrapper.innerHTML = printContent.outerHTML;
+      printWrapper.style.backgroundColor = 'white';
+      // DİKKAT: outerHTML yerine innerHTML kullandık ki en dıştaki "hidden" class'ını kopyalamasın!
+      printWrapper.innerHTML = printContent.innerHTML; 
 
       const style = document.createElement('style');
       style.id = 'print-style';
       style.innerHTML = `
           @media print {
               @page { size: A4 landscape; margin: 10mm; }
-              body { background: white !important; margin: 0; padding: 0; font-family: sans-serif; }
-              #print-wrapper { display: block !important; width: 100%; color: black; }
-              .text-rose-600 { color: #e11d48 !important; }
-              .text-emerald-600 { color: #059669 !important; }
-              .text-blue-600 { color: #2563eb !important; }
-              .bg-slate-50 { background-color: #f8fafc !important; -webkit-print-color-adjust: exact; }
+              body { background: white !important; margin: 0; padding: 0; font-family: sans-serif; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              #print-wrapper { display: block !important; width: 100%; color: black !important; }
               table { width: 100%; border-collapse: collapse; }
               th { background-color: #f1f5f9 !important; color: #475569 !important; border: 1px solid #e2e8f0; }
-              td { border: 1px solid #e2e8f0; padding: 8px; }
+              td { border: 1px solid #e2e8f0; padding: 8px; color: black !important; }
           }
       `;
 
@@ -311,6 +309,7 @@ export default function CostsPage() {
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Yapılan İş</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">İş Emri (Alt Kod)</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Saat</th>
+                                              {/* 🚀 ADET KOLONU EKLENDİ */}
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Adet</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest text-right">İşçilik Maliyeti</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">İşlem</th>
@@ -328,6 +327,7 @@ export default function CostsPage() {
                                                   <td className="px-5 py-3 font-bold text-xs text-foreground/80">{cost.task_name}</td>
                                                   <td className="px-5 py-3 font-mono font-bold text-xs text-primary">{cost.work_order_no}</td>
                                                   <td className="px-5 py-3 text-center font-black text-foreground">{cost.hours} <span className="text-[10px] text-muted-foreground">saat</span></td>
+                                                  {/* 🚀 ADET VERİSİ BURAYA GELDİ */}
                                                   <td className="px-5 py-3 text-center font-black text-foreground">{cost.quantity} <span className="text-[10px] text-muted-foreground">adet</span></td>
                                                   <td className="px-5 py-3 text-right">
                                                       <div className="flex flex-col items-end">
@@ -354,24 +354,24 @@ export default function CostsPage() {
                       </div>
                   </div>
 
-                  {/* 🖨️ GİZLİ RAPOR TEMPLATE (SADECE YAZDIRIRKEN GÖRÜNÜR) */}
+                  {/* 🖨️ GİZLİ RAPOR TEMPLATE (SADECE YAZDIRIRKEN GÖRÜNÜR VE BEYAZ EKRAN HATASI ÇÖZÜLDÜ) */}
                   <div id={`print-report-${project.projName.replace(/\s+/g, '')}`} className="hidden">
-                      <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+                      <div style={{ padding: '20px', fontFamily: 'sans-serif', background: 'white', color: 'black' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '4px solid black', paddingBottom: '15px', marginBottom: '20px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                   <div style={{ background: '#facc15', padding: '10px', borderRadius: '8px' }}><Image src="/buvisan.png" alt="Logo" width={120} height={40} /></div>
-                                  <div><h1 style={{ margin: 0, fontSize: '24px', fontWeight: '900' }}>PROJE MALİYET ANALİZ RAPORU</h1><p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>ZM METAL MAKİNA İMALAT SANAYİ</p></div>
+                                  <div><h1 style={{ margin: 0, fontSize: '24px', fontWeight: '900', color: 'black' }}>PROJE MALİYET ANALİZ RAPORU</h1><p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>ZM METAL MAKİNA İMALAT SANAYİ</p></div>
                               </div>
-                              <div style={{ textAlign: 'right' }}><p style={{ margin: 0, fontWeight: '900' }}>Tarih: {new Date().toLocaleDateString('tr-TR')}</p><p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Rapor No: {project.projName}-INF</p></div>
+                              <div style={{ textAlign: 'right' }}><p style={{ margin: 0, fontWeight: '900', color: 'black' }}>Tarih: {new Date().toLocaleDateString('tr-TR')}</p><p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Rapor No: {project.projName}-INF</p></div>
                           </div>
 
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', marginBottom: '30px' }}>
                               <div style={{ padding: '15px', background: '#f8fafc', borderRadius: '15px', border: '1px solid #e2e8f0' }}>
                                   <p style={{ margin: '0 0 5px 0', fontSize: '10px', fontWeight: '900', color: '#64748b' }}>PROJE ADI</p>
-                                  <p style={{ margin: 0, fontSize: '18px', fontWeight: '900' }}>{project.projName}</p>
+                                  <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: 'black' }}>{project.projName}</p>
                                   <div style={{ marginTop: '15px', display: 'flex', gap: '20px' }}>
-                                      <div><p style={{ margin: 0, fontSize: '10px', fontWeight: '900' }}>ADET</p><p style={{ margin: 0, fontWeight: '900' }}>{project.maxQty} Adet</p></div>
-                                      <div><p style={{ margin: 0, fontSize: '10px', fontWeight: '900' }}>BİRİM FİYAT</p><p style={{ margin: 0, fontWeight: '900' }}>{formatCurrency(project.unitPrice)}</p></div>
+                                      <div><p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: 'black' }}>ADET</p><p style={{ margin: 0, fontWeight: '900', color: 'black' }}>{project.maxQty} Adet</p></div>
+                                      <div><p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: 'black' }}>BİRİM FİYAT</p><p style={{ margin: 0, fontWeight: '900', color: 'black' }}>{formatCurrency(project.unitPrice)}</p></div>
                                   </div>
                               </div>
                               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
@@ -381,16 +381,16 @@ export default function CostsPage() {
                               </div>
                           </div>
 
-                          <h3 style={{ fontSize: '14px', fontWeight: '900', marginBottom: '10px', paddingLeft: '5px' }}>OPERASYONEL İŞ DETAYLARI</h3>
-                          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <h3 style={{ fontSize: '14px', fontWeight: '900', marginBottom: '10px', paddingLeft: '5px', color: 'black' }}>OPERASYONEL İŞ DETAYLARI</h3>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', color: 'black' }}>
                               <thead>
                                   <tr style={{ background: '#f1f5f9' }}>
-                                      <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #e2e8f0', fontSize: '10px' }}>OPERATÖR</th>
-                                      <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #e2e8f0', fontSize: '10px' }}>YAPILAN İŞ</th>
-                                      <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #e2e8f0', fontSize: '10px' }}>İŞ EMRİ NO</th>
-                                      <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #e2e8f0', fontSize: '10px' }}>SÜRE (SAAT)</th>
-                                      <th style={{ padding: '10px', textAlign: 'right', border: '1px solid #e2e8f0', fontSize: '10px' }}>BİRİM MALİYET</th>
-                                      <th style={{ padding: '10px', textAlign: 'right', border: '1px solid #e2e8f0', fontSize: '10px' }}>TOPLAM MALİYET</th>
+                                      <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #e2e8f0', fontSize: '10px', color: '#475569' }}>OPERATÖR</th>
+                                      <th style={{ padding: '10px', textAlign: 'left', border: '1px solid #e2e8f0', fontSize: '10px', color: '#475569' }}>YAPILAN İŞ</th>
+                                      <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #e2e8f0', fontSize: '10px', color: '#475569' }}>İŞ EMRİ NO</th>
+                                      <th style={{ padding: '10px', textAlign: 'center', border: '1px solid #e2e8f0', fontSize: '10px', color: '#475569' }}>SÜRE (SAAT)</th>
+                                      <th style={{ padding: '10px', textAlign: 'right', border: '1px solid #e2e8f0', fontSize: '10px', color: '#475569' }}>BİRİM MALİYET</th>
+                                      <th style={{ padding: '10px', textAlign: 'right', border: '1px solid #e2e8f0', fontSize: '10px', color: '#475569' }}>TOPLAM MALİYET</th>
                                   </tr>
                               </thead>
                               <tbody>
@@ -407,7 +407,7 @@ export default function CostsPage() {
                               </tbody>
                           </table>
 
-                          <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', padding: '0 50px' }}>
+                          <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between', padding: '0 50px', color: 'black' }}>
                               <div style={{ textAlign: 'center' }}><p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold' }}>HAZIRLAYAN</p><div style={{ height: '60px' }}></div><p style={{ margin: 0, fontSize: '11px' }}>...........................</p></div>
                               <div style={{ textAlign: 'center' }}><p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold' }}>ONAYLAYAN</p><div style={{ height: '60px' }}></div><p style={{ margin: 0, fontSize: '11px' }}>...........................</p></div>
                           </div>
