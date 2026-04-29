@@ -20,7 +20,7 @@ export default function CostsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  // 🚀 DÜZENLEME (EDIT) MODALI İÇİN YENİ STATELER
+  // DÜZENLEME (EDIT) MODALI İÇİN YENİ STATELER
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editFormData, setEditFormData] = useState<any>(null)
@@ -77,7 +77,7 @@ export default function CostsPage() {
     setSubmitting(false)
   }
 
-  // 🚀 MEVCUT KAYDI DÜZENLEME VE GÜNCELLEME
+  // MEVCUT KAYDI DÜZENLEME VE GÜNCELLEME
   const openEditModal = (cost: any) => {
     setEditFormData({ ...cost })
     setIsEditModalOpen(true)
@@ -118,19 +118,16 @@ export default function CostsPage() {
       setExpandedProjects(prev => prev.includes(projectName) ? prev.filter(p => p !== projectName) : [...prev, projectName])
   }
 
-  // 🚀 AKILLI GRUPLAMA MOTORU (BOŞLUK VE KÜÇÜK/BÜYÜK HARF DUYARSIZ)
+  // AKILLI GRUPLAMA MOTORU (BOŞLUK VE KÜÇÜK/BÜYÜK HARF DUYARSIZ)
   const groupedProjects: Record<string, { displayName: string, tasks: any[] }> = {}
   
   costs.forEach(cost => {
-      // Önce tireden (-) öncesini alır (Örn: "KP 717 - 01" -> "KP 717")
       const rawBase = cost.work_order_no?.includes('-') ? cost.work_order_no.split('-')[0] : (cost.work_order_no || "Diğer İşler")
-      
-      // BÜYÜK ZEKİCE HAMLE: Tüm boşlukları siler ve harfleri büyütür. (KP 717 ile kp717 artık aynı şey!)
       const normalizedKey = rawBase.replace(/\s+/g, '').toUpperCase()
       
       if (!groupedProjects[normalizedKey]) {
           groupedProjects[normalizedKey] = {
-              displayName: rawBase.trim().toUpperCase(), // Ekranda ilk gördüğünü gösterir
+              displayName: rawBase.trim().toUpperCase(),
               tasks: []
           }
       }
@@ -264,6 +261,8 @@ export default function CostsPage() {
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Yapılan İş</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">İş Emri (Alt Kod)</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Saat</th>
+                                              {/* 🚀 ADET KOLONU EKLENDİ */}
+                                              <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Adet</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest text-right">İşçilik Maliyeti</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">İşlem</th>
                                           </tr>
@@ -280,6 +279,8 @@ export default function CostsPage() {
                                                   <td className="px-5 py-3 font-bold text-xs text-foreground/80">{cost.task_name}</td>
                                                   <td className="px-5 py-3 font-mono font-bold text-xs text-primary">{cost.work_order_no}</td>
                                                   <td className="px-5 py-3 text-center font-black text-foreground">{cost.hours} <span className="text-[10px] text-muted-foreground">saat</span></td>
+                                                  {/* 🚀 ADET VERİSİ BURAYA GELDİ */}
+                                                  <td className="px-5 py-3 text-center font-black text-foreground">{cost.quantity} <span className="text-[10px] text-muted-foreground">adet</span></td>
                                                   <td className="px-5 py-3 text-right">
                                                       <div className="flex flex-col items-end">
                                                           <span className="font-black text-sm text-rose-500">{formatCurrency(taskLaborCost)}</span>
@@ -288,7 +289,6 @@ export default function CostsPage() {
                                                   </td>
                                                   <td className="px-5 py-3 text-right">
                                                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                          {/* DÜZENLEME BUTONU BURAYA GELDİ */}
                                                           <button onClick={() => openEditModal(cost)} className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors">
                                                               <Edit2 className="h-4 w-4" />
                                                           </button>
@@ -370,7 +370,7 @@ export default function CostsPage() {
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 DÜZENLEME (EDIT) MODALI */}
+      {/* DÜZENLEME (EDIT) MODALI */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent className="bg-card text-foreground border-none shadow-2xl rounded-[2rem] max-w-2xl">
               <DialogHeader>
