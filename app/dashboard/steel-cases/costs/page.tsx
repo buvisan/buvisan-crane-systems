@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
   Calculator, PlusCircle, Loader2, Search, 
-  Trash2, TrendingUp, DollarSign, Wallet, ArrowDownToLine
+  Trash2, TrendingUp, Wallet, ArrowDownToLine, ChevronDown, FolderKanban, HardHat
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -18,12 +18,12 @@ export default function CostsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [expandedProjects, setExpandedProjects] = useState<string[]>([])
 
-  // Form State
   const [formData, setFormData] = useState({
     operator_name: "",
     task_name: "",
-    work_order_no: "",
+    work_order_no: "", // Örn: KP 717 - 01
     hours: "",
     quantity: "",
     hourly_rate: "650", 
@@ -75,44 +75,49 @@ export default function CostsPage() {
     fetchCosts()
   }
 
-  // 🚀 OTOMATİK FİNANS MOTORU HESAPLAMALARI (KAĞITTAKİ MANTIĞIN BİREBİR AYNISI)
-  
-  // 1. TOPLAM İŞÇİLİK: Bütün satırlardaki (Saat x Saatlik Ücret) toplamı
-  const totalLaborCost = costs.reduce((acc, curr) => acc + (Number(curr.hours) * Number(curr.hourly_rate)), 0)
-  
-  // 2. AKILLI HAK EDİŞ: Proje bazlı gruplama yaparak çift saymayı önler
-  const projectRevenues: Record<string, { maxQty: number, price: number }> = {};
+  const toggleProjectExpand = (projectName: string) => {
+      setExpandedProjects(prev => prev.includes(projectName) ? prev.filter(p => p !== projectName) : [...prev, projectName])
+  }
+
+  // 🚀 FOTOĞRAFTAKİ MANTIĞA GÖRE YENİ AKILLI GRUPLAMA MOTORU
+  const groupedProjects: Record<string, any[]> = {}
   
   costs.forEach(cost => {
-      // İş emri kodunun başındaki proje adını al (Örn: "KP 717 - 01" -> "KP 717" olur)
-      const baseProject = cost.work_order_no?.split('-')[0]?.trim() || cost.work_order_no || "BİLİNMEYEN";
-      const qty = Number(cost.quantity) || 0;
-      const price = Number(cost.unit_price) || 0;
-
-      if (!projectRevenues[baseProject]) {
-          projectRevenues[baseProject] = { maxQty: qty, price: price };
-      } else {
-          // O proje için en yüksek adedi bul (Bazı işler 7-7-3 bölünmüş olsa da projenin ana hakediş adedi değişmez)
-          if (qty > projectRevenues[baseProject].maxQty) {
-              projectRevenues[baseProject].maxQty = qty;
-          }
-          if (price > projectRevenues[baseProject].price) {
-              projectRevenues[baseProject].price = price;
-          }
+      // "KP 717 - 01" gibi bir kod girildiyse tireden öncesini (KP 717) proje adı olarak alır.
+      const projectName = cost.work_order_no?.includes('-') ? cost.work_order_no.split('-')[0].trim() : cost.work_order_no?.trim() || "Diğer İşler"
+      
+      if (!groupedProjects[projectName]) {
+          groupedProjects[projectName] = []
       }
-  });
+      groupedProjects[projectName].push(cost)
+  })
 
-  let totalRevenue = 0;
-  Object.values(projectRevenues).forEach((proj) => {
-      totalRevenue += (proj.maxQty * proj.price);
-  });
+  // Projelerin kendi içindeki matematiği hesaplanır
+  const projectSummaries = Object.entries(groupedProjects).map(([projName, tasks]) => {
+      // 1. İşçilik Maliyeti (Alt görevlerin saat * saatlik ücret toplamı)
+      const laborCost = tasks.reduce((sum, t) => sum + (Number(t.hours) * Number(t.hourly_rate)), 0)
+      
+      // 2. Adet ve Birim Fiyatı (O projedeki girilen maksimum adet ve fiyatı baz alır)
+      const maxQty = Math.max(...tasks.map(t => Number(t.quantity) || 0))
+      const unitPrice = Math.max(...tasks.map(t => Number(t.unit_price) || 0))
+      
+      // 3. Hak Ediş = Adet x Kasa Fiyatı
+      const revenue = maxQty * unitPrice
+      
+      // 4. Net Kar = Hak Ediş - İşçilik Maliyeti
+      const profit = revenue - laborCost
 
-  // 3. NET KAR: Hak Ediş - Toplam İşçilik
-  const netProfit = totalRevenue - totalLaborCost 
+      return { projName, tasks, laborCost, maxQty, unitPrice, revenue, profit }
+  })
 
-  const filteredCosts = costs.filter(c => 
-    c.operator_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.work_order_no?.toLowerCase().includes(searchTerm.toLowerCase())
+  // EN ÜSTTEKİ GENEL FİNANS KARTLARI İÇİN TOPLAM HESAPLAR
+  const totalGlobalLabor = projectSummaries.reduce((sum, p) => sum + p.laborCost, 0)
+  const totalGlobalRevenue = projectSummaries.reduce((sum, p) => sum + p.revenue, 0)
+  const totalGlobalProfit = totalGlobalRevenue - totalGlobalLabor
+
+  const filteredProjects = projectSummaries.filter(p => 
+      p.projName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.tasks.some(t => t.operator_name.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val)
@@ -128,89 +133,149 @@ export default function CostsPage() {
             </div>
             <div>
                 <h1 className="text-xl md:text-3xl font-black tracking-tight text-foreground">Maliyet & Hak Ediş</h1>
-                <p className="text-muted-foreground font-medium text-xs md:text-sm mt-1">İşçilik maliyeti, üretim cirosu ve net kar hesaplama tablosu.</p>
+                <p className="text-muted-foreground font-medium text-xs md:text-sm mt-1">Proje bazlı işçilik, hakediş ve net kar bilançosu.</p>
             </div>
         </div>
-        <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto h-12 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20">
-            <PlusCircle className="mr-2 h-5 w-5" /> Maliyet / Kazanç İşle
-        </Button>
+        
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+            <div className="relative w-full sm:w-64">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Proje Kodu, Operatör..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-11 h-12 bg-background/80 border-border text-foreground rounded-xl" />
+            </div>
+            <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto h-12 px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20">
+                <PlusCircle className="mr-2 h-5 w-5" /> Maliyet / Kazanç İşle
+            </Button>
+        </div>
       </div>
 
-      {/* 🚀 FİNANSAL METRİKLER (KAĞIDIN EN ALTINDAKİ HESAP) */}
+      {/* 🚀 GENEL FİNANSAL METRİKLER */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           <div className="bg-card/60 backdrop-blur-md border border-rose-500/20 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 group-hover:scale-110 transition-all"><ArrowDownToLine className="h-16 w-16 text-rose-500" /></div>
-              <h3 className="text-xs font-black text-rose-500 uppercase tracking-widest mb-1">İşçilik & Kazanç Maliyeti</h3>
-              <p className="text-3xl md:text-4xl font-black text-foreground mt-2">{formatCurrency(totalLaborCost)}</p>
+              <h3 className="text-xs font-black text-rose-500 uppercase tracking-widest mb-1">Toplam İşçilik Maliyeti</h3>
+              <p className="text-3xl md:text-4xl font-black text-foreground mt-2">{formatCurrency(totalGlobalLabor)}</p>
           </div>
           <div className="bg-card/60 backdrop-blur-md border border-blue-500/20 p-6 rounded-3xl shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 group-hover:scale-110 transition-all"><Wallet className="h-16 w-16 text-blue-500" /></div>
-              <h3 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-1">Yapılan İşin Hak Edişi</h3>
-              <p className="text-3xl md:text-4xl font-black text-foreground mt-2">{formatCurrency(totalRevenue)}</p>
-              <span className="absolute bottom-4 right-5 text-[9px] font-black text-blue-500/50 uppercase tracking-widest hidden md:block">Proje Başına Hesaplanır</span>
+              <h3 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-1">Toplam Hak Ediş</h3>
+              <p className="text-3xl md:text-4xl font-black text-foreground mt-2">{formatCurrency(totalGlobalRevenue)}</p>
           </div>
           <div className="bg-emerald-500/10 backdrop-blur-md border border-emerald-500/30 p-6 rounded-3xl shadow-lg shadow-emerald-500/10 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 group-hover:scale-110 transition-all"><TrendingUp className="h-16 w-16 text-emerald-600" /></div>
-              <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Elde Edilen Net Kar</h3>
-              <p className="text-3xl md:text-4xl font-black text-emerald-700 mt-2">{formatCurrency(netProfit)}</p>
+              <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Toplam Net Kar</h3>
+              <p className="text-3xl md:text-4xl font-black text-emerald-700 mt-2">{formatCurrency(totalGlobalProfit)}</p>
           </div>
       </div>
 
-      {/* LİSTELEME TABLOSU */}
-      <div className="bg-card/60 backdrop-blur-2xl border border-border/50 shadow-sm rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
-        <div className="flex justify-between items-center p-4 border-b border-border bg-muted/20">
-            <h2 className="font-black text-foreground pl-2 text-sm uppercase tracking-widest">Detaylı Bilanço Tablosu</h2>
-            <div className="relative w-48 md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Ara..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 h-10 bg-background/80 border-border text-xs rounded-lg" />
-            </div>
-        </div>
-        <div className="overflow-x-auto p-2 custom-scrollbar">
-            <table className="w-full text-left border-collapse min-w-[1000px]">
-                <thead className="bg-muted/40">
-                    <tr>
-                        <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest rounded-tl-2xl">Operatör</th>
-                        <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Yapılan İş</th>
-                        <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">İş Emri No</th>
-                        <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Saat</th>
-                        <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Adet</th>
-                        <th className="px-5 py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest text-right">İşçilik Maliyeti</th>
-                        <th className="px-5 py-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest text-right rounded-tr-2xl">Birim Satış / İşlem</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50">
-                    {loading ? (
-                        <tr><td colSpan={7} className="py-20 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></td></tr>
-                    ) : filteredCosts.map((cost) => {
-                        const laborCost = Number(cost.hours) * Number(cost.hourly_rate)
+      {/* 🚀 YENİ: PROJE BAZLI AKILLI LİSTELEME */}
+      <div className="flex flex-col gap-4">
+          {filteredProjects.map((project) => {
+              const isExpanded = expandedProjects.includes(project.projName)
 
-                        return (
-                        <tr key={cost.id} className="hover:bg-primary/5 transition-colors group bg-background/40">
-                            <td className="px-5 py-4 font-black text-sm text-foreground uppercase">{cost.operator_name}</td>
-                            <td className="px-5 py-4 font-bold text-xs text-foreground/80">{cost.task_name}</td>
-                            <td className="px-5 py-4 font-mono font-bold text-xs text-primary">{cost.work_order_no}</td>
-                            <td className="px-5 py-4 text-center font-black text-slate-600 dark:text-slate-300">{cost.hours}</td>
-                            <td className="px-5 py-4 text-center font-black text-slate-600 dark:text-slate-300">{cost.quantity}</td>
-                            <td className="px-5 py-4 text-right">
-                                <div className="flex flex-col items-end">
-                                    <span className="font-black text-sm text-rose-600 dark:text-rose-400">{formatCurrency(laborCost)}</span>
-                                    <span className="text-[9px] font-bold text-muted-foreground">({formatCurrency(Number(cost.hourly_rate))} / saat)</span>
-                                </div>
-                            </td>
-                            <td className="px-5 py-4 text-right">
-                                <div className="flex items-center justify-end gap-3">
-                                    <span className="font-black text-sm text-emerald-600 dark:text-emerald-400">{formatCurrency(Number(cost.unit_price))}</span>
-                                    <button onClick={() => deleteCost(cost.id)} className="p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    )})}
-                    {filteredCosts.length === 0 && !loading && <tr><td colSpan={7} className="py-12 text-center text-muted-foreground font-bold">Kayıt bulunamadı.</td></tr>}
-                </tbody>
-            </table>
-        </div>
+              return (
+              <div key={project.projName} className="flex flex-col bg-card/60 backdrop-blur-md border border-border/80 shadow-sm rounded-[1.5rem] md:rounded-[2rem] overflow-hidden transition-all duration-300">
+                  
+                  {/* PROJE ANA KARTI (TIKLANABİLİR) */}
+                  <div onClick={() => toggleProjectExpand(project.projName)} className="p-4 md:p-6 cursor-pointer hover:bg-muted/30 transition-colors flex flex-col md:flex-row items-start md:items-center justify-between gap-4 select-none group">
+                      
+                      <div className="flex items-center gap-4">
+                          <div className={`p-3 md:p-4 rounded-2xl flex items-center justify-center transition-colors ${isExpanded ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'}`}>
+                              <FolderKanban className="h-6 w-6 md:h-8 md:w-8" />
+                          </div>
+                          <div>
+                              <div className="flex items-center gap-2">
+                                  <h2 className="text-lg md:text-2xl font-black text-foreground">{project.projName}</h2>
+                                  <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest">PROJE ONAYLI</span>
+                              </div>
+                              <div className="flex items-center gap-3 mt-1.5 text-xs font-bold text-muted-foreground">
+                                  <span className="flex items-center gap-1"><HardHat className="h-3.5 w-3.5" /> {project.tasks.length} İşlem</span>
+                                  <span className="w-1 h-1 rounded-full bg-border"></span>
+                                  <span>{project.maxQty} Adet Üretim</span>
+                                  <span className="w-1 h-1 rounded-full bg-border"></span>
+                                  <span>Birim Satış: {formatCurrency(project.unitPrice)}</span>
+                              </div>
+                          </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-4 md:gap-6 bg-background/50 border border-border p-3 md:p-4 rounded-xl md:rounded-2xl w-full md:w-auto">
+                          <div className="flex flex-col">
+                              <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">İşçilik Maliyet</span>
+                              <span className="text-sm md:text-base font-black text-foreground">{formatCurrency(project.laborCost)}</span>
+                          </div>
+                          <div className="w-px h-8 bg-border hidden sm:block"></div>
+                          <div className="flex flex-col">
+                              <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Hak Ediş</span>
+                              <span className="text-sm md:text-base font-black text-foreground">{formatCurrency(project.revenue)}</span>
+                          </div>
+                          <div className="w-px h-8 bg-border hidden sm:block"></div>
+                          <div className="flex flex-col">
+                              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Net Kar</span>
+                              <span className="text-sm md:text-base font-black text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-lg">{formatCurrency(project.profit)}</span>
+                          </div>
+                          
+                          <div className={`ml-auto md:ml-4 p-2 rounded-full transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-primary/10 text-primary' : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'}`}>
+                              <ChevronDown className="h-5 w-5" />
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* PROJEYE AİT İŞLEMLER (AÇILIR KAPANIR TABLO) */}
+                  <div className={`grid transition-all duration-300 ease-in-out ${isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                      <div className="overflow-hidden">
+                          <div className="p-4 pt-0 bg-muted/10 border-t border-border/50">
+                              <div className="overflow-x-auto custom-scrollbar bg-background rounded-2xl border border-border mt-4">
+                                  <table className="w-full text-left border-collapse min-w-[900px]">
+                                      <thead className="bg-muted/50 border-b border-border">
+                                          <tr>
+                                              <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Operatör</th>
+                                              <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Yapılan İş</th>
+                                              <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">İş Emri (Alt Kod)</th>
+                                              <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Saat</th>
+                                              <th className="px-5 py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest text-right">İşçilik Maliyeti</th>
+                                              <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">İşlem</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-border/50">
+                                          {project.tasks.map((cost) => {
+                                              const taskLaborCost = Number(cost.hours) * Number(cost.hourly_rate)
+                                              return (
+                                              <tr key={cost.id} className="hover:bg-primary/5 transition-colors group">
+                                                  <td className="px-5 py-3 font-black text-sm text-foreground uppercase flex items-center gap-2">
+                                                      <span className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs border border-primary/20">{cost.operator_name.charAt(0)}</span>
+                                                      {cost.operator_name}
+                                                  </td>
+                                                  <td className="px-5 py-3 font-bold text-xs text-foreground/80">{cost.task_name}</td>
+                                                  <td className="px-5 py-3 font-mono font-bold text-xs text-primary">{cost.work_order_no}</td>
+                                                  <td className="px-5 py-3 text-center font-black text-foreground">{cost.hours} <span className="text-[10px] text-muted-foreground">saat</span></td>
+                                                  <td className="px-5 py-3 text-right">
+                                                      <div className="flex flex-col items-end">
+                                                          <span className="font-black text-sm text-rose-500">{formatCurrency(taskLaborCost)}</span>
+                                                          <span className="text-[9px] font-bold text-muted-foreground">({formatCurrency(Number(cost.hourly_rate))} / s)</span>
+                                                      </div>
+                                                  </td>
+                                                  <td className="px-5 py-3 text-right">
+                                                      <button onClick={() => deleteCost(cost.id)} className="p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                                                          <Trash2 className="h-4 w-4" />
+                                                      </button>
+                                                  </td>
+                                              </tr>
+                                          )})}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          )})}
+          
+          {filteredProjects.length === 0 && !loading && (
+              <div className="py-12 bg-card/60 backdrop-blur-md rounded-3xl border border-border text-center flex flex-col items-center">
+                  <div className="bg-muted p-4 rounded-full mb-3"><FolderKanban className="h-8 w-8 text-muted-foreground" /></div>
+                  <p className="text-base font-black text-foreground">Henüz proje maliyeti işlenmemiş.</p>
+                  <p className="text-xs font-medium text-muted-foreground mt-1">Sağ üstten Maliyet/Kazanç İşle butonunu kullanarak başlayın.</p>
+              </div>
+          )}
       </div>
 
       {/* YENİ KAYIT MODALI */}
@@ -218,29 +283,30 @@ export default function CostsPage() {
           <DialogContent className="bg-card text-foreground border-none shadow-2xl rounded-[2rem] max-w-2xl">
               <DialogHeader>
                   <DialogTitle className="text-2xl font-black flex items-center gap-2">
-                      <DollarSign className="text-primary" /> Maliyet ve Kazanç İşle
+                      <Calculator className="text-primary" /> Yeni Operasyon İşle
                   </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-5 pt-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Operatör</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Operatör Adı</Label>
                           <Input required placeholder="Örn: Oktay Esmer" value={formData.operator_name} onChange={e=>setFormData({...formData, operator_name: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-primary font-bold uppercase" />
                       </div>
                       <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Yapılan İş Günlük</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Yapılan İş / Aşama</Label>
                           <Input required placeholder="Örn: Kalıp Hazırlama" value={formData.task_name} onChange={e=>setFormData({...formData, task_name: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-primary" />
                       </div>
                   </div>
 
                   <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">İş Emri Kodu</Label>
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">İş Emri & Proje Kodu</Label>
                       <Input required placeholder="Örn: KP 717 - 01" value={formData.work_order_no} onChange={e=>setFormData({...formData, work_order_no: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-primary font-mono font-bold" />
+                      <p className="text-[10px] font-medium text-primary mt-1">Sistem, tireden (-) önceki kısmı (Örn: KP 717) proje olarak kabul edip gruplar.</p>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-muted/30 p-4 rounded-2xl border border-border">
                       <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">İş Günü (Saat)</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Mesai (Saat)</Label>
                           <Input type="number" step="0.5" required value={formData.hours} onChange={e=>setFormData({...formData, hours: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-primary font-black text-center" />
                       </div>
                       <div className="space-y-2">
@@ -248,7 +314,7 @@ export default function CostsPage() {
                           <Input type="number" required value={formData.quantity} onChange={e=>setFormData({...formData, quantity: e.target.value})} className="h-12 bg-background rounded-xl border-border focus:ring-2 focus:ring-primary font-black text-center" />
                       </div>
                       <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase tracking-widest text-rose-500">Saatlik Ücret (₺)</Label>
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-rose-500">Saatlik Ücr. (₺)</Label>
                           <Input type="number" required value={formData.hourly_rate} onChange={e=>setFormData({...formData, hourly_rate: e.target.value})} className="h-12 bg-rose-50 border-rose-200 text-rose-700 rounded-xl focus:ring-2 focus:ring-rose-500 font-black text-center" />
                       </div>
                       <div className="space-y-2">
@@ -259,7 +325,7 @@ export default function CostsPage() {
 
                   <Button type="submit" disabled={submitting} className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-base rounded-xl shadow-xl shadow-primary/20 mt-2">
                       {submitting ? <Loader2 className="animate-spin mr-2" /> : <Calculator className="mr-2" />}
-                      {submitting ? "KAYDEDİLİYOR..." : "HESAPLA VE SİSTEME İŞLE"}
+                      {submitting ? "SİSTEME İŞLENİYOR..." : "KAYDET VE BİLANÇOYU GÜNCELLE"}
                   </Button>
               </form>
           </DialogContent>
