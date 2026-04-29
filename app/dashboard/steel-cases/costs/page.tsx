@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
   Calculator, PlusCircle, Loader2, Search, 
-  Trash2, TrendingUp, DollarSign, Wallet, ArrowDownToLine, ArrowUpFromLine
+  Trash2, TrendingUp, DollarSign, Wallet, ArrowDownToLine
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -26,8 +26,8 @@ export default function CostsPage() {
     work_order_no: "",
     hours: "",
     quantity: "",
-    hourly_rate: "650", // Kağıttaki hesaba göre varsayılan saatlik ücret
-    unit_price: "6500" // Varsayılan kasa satış fiyatı
+    hourly_rate: "650", 
+    unit_price: "6500" 
   })
 
   useEffect(() => { fetchCosts() }, [])
@@ -75,13 +75,40 @@ export default function CostsPage() {
     fetchCosts()
   }
 
-  // 🚀 OTOMATİK FİNANS MOTORU HESAPLAMALARI
-  const totalLaborCost = costs.reduce((acc, curr) => acc + (Number(curr.hours) * Number(curr.hourly_rate)), 0)
-  const totalQuantity = costs.reduce((acc, curr) => acc + Number(curr.quantity), 0)
-  const avgUnitPrice = costs.length > 0 ? Number(costs[0].unit_price) : 0 // Genelde aynı fiyattan satılıyor
+  // 🚀 OTOMATİK FİNANS MOTORU HESAPLAMALARI (KAĞITTAKİ MANTIĞIN BİREBİR AYNISI)
   
-  const totalRevenue = totalQuantity * avgUnitPrice // Yapılan İşin Hakedişi
-  const netProfit = totalRevenue - totalLaborCost // Elde Edilen Net Kar
+  // 1. TOPLAM İŞÇİLİK: Bütün satırlardaki (Saat x Saatlik Ücret) toplamı
+  const totalLaborCost = costs.reduce((acc, curr) => acc + (Number(curr.hours) * Number(curr.hourly_rate)), 0)
+  
+  // 2. AKILLI HAK EDİŞ: Proje bazlı gruplama yaparak çift saymayı önler
+  const projectRevenues: Record<string, { maxQty: number, price: number }> = {};
+  
+  costs.forEach(cost => {
+      // İş emri kodunun başındaki proje adını al (Örn: "KP 717 - 01" -> "KP 717" olur)
+      const baseProject = cost.work_order_no?.split('-')[0]?.trim() || cost.work_order_no || "BİLİNMEYEN";
+      const qty = Number(cost.quantity) || 0;
+      const price = Number(cost.unit_price) || 0;
+
+      if (!projectRevenues[baseProject]) {
+          projectRevenues[baseProject] = { maxQty: qty, price: price };
+      } else {
+          // O proje için en yüksek adedi bul (Bazı işler 7-7-3 bölünmüş olsa da projenin ana hakediş adedi değişmez)
+          if (qty > projectRevenues[baseProject].maxQty) {
+              projectRevenues[baseProject].maxQty = qty;
+          }
+          if (price > projectRevenues[baseProject].price) {
+              projectRevenues[baseProject].price = price;
+          }
+      }
+  });
+
+  let totalRevenue = 0;
+  Object.values(projectRevenues).forEach((proj) => {
+      totalRevenue += (proj.maxQty * proj.price);
+  });
+
+  // 3. NET KAR: Hak Ediş - Toplam İşçilik
+  const netProfit = totalRevenue - totalLaborCost 
 
   const filteredCosts = costs.filter(c => 
     c.operator_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,6 +147,7 @@ export default function CostsPage() {
               <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 group-hover:scale-110 transition-all"><Wallet className="h-16 w-16 text-blue-500" /></div>
               <h3 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-1">Yapılan İşin Hak Edişi</h3>
               <p className="text-3xl md:text-4xl font-black text-foreground mt-2">{formatCurrency(totalRevenue)}</p>
+              <span className="absolute bottom-4 right-5 text-[9px] font-black text-blue-500/50 uppercase tracking-widest hidden md:block">Proje Başına Hesaplanır</span>
           </div>
           <div className="bg-emerald-500/10 backdrop-blur-md border border-emerald-500/30 p-6 rounded-3xl shadow-lg shadow-emerald-500/10 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 group-hover:scale-110 transition-all"><TrendingUp className="h-16 w-16 text-emerald-600" /></div>
