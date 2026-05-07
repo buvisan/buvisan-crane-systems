@@ -165,10 +165,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
   }
 
-  // 🚀 SAHA ONAYI VE ALARM TETİKLEYİCİLERİ
+  // 🚀 KUSURSUZ (TEK ADIM) ONAY MEKANİZMASI
   const approveTermin = async (requestNo: string) => {
-      if(!confirm("Termin süresini onaylıyor musunuz? Satın almaya sipariş geçilmesi için bildirim gidecektir.")) return;
-      await supabase.from('material_requests').update({ status: 'TERMIN_ONAYLANDI' }).eq('request_no', requestNo);
+      if(!confirm("Termini onaylıyorsunuz. Bu işlem satın almaya 'ONAY' verecek ve sipariş KESİNLEŞECEKTİR!")) return;
+      // Eskiden TERMIN_ONAYLANDI yapıp satın almacıyı bekletiyorduk. Artık direkt SIPARIS_VERILDI!
+      await supabase.from('material_requests').update({ status: 'SIPARIS_VERILDI' }).eq('request_no', requestNo);
       fetchAllOrders();
   }
 
@@ -586,7 +587,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 SİPARİŞ TAKİP MODALI (İPTAL, RED VE GELİŞMİŞ ALARM EKLENDİ) */}
+      {/* 🚀 SİPARİŞ TAKİP MODALI (SADELEŞTİRİLMİŞ ONAY AKIŞI) */}
       <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[90vh] rounded-[2rem] p-6 border-none bg-card shadow-2xl overflow-hidden flex flex-col z-[100]">
               <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-foreground flex items-center gap-2"><ListOrdered className="text-primary"/> Şirket İçi Tüm Formlar</DialogTitle></DialogHeader>
@@ -607,10 +608,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               const isMyOrder = group.requested_by === profile?.id || isMaster;
                               const safeStatus = group.status || 'BEKLIYOR';
                               
-                              // 🚀 YENİ KUSURSUZ MANTIK KONTROLLERİ
-                              const canCancel = isMyOrder && safeStatus === 'BEKLIYOR'; // Satın alma dokunmadan iptal hakkı
-                              const canApprove = isMyOrder && safeStatus === 'TERMIN_GIRILDI'; // Onaylama VEYA Reddetme hakkı
-                              const canAlarm = isMyOrder && safeStatus === 'SIPARIS_VERILDI'; // Ya GELDİ ya GELMEDİ ALARMI hakkı
+                              // 🚀 KUSURSUZ YETKİLENDİRME (KİMSE YANLIŞ BUTONA BASAMAZ)
+                              const canCancel = isMyOrder && safeStatus === 'BEKLIYOR'; 
+                              const canApprove = isMyOrder && safeStatus === 'TERMIN_GIRILDI'; // Onaylarsan SİPARİŞ VERİLDİ olur
+                              const canAlarm = isMyOrder && safeStatus === 'SIPARIS_VERILDI';  // Alarm/Geldi SADECE Sipariş Verildiyse çıkar
 
                               return (
                               <tr key={group.request_no} className={`hover:bg-muted/50 transition-colors ${safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500/10' : safeStatus === 'GELDI' ? 'bg-emerald-500/10' : isMyOrder ? 'bg-primary/5' : 'bg-background'}`}>
@@ -629,27 +630,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                                   <td className="px-4 py-3">
                                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest 
-                                          ${safeStatus === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' 
+                                          ${safeStatus === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' 
                                           : safeStatus === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
-                                          : safeStatus === 'TERMIN_ONAYLANDI' ? 'bg-emerald-100 text-emerald-700'
-                                          : safeStatus === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400' 
+                                          : safeStatus === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700' 
                                           : safeStatus === 'GELDI' ? 'bg-emerald-500 text-white shadow-md' 
                                           : safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse shadow-lg'
-                                          : 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400'}`}>
+                                          : 'bg-rose-100 text-rose-700'}`}>
                                           {safeStatus.replace('_', ' ')}
                                       </span>
                                   </td>
                                   <td className="px-4 py-3 text-right">
                                       <div className="flex items-center justify-end gap-2 flex-wrap">
                                           
-                                          {/* TERMİN ONAY VE RED BUTONLARI */}
+                                          {/* TERMİN ONAY/RED BUTONLARI (TEK ADIM ONAY) */}
                                           {canApprove && (
                                               <>
                                                 <Button onClick={() => rejectTermin(group.request_no)} size="sm" variant="outline" className="h-8 text-rose-600 border-rose-200 hover:bg-rose-50 font-bold text-xs">
-                                                    <X className="h-3.5 w-3.5 mr-1" /> Termini Reddet
+                                                    <X className="h-3.5 w-3.5 mr-1" /> Reddet
                                                 </Button>
                                                 <Button onClick={() => approveTermin(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md">
-                                                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Onayla
+                                                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Termini Onayla (Siparişi Geç)
                                                 </Button>
                                               </>
                                           )}
@@ -658,7 +658,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                           {canAlarm && (
                                               <>
                                                 <Button onClick={() => triggerAlarm(group.request_no)} size="sm" className="h-8 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/30">
-                                                    <AlertTriangle className="h-3.5 w-3.5 mr-1" /> GELMEDİ
+                                                    <AlertTriangle className="h-3.5 w-3.5 mr-1" /> GELMEDİ ALARMI
                                                 </Button>
                                                 <Button onClick={() => markAsReceived(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-500/30">
                                                     <Box className="h-3.5 w-3.5 mr-1" /> GELDİ (Teslim Alındı)
@@ -666,12 +666,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                               </>
                                           )}
 
-                                          {/* GENEL FORMU AÇ */}
                                           <Button onClick={() => openFormViewer(group)} size="sm" className="h-8 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs">
                                               <FileText className="h-3.5 w-3.5 mr-1" /> Form
                                           </Button>
 
-                                          {/* SADECE BEKLIYORKEN KOMPLE IPTAL HAKKI */}
+                                          {/* SADECE BEKLIYORKEN (SATIN ALMA EL SÜRMEDEN) KOMPLE IPTAL HAKKI */}
                                           {canCancel && (
                                               <button onClick={() => handleCancelMyRequest(group.request_no)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Talebi İptal Et"><Trash2 className="h-4 w-4" /></button>
                                           )}
@@ -688,7 +687,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[95vh] p-0 border-none bg-muted shadow-2xl flex flex-col z-[200] overflow-hidden print:!w-full print:!max-w-none print:!h-auto print:!shadow-none print:block print:p-0 print:m-0 print:bg-white">
-              
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 print:bg-white print:p-0 w-full">
                   <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
                       <table className="w-full border-collapse border border-black mb-4">
@@ -780,14 +778,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="mt-4 pb-2 text-right text-[10px] text-[#64748b] font-bold">Sayfa 1 / 1</div>
                   </div>
               </div>
-
               <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-border bg-card w-full print:hidden">
                   <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-border text-foreground hover:bg-muted h-12 px-6">Kapat</Button>
                   <Button onClick={handlePrint} className="bg-primary hover:bg-primary/90 text-primary-foreground font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak İndir</Button>
               </div>
           </DialogContent>
       </Dialog>
-
     </div>
   )
 }

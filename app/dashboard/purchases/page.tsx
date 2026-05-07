@@ -40,8 +40,6 @@ export default function PurchasesPage() {
 
   const [leadTimeInputs, setLeadTimeInputs] = useState<Record<string, string>>({})
   const [soundEnabled, setSoundEnabled] = useState(true)
-  
-  // 🚀 ALARM FİLTRESİ
   const [filterAlarm, setFilterAlarm] = useState(false)
 
   useEffect(() => { 
@@ -76,7 +74,6 @@ export default function PurchasesPage() {
 
   const fetchRequests = async () => {
       try {
-          // 🚀 GELDİ OLANLARI DA ÇEKİYORUZ Kİ YEŞİL GÖRÜNSÜN
           const { data, error } = await supabase.from('material_requests').select(`*, profiles ( first_name, last_name, department )`).order('created_at', { ascending: false })
           if (error) throw error;
           if (data) {
@@ -92,7 +89,6 @@ export default function PurchasesPage() {
                   return acc
               }, {})
 
-              // Sıralama: Önce Alarmlar, Sonra Normal, En son Tamamlananlar (GELDI)
               const sortedGroups = Object.values(grouped).sort((a: any, b: any) => {
                   if (a.status === 'GELDI' && b.status !== 'GELDI') return 1;
                   if (a.status !== 'GELDI' && b.status === 'GELDI') return -1;
@@ -105,6 +101,7 @@ export default function PurchasesPage() {
       } catch (error: any) { console.error("İstek Çekme Hatası:", error); }
   }
 
+  // 🚀 KUSURSUZ TERMİN GİRİŞİ (ÇİFT SİPARİŞİ ENGELLER)
   const submitLeadTime = async (requestNo: string, currentStatus: string) => {
       const selectedDateStr = leadTimeInputs[requestNo];
       if(!selectedDateStr) return alert("Lütfen bir teslim tarihi seçiniz!");
@@ -119,7 +116,8 @@ export default function PurchasesPage() {
 
       if(diffDays < 0) return alert("Geçmiş bir tarih seçemezsiniz!");
 
-      // Eğer form alarmlıysa ve yeni tarih giriliyorsa, siparişi güncelleyip devam ettir.
+      // Eğer alarmdan geliyorsa direkt SIPARIS_VERILDI yap (Alarm sussun)
+      // Normal talepse TERMIN_GIRILDI yap (Saha onayı istesin)
       const newStatus = currentStatus === 'GELMEDI_ALARM' ? 'SIPARIS_VERILDI' : 'TERMIN_GIRILDI';
 
       await supabase.from('material_requests').update({ 
@@ -128,13 +126,7 @@ export default function PurchasesPage() {
           status: newStatus 
       }).eq('request_no', requestNo);
       
-      alert(`Yeni Teslim Tarihi (${expectedDate.toLocaleDateString('tr-TR')}) sisteme işlendi!`);
-      fetchRequests();
-  }
-
-  const placeOrder = async (requestNo: string) => {
-      if(!confirm("Siparişi verdiğinizi onaylıyor musunuz?")) return;
-      await supabase.from('material_requests').update({ status: 'SIPARIS_VERILDI' }).eq('request_no', requestNo);
+      alert(`Tarih (${expectedDate.toLocaleDateString('tr-TR')}) başarıyla sisteme işlendi!`);
       fetchRequests();
   }
 
@@ -261,7 +253,6 @@ export default function PurchasesPage() {
   const copyToClipboard = (url: string) => { navigator.clipboard.writeText(url); alert("✅ Dosya linki kopyalandı!") }
   const filteredOrders = orders.filter(o => formatOrderNumber(o.id).toLowerCase().includes(searchTerm.toLowerCase()) || (o.suppliers?.name || "").toLowerCase().includes(searchTerm.toLowerCase()));
   
-  // ALARM FİLTRESİ UYGULANMIŞ LİSTE
   const filteredRequests = filterAlarm ? requests.filter(r => r.status === 'GELMEDI_ALARM') : requests;
 
   return (
@@ -288,7 +279,6 @@ export default function PurchasesPage() {
                           <span className="text-xs font-bold text-primary">{showRequests ? 'Gizle' : 'Göster'}</span>
                       </button>
                       
-                      {/* 🚀 ALARM FİLTRE BUTONU */}
                       {showRequests && requests.some(r => r.status === 'GELMEDI_ALARM') && (
                           <div className="px-4 pb-4">
                               <Button onClick={() => setFilterAlarm(!filterAlarm)} className={`w-full font-bold text-xs h-9 ${filterAlarm ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-600 hover:bg-rose-200'}`}>
@@ -341,20 +331,15 @@ export default function PurchasesPage() {
                                                       <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-2">Tahmini Teslim Tarihi:</span>
                                                       <div className="flex items-center gap-2">
                                                           <Input type="date" value={leadTimeInputs[reqGroup.request_no] || ""} onChange={(e) => setLeadTimeInputs({...leadTimeInputs, [reqGroup.request_no]: e.target.value})} className="w-32 sm:w-36 h-9 text-center font-bold text-xs" />
-                                                          <Button onClick={() => submitLeadTime(reqGroup.request_no, safeStatus)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-9 font-bold px-3"><Send className="h-4 w-4 mr-2"/> {isAlarm ? 'Güncelle' : 'İlet'}</Button>
+                                                          <Button onClick={() => submitLeadTime(reqGroup.request_no, safeStatus)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-9 font-bold px-3"><Send className="h-4 w-4 mr-2"/> {isAlarm ? 'Güncelle (Alarmı Kapat)' : 'Onaya Sun'}</Button>
                                                       </div>
                                                   </div>
                                               ) : safeStatus === 'TERMIN_GIRILDI' ? (
                                                   <div className="bg-amber-100 text-amber-700 p-2 rounded-xl text-center text-xs font-black border border-amber-200">
                                                       SAHA ONAYI BEKLENİYOR ({reqGroup.expected_date ? new Date(reqGroup.expected_date).toLocaleDateString('tr-TR') : 'Belirtilmedi'})
                                                   </div>
-                                              ) : safeStatus === 'TERMIN_ONAYLANDI' ? (
-                                                  <div className="flex items-center justify-between gap-2 bg-emerald-50 p-2 rounded-xl border border-emerald-200">
-                                                      <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest pl-2">Saha Personeli Termini Onayladı!</span>
-                                                      <Button onClick={() => placeOrder(reqGroup.request_no)} size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 font-bold px-4">Siparişi Ver</Button>
-                                                  </div>
                                               ) : safeStatus === 'SIPARIS_VERILDI' ? (
-                                                  <div className="bg-primary/10 text-primary p-2 rounded-xl text-center text-xs font-black border border-primary/20">
+                                                  <div className="bg-indigo-100 text-indigo-700 p-2 rounded-xl text-center text-xs font-black border border-indigo-200">
                                                       SİPARİŞ VERİLDİ. (Saha Teslimatı Bekleniyor)
                                                   </div>
                                               ) : safeStatus === 'GELDI' ? (
@@ -436,7 +421,6 @@ export default function PurchasesPage() {
                       <div className="bg-card p-4 md:p-5 rounded-2xl border border-border shadow-sm mb-6"><span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1 block">Açıklama / Notlar</span><p className="text-xs font-medium text-foreground/80 leading-relaxed">{selectedOrder.description || "Bu sipariş için detaylı bir açıklama girilmemiş."}</p></div>
                       {!isEditing && (
                           <div className="flex flex-col sm:flex-row items-center gap-3 mt-auto pt-6 md:pt-8 w-full border-t border-border">
-                              {selectedOrder.status !== 'TAMAMLANDI' && (<Button onClick={() => markAsCompleted(selectedOrder.id)} className="w-full sm:flex-1 h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold shadow-md"><CheckCircle className="mr-2 h-4 w-4" /> Teslim Alındı (Stoğa Gir)</Button>)}
                               <Button onClick={() => deleteOrder(selectedOrder.id)} variant="outline" className="w-full sm:w-14 h-12 rounded-xl border-border text-destructive hover:bg-destructive/10 hover:border-destructive/30"><Trash2 className="h-4 w-4 sm:mr-0" /> <span className="sm:hidden font-bold">SAS Fişini Sil</span></Button>
                           </div>
                       )}
@@ -445,6 +429,7 @@ export default function PurchasesPage() {
           </div>
       </div>
 
+      {/* DİĞER MODALLAR BURADAN AŞAĞIDA (AYNEN KORUNDU) */}
       <Dialog open={isFormEditModalOpen} onOpenChange={setIsFormEditModalOpen}>
           <DialogContent className="rounded-[2rem] p-6 max-w-[95vw] w-[95vw] h-[90vh] border-none bg-card shadow-2xl flex flex-col max-h-[95vh] print:hidden">
               <DialogHeader className="shrink-0 mb-4">
