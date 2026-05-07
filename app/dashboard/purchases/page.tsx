@@ -8,7 +8,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { 
   PlusCircle, Trash2, Edit2, PackageOpen, RefreshCcw, CheckCircle, Clock, 
-  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, FileCheck, Loader2, Copy, Inbox, Flame, Printer, Save, Send, Volume2, VolumeX
+  Search, FileText, X, AlertTriangle, User, CalendarDays, UploadCloud, FileCheck, Loader2, Copy, Inbox, Flame, Printer, Save, Send, Volume2, VolumeX, Filter, CheckCircle2
 } from "lucide-react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
@@ -38,9 +38,11 @@ export default function PurchasesPage() {
   const [newItemForm, setNewItemForm] = useState({ material_name: "", current_stock: "0", quantity: "1", unit: "ADET" })
   const [isSavingForm, setIsSavingForm] = useState(false)
 
-  // 🚀 TAKVİMLİ TERMİN VE ALARM SİSTEMİ STATELERİ
   const [leadTimeInputs, setLeadTimeInputs] = useState<Record<string, string>>({})
   const [soundEnabled, setSoundEnabled] = useState(true)
+  
+  // 🚀 ALARM FİLTRESİ
+  const [filterAlarm, setFilterAlarm] = useState(false)
 
   useEffect(() => { 
       fetchOrders(); 
@@ -53,7 +55,9 @@ export default function PurchasesPage() {
                   const audio = new Audio('/alarm.mp3');
                   audio.play().catch(e => console.log("Otomatik ses engellendi."));
               }
-              alert(`🚨 DİKKAT! ${payload.new.request_no} numaralı formdaki malzemeler GELMEDİ! Siparişi Veren Saha Personeli Alarm Tetikledi!`);
+              alert(`🚨 DİKKAT! ${payload.new.request_no} numaralı formdaki malzemeler GELMEDİ! Saha Personeli Alarm Tetikledi!`);
+              fetchRequests();
+          } else if (payload.new.status === 'GELDI') {
               fetchRequests();
           }
         }).subscribe()
@@ -72,7 +76,8 @@ export default function PurchasesPage() {
 
   const fetchRequests = async () => {
       try {
-          const { data, error } = await supabase.from('material_requests').select(`*, profiles ( first_name, last_name, department )`).neq('status', 'GELDI').order('created_at', { ascending: false })
+          // 🚀 GELDİ OLANLARI DA ÇEKİYORUZ Kİ YEŞİL GÖRÜNSÜN
+          const { data, error } = await supabase.from('material_requests').select(`*, profiles ( first_name, last_name, department )`).order('created_at', { ascending: false })
           if (error) throw error;
           if (data) {
               const grouped = data.reduce((acc: any, req: any) => {
@@ -82,16 +87,25 @@ export default function PurchasesPage() {
                       acc[req.request_no].items.push(req)
                       if (req.priority === 'ACIL') acc[req.request_no].priority = 'ACIL' 
                       if (req.status === 'GELMEDI_ALARM') acc[req.request_no].status = 'GELMEDI_ALARM'
+                      if (req.status === 'BEKLIYOR') acc[req.request_no].status = 'BEKLIYOR'
                   }
                   return acc
               }, {})
-              setRequests(Object.values(grouped))
+
+              // Sıralama: Önce Alarmlar, Sonra Normal, En son Tamamlananlar (GELDI)
+              const sortedGroups = Object.values(grouped).sort((a: any, b: any) => {
+                  if (a.status === 'GELDI' && b.status !== 'GELDI') return 1;
+                  if (a.status !== 'GELDI' && b.status === 'GELDI') return -1;
+                  if (a.status === 'GELMEDI_ALARM' && b.status !== 'GELMEDI_ALARM') return -1;
+                  if (a.status !== 'GELMEDI_ALARM' && b.status === 'GELMEDI_ALARM') return 1;
+                  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+              });
+              setRequests(sortedGroups)
           }
       } catch (error: any) { console.error("İstek Çekme Hatası:", error); }
   }
 
-  // 🚀 YENİ: TAKVİM (TARİH) GİRİŞ FONKSİYONU
-  const submitLeadTime = async (requestNo: string) => {
+  const submitLeadTime = async (requestNo: string, currentStatus: string) => {
       const selectedDateStr = leadTimeInputs[requestNo];
       if(!selectedDateStr) return alert("Lütfen bir teslim tarihi seçiniz!");
 
@@ -100,19 +114,21 @@ export default function PurchasesPage() {
       today.setHours(0,0,0,0);
       expectedDate.setHours(0,0,0,0);
 
-      // İki tarih arasındaki gün farkını hesapla
       const diffTime = expectedDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       if(diffDays < 0) return alert("Geçmiş bir tarih seçemezsiniz!");
 
+      // Eğer form alarmlıysa ve yeni tarih giriliyorsa, siparişi güncelleyip devam ettir.
+      const newStatus = currentStatus === 'GELMEDI_ALARM' ? 'SIPARIS_VERILDI' : 'TERMIN_GIRILDI';
+
       await supabase.from('material_requests').update({ 
           lead_time_days: diffDays, 
           expected_date: expectedDate.toISOString().split('T')[0],
-          status: 'TERMIN_GIRILDI' 
+          status: newStatus 
       }).eq('request_no', requestNo);
       
-      alert(`Teslim Tarihi (${expectedDate.toLocaleDateString('tr-TR')}) saha personeline onaya gönderildi!`);
+      alert(`Yeni Teslim Tarihi (${expectedDate.toLocaleDateString('tr-TR')}) sisteme işlendi!`);
       fetchRequests();
   }
 
@@ -244,6 +260,9 @@ export default function PurchasesPage() {
 
   const copyToClipboard = (url: string) => { navigator.clipboard.writeText(url); alert("✅ Dosya linki kopyalandı!") }
   const filteredOrders = orders.filter(o => formatOrderNumber(o.id).toLowerCase().includes(searchTerm.toLowerCase()) || (o.suppliers?.name || "").toLowerCase().includes(searchTerm.toLowerCase()));
+  
+  // ALARM FİLTRESİ UYGULANMIŞ LİSTE
+  const filteredRequests = filterAlarm ? requests.filter(r => r.status === 'GELMEDI_ALARM') : requests;
 
   return (
     <div className="flex flex-col gap-6 font-sans xl:h-[calc(100vh-100px)] w-full pb-10 xl:pb-0 overflow-hidden transition-colors">
@@ -263,29 +282,42 @@ export default function PurchasesPage() {
       <div className="flex flex-col xl:flex-row gap-6 flex-1 min-h-0 w-full">
           <div className="w-full xl:w-6/12 flex flex-col gap-6 max-h-[800px] xl:max-h-full">
               <div className="flex flex-col bg-card/60 backdrop-blur-2xl border border-primary/20 shadow-lg shadow-primary/5 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shrink-0 transition-all">
-                  <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between p-4 md:p-5 bg-primary/5 hover:bg-primary/10 cursor-pointer border-b border-primary/20">
-                      <div className="flex items-center gap-3"><Inbox className="h-5 w-5 text-primary" /><h3 className="font-black text-foreground text-sm md:text-base">Saha İstek Formları & Onaylar</h3>{requests.filter(r => (r.status || 'BEKLIYOR') === 'BEKLIYOR').length > 0 && (<span className="bg-destructive text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">{requests.filter(r => (r.status || 'BEKLIYOR') === 'BEKLIYOR').length} YENİ FORM</span>)}</div>
-                      <span className="text-xs font-bold text-primary">{showRequests ? 'Gizle' : 'Göster'}</span>
-                  </button>
+                  <div className="flex flex-col border-b border-primary/20 bg-primary/5">
+                      <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between p-4 md:p-5 hover:bg-primary/10 cursor-pointer">
+                          <div className="flex items-center gap-3"><Inbox className="h-5 w-5 text-primary" /><h3 className="font-black text-foreground text-sm md:text-base">Saha İstek Formları & Onaylar</h3>{requests.filter(r => (r.status || 'BEKLIYOR') === 'BEKLIYOR').length > 0 && (<span className="bg-destructive text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">{requests.filter(r => (r.status || 'BEKLIYOR') === 'BEKLIYOR').length} YENİ</span>)}</div>
+                          <span className="text-xs font-bold text-primary">{showRequests ? 'Gizle' : 'Göster'}</span>
+                      </button>
+                      
+                      {/* 🚀 ALARM FİLTRE BUTONU */}
+                      {showRequests && requests.some(r => r.status === 'GELMEDI_ALARM') && (
+                          <div className="px-4 pb-4">
+                              <Button onClick={() => setFilterAlarm(!filterAlarm)} className={`w-full font-bold text-xs h-9 ${filterAlarm ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-600 hover:bg-rose-200'}`}>
+                                  <Filter className="h-3.5 w-3.5 mr-2" /> {filterAlarm ? "TÜM FORMLARI GÖSTER" : "SADECE ALARMLI (GELMEYEN) FORMLARI GÖSTER"}
+                              </Button>
+                          </div>
+                      )}
+                  </div>
                   
                   {showRequests && (
                       <div className="overflow-y-auto max-h-[450px] custom-scrollbar p-2 bg-card/40">
-                          {requests.length === 0 ? (
-                              <p className="text-center py-6 text-sm font-bold text-muted-foreground">Şu an bekleyen istek formu yok.</p>
+                          {filteredRequests.length === 0 ? (
+                              <p className="text-center py-6 text-sm font-bold text-muted-foreground">Şu an gösterilecek form yok.</p>
                           ) : (
                               <div className="flex flex-col gap-3">
-                                  {requests.map(reqGroup => {
+                                  {filteredRequests.map(reqGroup => {
                                       const isUrgent = reqGroup.priority === 'ACIL';
                                       const safeStatus = reqGroup.status || 'BEKLIYOR';
                                       const isAlarm = safeStatus === 'GELMEDI_ALARM';
+                                      const isGeldi = safeStatus === 'GELDI';
 
                                       return (
-                                      <div key={reqGroup.request_no} className={`flex flex-col p-4 rounded-xl shadow-sm gap-3 border-2 transition-all ${isAlarm ? 'bg-rose-500/10 border-rose-500 shadow-rose-500/20 animate-pulse' : isUrgent ? 'bg-destructive/5 border-destructive/30 shadow-destructive/10' : 'bg-card border-border hover:border-primary/50'}`}>
+                                      <div key={reqGroup.request_no} className={`flex flex-col p-4 rounded-xl shadow-sm gap-3 border-2 transition-all ${isAlarm ? 'bg-rose-500/10 border-rose-500 shadow-rose-500/20 animate-pulse' : isGeldi ? 'bg-emerald-500/10 border-emerald-500/50' : isUrgent ? 'bg-destructive/5 border-destructive/30 shadow-destructive/10' : 'bg-card border-border hover:border-primary/50'}`}>
                                           <div className="flex items-center justify-between border-b border-border/50 pb-3">
                                               <div className="flex items-center gap-2">
                                                   <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest bg-muted px-2 py-0.5 rounded">{reqGroup.request_no}</span>
-                                                  {isUrgent && !isAlarm && <span className="flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded bg-destructive text-destructive-foreground animate-pulse shadow-sm"><Flame className="h-3 w-3" /> ACİL İSTEK</span>}
+                                                  {isUrgent && !isAlarm && !isGeldi && <span className="flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded bg-destructive text-destructive-foreground animate-pulse shadow-sm"><Flame className="h-3 w-3" /> ACİL İSTEK</span>}
                                                   {isAlarm && <span className="flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded bg-rose-500 text-white shadow-sm"><AlertTriangle className="h-3 w-3" /> GELMEDİ ALARMI!</span>}
+                                                  {isGeldi && <span className="flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded bg-emerald-500 text-white shadow-sm"><CheckCircle2 className="h-3 w-3" /> TESLİM EDİLDİ</span>}
                                               </div>
                                               <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground"><User className="h-3 w-3" /> {reqGroup.profiles?.first_name} {reqGroup.profiles?.last_name}</div>
                                           </div>
@@ -297,20 +329,19 @@ export default function PurchasesPage() {
                                                       <Button onClick={() => openFormEditor(reqGroup)} variant="outline" size="sm" className="h-8 text-[10px] font-bold text-primary border-primary/30 hover:bg-primary/10"><Edit2 className="h-3.5 w-3.5 mr-1" /> Formu Düzenle</Button>
                                                   )}
                                               </div>
-                                              <Button onClick={() => openFormViewer(reqGroup)} className="w-full bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground transition-colors h-11 rounded-lg font-black text-xs shadow-sm mt-1 border border-primary/20">
+                                              <Button onClick={() => openFormViewer(reqGroup)} className={`w-full h-11 rounded-lg font-black text-xs shadow-sm mt-1 border transition-colors ${isGeldi ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700 border-emerald-200' : 'bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border-primary/20'}`}>
                                                   <FileText className="h-4 w-4 mr-2" /> DİJİTAL SİPARİŞ FORMUNU GÖRÜNTÜLE
                                               </Button>
                                           </div>
 
                                           <div className="flex flex-col gap-3 mt-2 border-t border-border/50 pt-3">
                                               
-                                              {/* 🚀 YENİ TAKVİMLİ TERMİN GİRİŞİ */}
                                               {(safeStatus === 'BEKLIYOR' || safeStatus === 'GELMEDI_ALARM') ? (
                                                   <div className="flex items-center justify-between gap-2 bg-muted p-2 rounded-xl border border-border">
                                                       <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-2">Tahmini Teslim Tarihi:</span>
                                                       <div className="flex items-center gap-2">
-                                                          <Input type="date" value={leadTimeInputs[reqGroup.request_no] || ""} onChange={(e) => setLeadTimeInputs({...leadTimeInputs, [reqGroup.request_no]: e.target.value})} className="w-36 h-9 text-center font-bold text-xs" />
-                                                          <Button onClick={() => submitLeadTime(reqGroup.request_no)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-9 font-bold px-3"><Send className="h-4 w-4 mr-2"/> İlet</Button>
+                                                          <Input type="date" value={leadTimeInputs[reqGroup.request_no] || ""} onChange={(e) => setLeadTimeInputs({...leadTimeInputs, [reqGroup.request_no]: e.target.value})} className="w-32 sm:w-36 h-9 text-center font-bold text-xs" />
+                                                          <Button onClick={() => submitLeadTime(reqGroup.request_no, safeStatus)} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white h-9 font-bold px-3"><Send className="h-4 w-4 mr-2"/> {isAlarm ? 'Güncelle' : 'İlet'}</Button>
                                                       </div>
                                                   </div>
                                               ) : safeStatus === 'TERMIN_GIRILDI' ? (
@@ -324,7 +355,11 @@ export default function PurchasesPage() {
                                                   </div>
                                               ) : safeStatus === 'SIPARIS_VERILDI' ? (
                                                   <div className="bg-primary/10 text-primary p-2 rounded-xl text-center text-xs font-black border border-primary/20">
-                                                      SİPARİŞ VERİLDİ. (Malzeme bekleniyor)
+                                                      SİPARİŞ VERİLDİ. (Saha Teslimatı Bekleniyor)
+                                                  </div>
+                                              ) : safeStatus === 'GELDI' ? (
+                                                  <div className="bg-emerald-500 text-white p-2 rounded-xl text-center text-xs font-black shadow-inner flex items-center justify-center gap-2">
+                                                      <CheckCircle2 className="h-4 w-4" /> ÜRÜN SAHA TARAFINDAN TESLİM ALINDI
                                                   </div>
                                               ) : safeStatus === 'REDDEDILDI' ? (
                                                   <div className="bg-muted text-muted-foreground p-2 rounded-xl text-center text-xs font-black border border-border line-through">
@@ -410,7 +445,6 @@ export default function PurchasesPage() {
           </div>
       </div>
 
-      {/* 🚀 DİĞER MODALLAR BURADAN AŞAĞIDA (AYNEN KORUNDU) */}
       <Dialog open={isFormEditModalOpen} onOpenChange={setIsFormEditModalOpen}>
           <DialogContent className="rounded-[2rem] p-6 max-w-[95vw] w-[95vw] h-[90vh] border-none bg-card shadow-2xl flex flex-col max-h-[95vh] print:hidden">
               <DialogHeader className="shrink-0 mb-4">
@@ -489,7 +523,6 @@ export default function PurchasesPage() {
 
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[95vh] p-0 border-none bg-muted shadow-2xl flex flex-col z-[200] overflow-hidden print:!w-full print:!max-w-none print:!h-auto print:!shadow-none print:block print:p-0 print:m-0 print:bg-white">
-              
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 print:bg-white print:p-0 w-full">
                   <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
                       <table className="w-full border-collapse border border-black mb-4">
@@ -581,14 +614,12 @@ export default function PurchasesPage() {
                       <div className="mt-4 pb-2 text-right text-[10px] text-[#64748b] font-bold">Sayfa 1 / 1</div>
                   </div>
               </div>
-
               <div className="shrink-0 flex justify-end gap-3 p-4 border-t border-border bg-card w-full print:hidden">
                   <Button variant="outline" onClick={() => setIsFormViewerOpen(false)} className="font-bold border-border text-foreground hover:bg-muted h-12 px-6">Kapat</Button>
                   <Button onClick={handlePrint} className="bg-primary hover:bg-primary/90 text-primary-foreground font-black shadow-lg h-12 px-6"><Printer className="h-4 w-4 mr-2"/> Yazdır / PDF Olarak İndir</Button>
               </div>
           </DialogContent>
       </Dialog>
-
     </div>
   )
 }

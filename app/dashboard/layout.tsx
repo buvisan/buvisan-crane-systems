@@ -10,7 +10,7 @@ import {
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
   LogOut, UserCircle, Settings, ChevronDown, PieChart, TrendingUp,
   Wallet, FileText, Archive, ScanLine, History, Menu, X,
-  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Printer, CheckCircle, Check, Palette, Sun, Moon, CheckCircle2, AlertTriangle
+  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Printer, CheckCircle, Check, Palette, Sun, Moon, CheckCircle2, AlertTriangle, Box
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -145,7 +145,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const fetchAllOrders = async () => {
-      const { data } = await supabase.from('material_requests').select('*, profiles(first_name, last_name, department)').neq('status', 'GELDI').order('created_at', { ascending: false })
+      const { data } = await supabase.from('material_requests').select('*, profiles(first_name, last_name, department)').order('created_at', { ascending: false })
       if (data) {
           const grouped = data.reduce((acc: any, req: any) => {
               if (!acc[req.request_no]) {
@@ -156,8 +156,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   }
               } else { 
                   acc[req.request_no].items.push(req) 
-                  // Status en günceli kalsın diye
                   if(req.status === 'GELMEDI_ALARM') acc[req.request_no].status = 'GELMEDI_ALARM'
+                  if(req.status === 'GELDI') acc[req.request_no].status = 'GELDI'
               }
               return acc
           }, {})
@@ -165,10 +165,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
   }
 
-  // 🚀 YENİ: SAHA ONAYI VE ALARM TETİKLEYİCİLERİ
+  // 🚀 SAHA ONAYI VE ALARM TETİKLEYİCİLERİ
   const approveTermin = async (requestNo: string) => {
       if(!confirm("Termin süresini onaylıyor musunuz? Satın almaya sipariş geçilmesi için bildirim gidecektir.")) return;
       await supabase.from('material_requests').update({ status: 'TERMIN_ONAYLANDI' }).eq('request_no', requestNo);
+      fetchAllOrders();
+  }
+
+  const rejectTermin = async (requestNo: string) => {
+      if(!confirm("Termin süresini reddediyorsunuz! Satın alma birimi tedarikçiyi arayıp yeni bir tarih bulmalıdır. Onaylıyor musunuz?")) return;
+      await supabase.from('material_requests').update({ status: 'BEKLIYOR', lead_time_days: null, expected_date: null }).eq('request_no', requestNo);
       fetchAllOrders();
   }
 
@@ -178,6 +184,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       fetchAllOrders();
   }
 
+  const markAsReceived = async (requestNo: string) => {
+      if(!confirm("Malzemeleri teslim aldığınızı ve her şeyin tam olduğunu onaylıyor musunuz?")) return;
+      await supabase.from('material_requests').update({ status: 'GELDI' }).eq('request_no', requestNo);
+      fetchAllOrders();
+  }
+
+  const handleCancelMyRequest = async (requestNo: string) => {
+      if (!confirm("Talebinizi henüz işlem görmeden iptal ediyorsunuz. Emin misiniz?")) return;
+      const { error } = await supabase.from('material_requests').delete().eq('request_no', requestNo)
+      if (error) alert("Hata: " + error.message); else fetchAllOrders();
+  }
+
+  // .. FORM ADD/SUBMIT ..
   const handleAddOrderItem = () => {
       if (!orderItemForm.material_name.trim()) return alert("Lütfen malzeme adı giriniz!");
       if (Number(orderItemForm.quantity) < 1) return alert("Miktar en az 1 olmalıdır!");
@@ -211,12 +230,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           setIsOrderModalOpen(false); fetchAllOrders();
       } catch (err: any) { alert("Hata: " + err.message) }
       finally { setOrderSubmitting(false) }
-  }
-
-  const handleDeleteForm = async (requestNo: string) => {
-      if (!confirm("Bu sipariş formunu tamamen iptal edip silmek istediğinize emin misiniz?")) return;
-      const { error } = await supabase.from('material_requests').delete().eq('request_no', requestNo)
-      if (error) alert("Hata: " + error.message); else fetchAllOrders();
   }
 
   const openFormViewer = (orderGroup: any) => {
@@ -573,7 +586,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 SİPARİŞ TAKİP MODALI (ONAY VE ALARM GELDİ) */}
+      {/* 🚀 SİPARİŞ TAKİP MODALI (İPTAL, RED VE GELİŞMİŞ ALARM EKLENDİ) */}
       <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[90vh] rounded-[2rem] p-6 border-none bg-card shadow-2xl overflow-hidden flex flex-col z-[100]">
               <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-foreground flex items-center gap-2"><ListOrdered className="text-primary"/> Şirket İçi Tüm Formlar</DialogTitle></DialogHeader>
@@ -593,13 +606,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           {allOrders.map(group => {
                               const isMyOrder = group.requested_by === profile?.id || isMaster;
                               const safeStatus = group.status || 'BEKLIYOR';
-                              const canEdit = isMyOrder && safeStatus === 'BEKLIYOR';
                               
-                              const canApprove = isMyOrder && safeStatus === 'TERMIN_GIRILDI';
-                              const canAlarm = isMyOrder && safeStatus === 'SIPARIS_VERILDI';
+                              // 🚀 YENİ KUSURSUZ MANTIK KONTROLLERİ
+                              const canCancel = isMyOrder && safeStatus === 'BEKLIYOR'; // Satın alma dokunmadan iptal hakkı
+                              const canApprove = isMyOrder && safeStatus === 'TERMIN_GIRILDI'; // Onaylama VEYA Reddetme hakkı
+                              const canAlarm = isMyOrder && safeStatus === 'SIPARIS_VERILDI'; // Ya GELDİ ya GELMEDİ ALARMI hakkı
 
                               return (
-                              <tr key={group.request_no} className={`hover:bg-muted/50 transition-colors ${safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500/10' : isMyOrder ? 'bg-primary/5' : 'bg-background'}`}>
+                              <tr key={group.request_no} className={`hover:bg-muted/50 transition-colors ${safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500/10' : safeStatus === 'GELDI' ? 'bg-emerald-500/10' : isMyOrder ? 'bg-primary/5' : 'bg-background'}`}>
                                   <td className="px-4 py-4 font-mono text-xs font-bold text-primary">{group.request_no}</td>
                                   <td className="px-4 py-3 font-black text-foreground">{group.profiles?.first_name} {group.profiles?.last_name}</td>
                                   <td className="px-4 py-3 font-bold text-foreground">{group.material_type || "Belirtilmedi"} <span className="text-[10px] text-muted-foreground block">{group.items.length} Kalem İçeriyor</span></td>
@@ -619,31 +633,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                           : safeStatus === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
                                           : safeStatus === 'TERMIN_ONAYLANDI' ? 'bg-emerald-100 text-emerald-700'
                                           : safeStatus === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400' 
-                                          : safeStatus === 'GELDI' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' 
+                                          : safeStatus === 'GELDI' ? 'bg-emerald-500 text-white shadow-md' 
                                           : safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse shadow-lg'
                                           : 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400'}`}>
                                           {safeStatus.replace('_', ' ')}
                                       </span>
                                   </td>
                                   <td className="px-4 py-3 text-right">
-                                      <div className="flex items-center justify-end gap-2">
+                                      <div className="flex items-center justify-end gap-2 flex-wrap">
                                           
+                                          {/* TERMİN ONAY VE RED BUTONLARI */}
                                           {canApprove && (
-                                              <Button onClick={() => approveTermin(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md">
-                                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Termini Onayla
-                                              </Button>
-                                          )}
-                                          {canAlarm && (
-                                              <Button onClick={() => triggerAlarm(group.request_no)} size="sm" className="h-8 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/30">
-                                                  <AlertTriangle className="h-3.5 w-3.5 mr-1" /> GELMEDİ ALARMI
-                                              </Button>
+                                              <>
+                                                <Button onClick={() => rejectTermin(group.request_no)} size="sm" variant="outline" className="h-8 text-rose-600 border-rose-200 hover:bg-rose-50 font-bold text-xs">
+                                                    <X className="h-3.5 w-3.5 mr-1" /> Termini Reddet
+                                                </Button>
+                                                <Button onClick={() => approveTermin(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md">
+                                                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Onayla
+                                                </Button>
+                                              </>
                                           )}
 
+                                          {/* DEPO ALARM VE TESLİM ALINDI BUTONLARI */}
+                                          {canAlarm && (
+                                              <>
+                                                <Button onClick={() => triggerAlarm(group.request_no)} size="sm" className="h-8 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/30">
+                                                    <AlertTriangle className="h-3.5 w-3.5 mr-1" /> GELMEDİ
+                                                </Button>
+                                                <Button onClick={() => markAsReceived(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-500/30">
+                                                    <Box className="h-3.5 w-3.5 mr-1" /> GELDİ (Teslim Alındı)
+                                                </Button>
+                                              </>
+                                          )}
+
+                                          {/* GENEL FORMU AÇ */}
                                           <Button onClick={() => openFormViewer(group)} size="sm" className="h-8 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs">
-                                              <FileText className="h-3.5 w-3.5 mr-1" /> Formu Aç
+                                              <FileText className="h-3.5 w-3.5 mr-1" /> Form
                                           </Button>
-                                          {canEdit && (
-                                              <button onClick={() => handleDeleteForm(group.request_no)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Formu İptal Et"><Trash2 className="h-4 w-4" /></button>
+
+                                          {/* SADECE BEKLIYORKEN KOMPLE IPTAL HAKKI */}
+                                          {canCancel && (
+                                              <button onClick={() => handleCancelMyRequest(group.request_no)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Talebi İptal Et"><Trash2 className="h-4 w-4" /></button>
                                           )}
                                       </div>
                                   </td>
