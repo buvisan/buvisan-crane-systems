@@ -584,7 +584,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               <th className="px-4 py-3 font-bold text-muted-foreground">Form No</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground">Talep Eden</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground">Malzeme Cinsi</th>
-                              <th className="px-4 py-3 font-bold text-muted-foreground text-center">Satın Alma Termini</th>
+                              <th className="px-4 py-3 font-bold text-muted-foreground text-center">Teslim Tarihi</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground">Durum</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground text-right">İşlem</th>
                           </tr>
@@ -592,44 +592,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <tbody className="divide-y divide-border">
                           {allOrders.map(group => {
                               const isMyOrder = group.requested_by === profile?.id || isMaster;
-                              const canEdit = isMyOrder && group.status === 'BEKLIYOR';
+                              const safeStatus = group.status || 'BEKLIYOR';
+                              const canEdit = isMyOrder && safeStatus === 'BEKLIYOR';
                               
-                              // 🚀 YENİ ONAY YETKİLERİ
-                              const canApprove = isMyOrder && group.status === 'TERMIN_GIRILDI';
-                              const canAlarm = isMyOrder && group.status === 'SIPARIS_VERILDI';
+                              const canApprove = isMyOrder && safeStatus === 'TERMIN_GIRILDI';
+                              const canAlarm = isMyOrder && safeStatus === 'SIPARIS_VERILDI';
 
                               return (
-                              <tr key={group.request_no} className={`hover:bg-muted/50 transition-colors ${group.status === 'GELMEDI_ALARM' ? 'bg-rose-500/10' : isMyOrder ? 'bg-primary/5' : 'bg-background'}`}>
+                              <tr key={group.request_no} className={`hover:bg-muted/50 transition-colors ${safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500/10' : isMyOrder ? 'bg-primary/5' : 'bg-background'}`}>
                                   <td className="px-4 py-4 font-mono text-xs font-bold text-primary">{group.request_no}</td>
                                   <td className="px-4 py-3 font-black text-foreground">{group.profiles?.first_name} {group.profiles?.last_name}</td>
                                   <td className="px-4 py-3 font-bold text-foreground">{group.material_type || "Belirtilmedi"} <span className="text-[10px] text-muted-foreground block">{group.items.length} Kalem İçeriyor</span></td>
                                   
-                                  {/* 🚀 EKLENEN TERMİN SÜTUNU */}
                                   <td className="px-4 py-3 text-center">
-                                      {group.lead_time_days ? (
+                                      {group.expected_date ? (
                                           <div className="flex flex-col items-center">
-                                              <span className="font-black text-sm">{group.lead_time_days} Gün</span>
-                                              <span className="text-[10px] text-muted-foreground">{group.expected_date}</span>
+                                              <span className="font-black text-sm">{new Date(group.expected_date).toLocaleDateString('tr-TR')}</span>
+                                              <span className="text-[10px] text-muted-foreground">{group.lead_time_days} Gün Sonra</span>
                                           </div>
                                       ) : <span className="text-xs text-muted-foreground italic">Bekleniyor</span>}
                                   </td>
 
                                   <td className="px-4 py-3">
                                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest 
-                                          ${group.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' 
-                                          : group.status === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
-                                          : group.status === 'TERMIN_ONAYLANDI' ? 'bg-emerald-100 text-emerald-700'
-                                          : group.status === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400' 
-                                          : group.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' 
-                                          : group.status === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse shadow-lg'
+                                          ${safeStatus === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' 
+                                          : safeStatus === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
+                                          : safeStatus === 'TERMIN_ONAYLANDI' ? 'bg-emerald-100 text-emerald-700'
+                                          : safeStatus === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400' 
+                                          : safeStatus === 'GELDI' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' 
+                                          : safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse shadow-lg'
                                           : 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400'}`}>
-                                          {group.status.replace('_', ' ')}
+                                          {safeStatus.replace('_', ' ')}
                                       </span>
                                   </td>
                                   <td className="px-4 py-3 text-right">
                                       <div className="flex items-center justify-end gap-2">
                                           
-                                          {/* 🚀 ONAYLA VE GELMEDİ BUTONLARI */}
                                           {canApprove && (
                                               <Button onClick={() => approveTermin(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md">
                                                   <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Termini Onayla
@@ -738,7 +736,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                       <td className="border border-black p-2 pl-3 font-black text-black">{item.material_name}</td>
                                       <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{item.current_stock || 0}</td>
                                       <td className="border border-black p-2 text-center font-black text-sm text-black">{item.quantity} {item.unit || 'ADET'}</td>
-                                      <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{(viewingOrderGroup?.lead_time_days) ? `${viewingOrderGroup.lead_time_days} GÜN` : ''}</td>
+                                      <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{(viewingOrderGroup?.expected_date) ? `${new Date(viewingOrderGroup.expected_date).toLocaleDateString('tr-TR')}` : ''}</td>
                                   </tr>
                               ))}
                               {[...Array(Math.max(0, 10 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
