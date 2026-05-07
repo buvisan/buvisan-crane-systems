@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { 
   Calculator, PlusCircle, Loader2, Search, 
-  Trash2, Edit2, TrendingUp, Wallet, ArrowDownToLine, ChevronDown, FolderKanban, HardHat, Save, Printer
+  Trash2, Edit2, TrendingUp, Wallet, ArrowDownToLine, ChevronDown, FolderKanban, HardHat, Save, Printer, Clock
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -136,7 +136,6 @@ export default function CostsPage() {
       printWrapper.id = 'print-wrapper';
       printWrapper.style.width = '100%';
       printWrapper.style.backgroundColor = 'white';
-      // DİKKAT: outerHTML yerine innerHTML kullandık ki en dıştaki "hidden" class'ını kopyalamasın!
       printWrapper.innerHTML = printContent.innerHTML; 
 
       const style = document.createElement('style');
@@ -160,7 +159,7 @@ export default function CostsPage() {
       originalVisibility.forEach(({ el, display }) => { (el as HTMLElement).style.display = display; });
   };
 
-  // AKILLI GRUPLAMA MOTORU (BOŞLUK VE KÜÇÜK/BÜYÜK HARF DUYARSIZ)
+  // AKILLI GRUPLAMA MOTORU
   const groupedProjects: Record<string, { displayName: string, tasks: any[] }> = {}
   
   costs.forEach(cost => {
@@ -183,8 +182,10 @@ export default function CostsPage() {
       const unitPrice = Math.max(...tasks.map(t => Number(t.unit_price) || 0))
       const revenue = maxQty * unitPrice
       const profit = revenue - laborCost
+      // 🚀 TOPLAM SAAT HESAPLANDI
+      const totalHours = tasks.reduce((sum, t) => sum + Number(t.hours), 0)
 
-      return { projName: displayName, tasks, laborCost, maxQty, unitPrice, revenue, profit }
+      return { projName: displayName, tasks, laborCost, maxQty, unitPrice, revenue, profit, totalHours }
   })
 
   // GENEL FİNANS KARTLARI İÇİN TOPLAM HESAPLAR
@@ -260,12 +261,15 @@ export default function CostsPage() {
                                   <h2 className="text-lg md:text-2xl font-black text-foreground">{project.projName}</h2>
                                   <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest">PROJE ONAYLI</span>
                               </div>
-                              <div className="flex items-center gap-3 mt-1.5 text-xs font-bold text-muted-foreground">
+                              <div className="flex items-center gap-3 mt-1.5 text-xs font-bold text-muted-foreground flex-wrap">
                                   <span className="flex items-center gap-1"><HardHat className="h-3.5 w-3.5" /> {project.tasks.length} İşlem</span>
                                   <span className="w-1 h-1 rounded-full bg-border"></span>
                                   <span>{project.maxQty} Adet Üretim</span>
                                   <span className="w-1 h-1 rounded-full bg-border"></span>
                                   <span>Birim Satış: {formatCurrency(project.unitPrice)}</span>
+                                  <span className="w-1 h-1 rounded-full bg-border"></span>
+                                  {/* 🚀 TOPLAM SAAT EKLENDİ */}
+                                  <span className="flex items-center gap-1 text-primary"><Clock className="h-3.5 w-3.5" /> Toplam: {project.totalHours} Saat</span>
                               </div>
                           </div>
                       </div>
@@ -287,7 +291,6 @@ export default function CostsPage() {
                           </div>
                           
                           <div className="ml-auto md:ml-4 flex items-center gap-2">
-                              {/* 🚀 YAZDIR BUTONU BURAYA EKLENDİ */}
                               <Button onClick={(e) => { e.stopPropagation(); handlePrint(project); }} variant="outline" size="sm" className="hidden md:flex h-10 border-border font-bold hover:bg-primary hover:text-primary-foreground transition-all gap-2 z-10 rounded-xl">
                                   <Printer className="h-4 w-4" /> Yazdır
                               </Button>
@@ -309,7 +312,6 @@ export default function CostsPage() {
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Yapılan İş</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">İş Emri (Alt Kod)</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Saat</th>
-                                              {/* 🚀 ADET KOLONU EKLENDİ */}
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-center">Adet</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-rose-500 uppercase tracking-widest text-right">İşçilik Maliyeti</th>
                                               <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">İşlem</th>
@@ -327,7 +329,6 @@ export default function CostsPage() {
                                                   <td className="px-5 py-3 font-bold text-xs text-foreground/80">{cost.task_name}</td>
                                                   <td className="px-5 py-3 font-mono font-bold text-xs text-primary">{cost.work_order_no}</td>
                                                   <td className="px-5 py-3 text-center font-black text-foreground">{cost.hours} <span className="text-[10px] text-muted-foreground">saat</span></td>
-                                                  {/* 🚀 ADET VERİSİ BURAYA GELDİ */}
                                                   <td className="px-5 py-3 text-center font-black text-foreground">{cost.quantity} <span className="text-[10px] text-muted-foreground">adet</span></td>
                                                   <td className="px-5 py-3 text-right">
                                                       <div className="flex flex-col items-end">
@@ -347,6 +348,14 @@ export default function CostsPage() {
                                                   </td>
                                               </tr>
                                           )})}
+                                          {/* 🚀 TABLO ALTINA TOPLAM SATIRI EKLENDİ */}
+                                          <tr className="bg-muted/30">
+                                              <td colSpan={3} className="px-5 py-3 text-right font-black text-xs text-muted-foreground uppercase tracking-widest">TOPLAM:</td>
+                                              <td className="px-5 py-3 text-center font-black text-primary bg-primary/5">{project.totalHours} <span className="text-[10px] font-bold">saat</span></td>
+                                              <td className="px-5 py-3 text-center font-black text-foreground">{project.maxQty} <span className="text-[10px] font-bold">adet</span></td>
+                                              <td className="px-5 py-3 text-right font-black text-rose-600 bg-rose-500/5">{formatCurrency(project.laborCost)}</td>
+                                              <td></td>
+                                          </tr>
                                       </tbody>
                                   </table>
                               </div>
@@ -370,6 +379,7 @@ export default function CostsPage() {
                                   <p style={{ margin: '0 0 5px 0', fontSize: '10px', fontWeight: '900', color: '#64748b' }}>PROJE ADI</p>
                                   <p style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: 'black' }}>{project.projName}</p>
                                   <div style={{ marginTop: '15px', display: 'flex', gap: '20px' }}>
+                                      <div><p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: 'black' }}>TOPLAM SAAT</p><p style={{ margin: 0, fontWeight: '900', color: '#2563eb' }}>{project.totalHours} Saat</p></div>
                                       <div><p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: 'black' }}>ADET</p><p style={{ margin: 0, fontWeight: '900', color: 'black' }}>{project.maxQty} Adet</p></div>
                                       <div><p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: 'black' }}>BİRİM FİYAT</p><p style={{ margin: 0, fontWeight: '900', color: 'black' }}>{formatCurrency(project.unitPrice)}</p></div>
                                   </div>
@@ -404,6 +414,12 @@ export default function CostsPage() {
                                           <td style={{ padding: '10px', border: '1px solid #e2e8f0', fontSize: '11px', textAlign: 'right', fontWeight: 'bold', color: '#e11d48' }}>{formatCurrency(t.hours * t.hourly_rate)}</td>
                                       </tr>
                                   ))}
+                                  <tr style={{ background: '#f8fafc' }}>
+                                      <td colSpan={3} style={{ padding: '10px', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: '900', textAlign: 'right' }}>TOPLAM DEĞERLER:</td>
+                                      <td style={{ padding: '10px', border: '1px solid #e2e8f0', fontSize: '12px', textAlign: 'center', fontWeight: '900', color: '#2563eb' }}>{project.totalHours} s</td>
+                                      <td style={{ padding: '10px', border: '1px solid #e2e8f0', fontSize: '11px', textAlign: 'right' }}></td>
+                                      <td style={{ padding: '10px', border: '1px solid #e2e8f0', fontSize: '12px', textAlign: 'right', fontWeight: '900', color: '#e11d48' }}>{formatCurrency(project.laborCost)}</td>
+                                  </tr>
                               </tbody>
                           </table>
 

@@ -249,7 +249,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         allowedRoles: ["çelik kasa sorumlusu", "admin", "yönetim", "kurucu", "teknoloji", "kasa"], 
         items: [ 
             { href: "/dashboard/steel-cases/shift-logs", label: "Vardiya Seyir Defteri", icon: ClipboardList }, 
-            { href: "/dashboard/steel-cases/work-orders", label: "Günlük İş Emirleri", icon: HardHat }, 
             { href: "/dashboard/steel-cases/costs", label: "Maliyet & Hak Ediş", icon: Calculator } 
         ] 
     }
