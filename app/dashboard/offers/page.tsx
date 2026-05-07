@@ -2,110 +2,137 @@
 
 import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { PlusCircle, FileText, Trash2, Calculator } from "lucide-react"
-import Link from "next/link"
+import { Input } from "@/components/ui/input"
+import { 
+  Calculator, Plus, Loader2, Search, 
+  FileText, Trash2, Edit, FileCheck, FileSignature
+} from "lucide-react"
 
-export default function OffersPage() {
-  const [offers, setOffers] = useState<any[]>([])
+export default function OffersDashboardPage() {
   const supabase = createClient()
+  const [offers, setOffers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
 
   useEffect(() => {
     fetchOffers()
   }, [])
 
   const fetchOffers = async () => {
-    const { data } = await supabase
-        .from('offers')
-        .select('*, customers(name)')
-        .order('created_at', { ascending: false })
+    setLoading(true)
+    // Supabase tablosu hazır olduğunda verileri çekecek
+    const { data, error } = await supabase
+      .from('sc_offers')
+      .select('*')
+      .order('created_at', { ascending: false })
+    
     if (data) setOffers(data)
+    setLoading(false)
   }
 
-  const deleteOffer = async (id: number) => {
-    if(!confirm("Bu teklifi silmek istediğinize emin misiniz?")) return;
-    await supabase.from('offers').delete().eq('id', id)
-    fetchOffers()
+  const formatCurrency = (val: number, currency: string = "EUR") => {
+    return new Intl.NumberFormat('tr-TR', { 
+        style: 'currency', 
+        currency: currency 
+    }).format(val || 0)
   }
+
+  const filteredOffers = offers.filter(o => 
+    o.offer_no?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
-    <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1600px] mx-auto w-full pb-10">
+    <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1600px] mx-auto w-full pb-10 transition-colors duration-300">
       
-      {/* 🚀 ÜST BAŞLIK ALANI (Mobil Uyumlu) */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4 md:gap-5 bg-card/60 backdrop-blur-2xl border border-border/50 p-5 md:p-6 rounded-[2rem] shadow-sm flex-1">
-            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 md:p-4 rounded-2xl shadow-lg shadow-blue-500/30 shrink-0">
-                <Calculator className="h-6 w-6 md:h-8 md:w-8 text-primary-foreground" />
+      {/* ÜST BAŞLIK & KONTROL PANELİ */}
+      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 md:gap-6 bg-card/60 backdrop-blur-2xl border border-border/50 p-5 md:p-6 lg:p-8 rounded-[1.5rem] md:rounded-[2.5rem] shadow-sm">
+        <div className="flex items-center gap-4 md:gap-5 w-full xl:w-auto">
+            <div className="bg-blue-600 p-3 md:p-4 rounded-2xl shadow-lg shadow-blue-600/30 shrink-0">
+                <Calculator className="h-6 w-6 md:h-8 md:w-8 text-white" />
             </div>
             <div>
                 <h1 className="text-xl md:text-3xl font-black tracking-tight text-foreground">Teklifler & Projeler</h1>
-                <p className="text-muted-foreground font-medium text-xs md:text-sm mt-1">Hazırlanan vinç teklifleri ve hesaplamalar.</p>
+                <p className="text-muted-foreground font-medium text-xs md:text-sm mt-1">Hazırlanan vinç teklifleri ve statik hesaplamalar.</p>
             </div>
         </div>
         
-        <Link href="/dashboard/offers/new" className="w-full md:w-auto shrink-0">
-            <Button className="h-14 md:h-16 px-6 md:px-8 w-full bg-primary hover:bg-blue-700 text-primary-foreground text-sm md:text-base font-bold rounded-[1.5rem] md:rounded-[2rem] shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
-                <PlusCircle className="h-5 w-5" /> Yeni Hesaplama Yap
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+            <div className="relative w-full sm:w-64">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="Müşteri veya Teklif No..." 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className="pl-11 h-12 bg-background/80 border-border text-foreground rounded-xl" 
+                />
+            </div>
+            {/* 🚀 DEV HESAPLAMA MOTORUNU AÇACAK BUTON */}
+            <Button className="w-full sm:w-auto h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all">
+                <Plus className="mr-2 h-5 w-5" /> Yeni Hesaplama Yap
             </Button>
-        </Link>
+        </div>
       </div>
 
-      {/* 🚀 AKIŞKAN TABLO ALANI */}
-      <div className="bg-card/60 backdrop-blur-2xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
-        <div className="overflow-x-auto p-2 custom-scrollbar">
-            <table className="w-full text-left border-collapse whitespace-nowrap min-w-[700px]">
-                <thead className="bg-card/40">
+      {/* LİSTELEME ALANI */}
+      <div className="bg-card/60 backdrop-blur-2xl border border-border/50 shadow-sm rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full min-h-[500px] flex flex-col">
+        <div className="overflow-x-auto custom-scrollbar flex-1">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
+                <thead className="bg-muted/40">
                     <tr>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest rounded-tl-3xl">Proje Adı</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Müşteri</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Tarih</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest">Durum</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">Tutar</th>
-                        <th className="px-4 md:px-6 py-4 md:py-5 text-[9px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right rounded-tr-3xl">İşlemler</th>
+                        <th className="px-6 py-5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Proje Adı / Teklif No</th>
+                        <th className="px-6 py-5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Müşteri</th>
+                        <th className="px-6 py-5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Tarih</th>
+                        <th className="px-6 py-5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Durum</th>
+                        <th className="px-6 py-5 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Tutar</th>
+                        <th className="px-6 py-5 text-[10px] font-black text-muted-foreground uppercase tracking-widest text-right">İşlemler</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100/50">
-                    {offers.map((offer: any) => (
-                        <tr key={offer.id} className="hover:bg-primary/10/40 transition-colors group">
-                            <td className="px-4 md:px-6 py-4 md:py-5 text-xs md:text-sm font-black text-blue-900 truncate max-w-[200px]">{offer.project_name || 'İsimsiz Proje'}</td>
-                            <td className="px-4 md:px-6 py-4 md:py-5 text-xs md:text-sm font-bold text-slate-600 truncate max-w-[150px]">{offer.customers?.name || '-'}</td>
-                            <td className="px-4 md:px-6 py-4 md:py-5 text-xs md:text-sm font-medium text-muted-foreground">{new Date(offer.created_at).toLocaleDateString('tr-TR')}</td>
-                            <td className="px-4 md:px-6 py-4 md:py-5">
-                                <span className={`inline-flex items-center px-2 md:px-3 py-1 rounded-lg text-[9px] md:text-[11px] font-bold border ${
-                                    offer.status === 'ONAYLANDI' ? 'bg-green-50 text-green-700 border-green-200' :
-                                    offer.status === 'REDDEDILDI' ? 'bg-red-50 text-red-700 border-red-200' :
-                                    'bg-muted text-slate-600 border-border'
-                                }`}>
-                                    {offer.status}
-                                </span>
-                            </td>
-                            <td className="px-4 md:px-6 py-4 md:py-5 text-right text-xs md:text-sm font-black text-foreground tabular-nums">
-                                {offer.total_price?.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
-                            </td>
-                            <td className="px-4 md:px-6 py-4 md:py-5 text-right flex items-center justify-end gap-1 md:gap-2">
-                                <Button variant="outline" size="icon" className="h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl text-primary border-primary/30 hover:bg-primary/10 bg-card/50">
-                                    <FileText className="h-4 w-4 md:h-5 md:w-5" />
-                                </Button>
-                                <Button onClick={() => deleteOffer(offer.id)} variant="outline" size="icon" className="h-8 w-8 md:h-10 md:w-10 rounded-lg md:rounded-xl text-red-500 border-red-200 hover:bg-red-50 bg-card/50">
-                                    <Trash2 className="h-4 w-4 md:h-5 md:w-5" />
-                                </Button>
-                            </td>
-                        </tr>
-                    ))}
-                    
-                    {offers.length === 0 && (
+                <tbody className="divide-y divide-border/50">
+                    {loading ? (
+                        <tr><td colSpan={6} className="py-20 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-blue-600" /></td></tr>
+                    ) : filteredOffers.length > 0 ? (
+                        filteredOffers.map((offer) => (
+                            <tr key={offer.id} className="hover:bg-muted/30 transition-colors group">
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col">
+                                        <span className="font-black text-sm text-foreground">{offer.offer_no}</span>
+                                        <span className="text-[10px] font-bold text-muted-foreground">{offer.capacity_ton} TON - {offer.span_m}mm Açıklık</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 font-bold text-xs text-foreground/80">{offer.customer_name}</td>
+                                <td className="px-6 py-4 text-xs font-medium text-muted-foreground">{new Date(offer.created_at).toLocaleDateString('tr-TR')}</td>
+                                <td className="px-6 py-4">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400 border border-amber-200 dark:border-amber-800 uppercase tracking-widest">
+                                        {offer.status || 'BEKLIYOR'}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 font-black text-blue-600 dark:text-blue-400">{formatCurrency(offer.total_price_eur, "EUR")}</td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="PDF Oluştur">
+                                            <FileSignature className="h-4 w-4" />
+                                        </button>
+                                        <button className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="Düzenle">
+                                            <Edit className="h-4 w-4" />
+                                        </button>
+                                        <button className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Sil">
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))
+                    ) : (
                         <tr>
-                            <td colSpan={6} className="py-16 md:py-24 text-center">
-                                <div className="flex flex-col items-center gap-3">
-                                    <div className="bg-card p-4 md:p-6 rounded-full shadow-sm"><FileText className="h-8 w-8 md:h-12 md:w-12 text-muted-foreground/50" /></div>
-                                    <p className="text-base md:text-xl font-bold text-slate-700">Henüz kayıtlı teklif yok.</p>
-                                    <Link href="/dashboard/offers/new" className="text-primary hover:text-blue-700 font-bold text-xs md:text-sm transition-colors">
-                                        İlk teklifi oluşturmak için tıklayın.
-                                    </Link>
+                            <td colSpan={6} className="py-24 text-center">
+                                <div className="flex flex-col items-center justify-center">
+                                    <div className="bg-muted p-5 rounded-full mb-4 shadow-inner">
+                                        <FileText className="h-10 w-10 text-muted-foreground/50" />
+                                    </div>
+                                    <h3 className="text-lg font-black text-foreground">Henüz kayıtlı teklif yok.</h3>
+                                    <p className="text-sm font-medium text-blue-600 mt-1 cursor-pointer hover:underline">İlk teklifi oluşturmak için tıklayın.</p>
                                 </div>
                             </td>
                         </tr>
@@ -114,7 +141,6 @@ export default function OffersPage() {
             </table>
         </div>
       </div>
-
     </div>
   )
 }
