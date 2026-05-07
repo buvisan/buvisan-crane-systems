@@ -10,7 +10,7 @@ import {
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
   LogOut, UserCircle, Settings, ChevronDown, PieChart, TrendingUp,
   Wallet, FileText, Archive, ScanLine, History, Menu, X,
-  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Printer, CheckCircle, Check, Palette, Sun, Moon
+  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Printer, CheckCircle, Check, Palette, Sun, Moon, CheckCircle2, AlertTriangle
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -151,13 +151,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               if (!acc[req.request_no]) {
                   acc[req.request_no] = { 
                       request_no: req.request_no, project_code: req.project_code, material_type: req.description,
-                      status: req.status, created_at: req.created_at, requested_by: req.requested_by, profiles: req.profiles, priority: req.priority, items: [req] 
+                      status: req.status, created_at: req.created_at, requested_by: req.requested_by, profiles: req.profiles, priority: req.priority,
+                      lead_time_days: req.lead_time_days, expected_date: req.expected_date, items: [req] 
                   }
-              } else { acc[req.request_no].items.push(req) }
+              } else { 
+                  acc[req.request_no].items.push(req) 
+                  // Status en günceli kalsın diye
+                  if(req.status === 'GELMEDI_ALARM') acc[req.request_no].status = 'GELMEDI_ALARM'
+              }
               return acc
           }, {})
           setAllOrders(Object.values(grouped))
       }
+  }
+
+  // 🚀 YENİ: SAHA ONAYI VE ALARM TETİKLEYİCİLERİ
+  const approveTermin = async (requestNo: string) => {
+      if(!confirm("Termin süresini onaylıyor musunuz? Satın almaya sipariş geçilmesi için bildirim gidecektir.")) return;
+      await supabase.from('material_requests').update({ status: 'TERMIN_ONAYLANDI' }).eq('request_no', requestNo);
+      fetchAllOrders();
+  }
+
+  const triggerAlarm = async (requestNo: string) => {
+      if(!confirm("Malzemenin gelmediğini Satın Alma birimine bildirmek istediğinize emin misiniz? Alarm çalacaktır!")) return;
+      await supabase.from('material_requests').update({ status: 'GELMEDI_ALARM' }).eq('request_no', requestNo);
+      fetchAllOrders();
   }
 
   const handleAddOrderItem = () => {
@@ -209,7 +227,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handlePrint = () => {
       const printContent = document.getElementById('printable-form');
       if (!printContent) return;
-
       const originalVisibility: {el: Element, display: string}[] = [];
       Array.from(document.body.children).forEach((el) => {
           if (el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE') {
@@ -217,14 +234,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               (el as HTMLElement).style.display = 'none';
           }
       });
-
       const printWrapper = document.createElement('div');
       printWrapper.id = 'print-wrapper'; printWrapper.style.width = '100%'; printWrapper.style.backgroundColor = 'white';
       printWrapper.innerHTML = printContent.outerHTML;
-
       const style = document.createElement('style'); style.id = 'print-style';
       style.innerHTML = `@media print { @page { size: A4 portrait; margin: 10mm; } body { background: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } #print-wrapper { display: block !important; zoom: 1.20 !important; } }`;
-
       document.head.appendChild(style); document.body.appendChild(printWrapper);
       window.print();
       document.body.removeChild(printWrapper); document.head.removeChild(style);
@@ -232,7 +246,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const handleLogout = async () => { await supabase.auth.signOut(); router.push('/login'); }
-
   const handleMarkAllRead = () => { setNotifications([]); setIsNotifOpen(false); }
 
   const menuGroups = [
@@ -252,7 +265,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             { href: "/dashboard/steel-cases/costs", label: "Maliyet & Hak Ediş", icon: Calculator } 
         ] 
     }
-]
+  ]
 
   const userDept = (profile?.department || "").toLowerCase()
   const isMaster = userDept.includes("teknoloji") || userDept.includes("admin") || userDept.includes("yönetim") || userDept.includes("kurucu")
@@ -274,7 +287,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       
       {isMobileMenuOpen && (<div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden animate-in fade-in" onClick={() => setIsMobileMenuOpen(false)}></div>)}
 
-      {/* TOAST BİLDİRİM */}
       {latestNotif && (
           <div className="fixed bottom-6 right-6 z-[999] animate-in slide-in-from-bottom-10 fade-in duration-500">
               <div onClick={() => { router.push(latestNotif.path); setLatestNotif(null); setIsNotifOpen(true); }} className="bg-card border border-border shadow-2xl rounded-2xl p-4 flex items-start gap-4 w-[320px] cursor-pointer hover:scale-[1.02] transition-transform relative group">
@@ -290,7 +302,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
       )}
 
-      {/* SOL MENÜ */}
       <aside className={`fixed inset-y-0 left-0 z-[70] w-[280px] lg:w-[300px] transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col p-4 lg:p-5 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"} lg:flex print:hidden`}>
         <div className="flex-1 flex flex-col bg-card/95 lg:bg-card/60 backdrop-blur-2xl border border-border/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)] lg:shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem] overflow-hidden relative transition-colors">
           <div className="flex items-center justify-between gap-3 p-5 border-b border-border/50">
@@ -524,20 +535,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               <div className="flex gap-2">
                                   <Input type="number" min="1" value={orderItemForm.quantity} onChange={e=>setOrderItemForm({...orderItemForm, quantity: e.target.value})} className="font-black text-primary border-border h-11 bg-background w-1/2" />
                                   <select value={orderItemForm.unit} onChange={e=>setOrderItemForm({...orderItemForm, unit: e.target.value})} className="h-11 w-1/2 rounded-md border border-border bg-background text-foreground text-xs font-bold px-3 focus:ring-2 focus:ring-primary outline-none">
-                                      <option value="ADET">Adet</option>
-                                      <option value="METRE">Metre</option>
-                                      <option value="KG">Kg</option>
-                                      <option value="LİTRE">Litre</option>
-                                      <option value="PAKET">Paket</option>
-                                      <option value="TAKIM">Takım</option>
-                                      <option value="KUTU">Kutu</option>
-                                      <option value="KOLİ">Koli</option>
-                                      <option value="BOY">Boy</option>
-                                      <option value="TABAKA">Tabaka</option>
-                                      <option value="GRAM">Gram</option>
-                                      <option value="RULO">Rulo</option>
-                                      <option value="TENEKE">Teneke</option>
-                                      <option value="PALET">Palet</option>
+                                      <option value="ADET">Adet</option><option value="METRE">Metre</option><option value="KG">Kg</option><option value="LİTRE">Litre</option><option value="PAKET">Paket</option><option value="TAKIM">Takım</option><option value="KUTU">Kutu</option><option value="KOLİ">Koli</option><option value="BOY">Boy</option><option value="TABAKA">Tabaka</option><option value="GRAM">Gram</option><option value="RULO">Rulo</option><option value="TENEKE">Teneke</option><option value="PALET">Palet</option>
                                   </select>
                               </div>
                           </div>
@@ -575,7 +573,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 SİPARİŞ TAKİP MODALI (TAM EKRAN VE GENİŞ YAPILDI) */}
+      {/* 🚀 SİPARİŞ TAKİP MODALI (ONAY VE ALARM GELDİ) */}
       <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[90vh] rounded-[2rem] p-6 border-none bg-card shadow-2xl overflow-hidden flex flex-col z-[100]">
               <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-foreground flex items-center gap-2"><ListOrdered className="text-primary"/> Şirket İçi Tüm Formlar</DialogTitle></DialogHeader>
@@ -586,6 +584,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               <th className="px-4 py-3 font-bold text-muted-foreground">Form No</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground">Talep Eden</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground">Malzeme Cinsi</th>
+                              <th className="px-4 py-3 font-bold text-muted-foreground text-center">Satın Alma Termini</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground">Durum</th>
                               <th className="px-4 py-3 font-bold text-muted-foreground text-right">İşlem</th>
                           </tr>
@@ -594,15 +593,54 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           {allOrders.map(group => {
                               const isMyOrder = group.requested_by === profile?.id || isMaster;
                               const canEdit = isMyOrder && group.status === 'BEKLIYOR';
+                              
+                              // 🚀 YENİ ONAY YETKİLERİ
+                              const canApprove = isMyOrder && group.status === 'TERMIN_GIRILDI';
+                              const canAlarm = isMyOrder && group.status === 'SIPARIS_VERILDI';
 
                               return (
-                              <tr key={group.request_no} className={`hover:bg-muted/50 ${isMyOrder ? 'bg-primary/5' : 'bg-background'}`}>
+                              <tr key={group.request_no} className={`hover:bg-muted/50 transition-colors ${group.status === 'GELMEDI_ALARM' ? 'bg-rose-500/10' : isMyOrder ? 'bg-primary/5' : 'bg-background'}`}>
                                   <td className="px-4 py-4 font-mono text-xs font-bold text-primary">{group.request_no}</td>
                                   <td className="px-4 py-3 font-black text-foreground">{group.profiles?.first_name} {group.profiles?.last_name}</td>
                                   <td className="px-4 py-3 font-bold text-foreground">{group.material_type || "Belirtilmedi"} <span className="text-[10px] text-muted-foreground block">{group.items.length} Kalem İçeriyor</span></td>
-                                  <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest ${group.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' : group.status === 'SIPARIS_VERILDI' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400' : group.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400'}`}>{group.status.replace('_', ' ')}</span></td>
+                                  
+                                  {/* 🚀 EKLENEN TERMİN SÜTUNU */}
+                                  <td className="px-4 py-3 text-center">
+                                      {group.lead_time_days ? (
+                                          <div className="flex flex-col items-center">
+                                              <span className="font-black text-sm">{group.lead_time_days} Gün</span>
+                                              <span className="text-[10px] text-muted-foreground">{group.expected_date}</span>
+                                          </div>
+                                      ) : <span className="text-xs text-muted-foreground italic">Bekleniyor</span>}
+                                  </td>
+
+                                  <td className="px-4 py-3">
+                                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest 
+                                          ${group.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' 
+                                          : group.status === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
+                                          : group.status === 'TERMIN_ONAYLANDI' ? 'bg-emerald-100 text-emerald-700'
+                                          : group.status === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400' 
+                                          : group.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' 
+                                          : group.status === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse shadow-lg'
+                                          : 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400'}`}>
+                                          {group.status.replace('_', ' ')}
+                                      </span>
+                                  </td>
                                   <td className="px-4 py-3 text-right">
                                       <div className="flex items-center justify-end gap-2">
+                                          
+                                          {/* 🚀 ONAYLA VE GELMEDİ BUTONLARI */}
+                                          {canApprove && (
+                                              <Button onClick={() => approveTermin(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md">
+                                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Termini Onayla
+                                              </Button>
+                                          )}
+                                          {canAlarm && (
+                                              <Button onClick={() => triggerAlarm(group.request_no)} size="sm" className="h-8 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/30">
+                                                  <AlertTriangle className="h-3.5 w-3.5 mr-1" /> GELMEDİ ALARMI
+                                              </Button>
+                                          )}
+
                                           <Button onClick={() => openFormViewer(group)} size="sm" className="h-8 bg-primary/10 hover:bg-primary/20 text-primary font-bold text-xs">
                                               <FileText className="h-3.5 w-3.5 mr-1" /> Formu Aç
                                           </Button>
@@ -613,14 +651,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   </td>
                               </tr>
                           )})}
-                          {allOrders.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-muted-foreground font-medium">Henüz verilen bir sipariş yok.</td></tr>}
+                          {allOrders.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-muted-foreground font-medium">Henüz verilen bir sipariş yok.</td></tr>}
                       </tbody>
                   </table>
               </div>
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 KUSURSUZ ZM METAL FORMU (TAM EKRAN VE LOGOSU DÜZELTİLDİ) */}
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[95vh] p-0 border-none bg-muted shadow-2xl flex flex-col z-[200] overflow-hidden print:!w-full print:!max-w-none print:!h-auto print:!shadow-none print:block print:p-0 print:m-0 print:bg-white">
               
@@ -701,7 +738,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                       <td className="border border-black p-2 pl-3 font-black text-black">{item.material_name}</td>
                                       <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{item.current_stock || 0}</td>
                                       <td className="border border-black p-2 text-center font-black text-sm text-black">{item.quantity} {item.unit || 'ADET'}</td>
-                                      <td className="border border-black p-2 text-center"></td>
+                                      <td className="border border-black p-2 text-center font-bold text-[#1e293b]">{(viewingOrderGroup?.lead_time_days) ? `${viewingOrderGroup.lead_time_days} GÜN` : ''}</td>
                                   </tr>
                               ))}
                               {[...Array(Math.max(0, 10 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
