@@ -10,7 +10,7 @@ import {
   Calculator, HardHat, FileCog, Factory, AlertCircle, Bell, 
   LogOut, UserCircle, Settings, ChevronDown, PieChart, TrendingUp,
   Wallet, FileText, Archive, ScanLine, History, Menu, X,
-  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Printer, CheckCircle, Check, Palette, Sun, Moon, CheckCircle2, AlertTriangle, Box
+  ShoppingCart, ListOrdered, Send, Loader2, ArchiveRestore, Plus, Trash2, MessageCircle, Edit2, Printer, CheckCircle, Check, Palette, Sun, Moon, CheckCircle2, AlertTriangle, Box, Search, Filter
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false)
   const [allOrders, setAllOrders] = useState<any[]>([])
+  
+  // 🚀 YENİ: SİPARİŞ TAKİP ARAMA VE FİLTRELEME STATELERİ
+  const [trackingSearchTerm, setTrackingSearchTerm] = useState("")
+  const [trackingRequesterFilter, setTrackingRequesterFilter] = useState("ALL")
   
   const [isFormViewerOpen, setIsFormViewerOpen] = useState(false)
   const [viewingOrderGroup, setViewingOrderGroup] = useState<any>(null)
@@ -165,10 +169,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
   }
 
-  // 🚀 KUSURSUZ (TEK ADIM) ONAY MEKANİZMASI
   const approveTermin = async (requestNo: string) => {
       if(!confirm("Termini onaylıyorsunuz. Bu işlem satın almaya 'ONAY' verecek ve sipariş KESİNLEŞECEKTİR!")) return;
-      // Eskiden TERMIN_ONAYLANDI yapıp satın almacıyı bekletiyorduk. Artık direkt SIPARIS_VERILDI!
       await supabase.from('material_requests').update({ status: 'SIPARIS_VERILDI' }).eq('request_no', requestNo);
       fetchAllOrders();
   }
@@ -197,7 +199,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (error) alert("Hata: " + error.message); else fetchAllOrders();
   }
 
-  // .. FORM ADD/SUBMIT ..
   const handleAddOrderItem = () => {
       if (!orderItemForm.material_name.trim()) return alert("Lütfen malzeme adı giriniz!");
       if (Number(orderItemForm.quantity) < 1) return alert("Miktar en az 1 olmalıdır!");
@@ -262,12 +263,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleLogout = async () => { await supabase.auth.signOut(); router.push('/login'); }
   const handleMarkAllRead = () => { setNotifications([]); setIsNotifOpen(false); }
 
+  // 🚀 ARAMA VE FİLTRELEME İÇİN GEREKLİ LİSTELERİ HAZIRLA
+  const uniqueRequesters = Array.from(new Set(allOrders.map((o:any) => `${o.profiles?.first_name || ''} ${o.profiles?.last_name || ''}`.trim()))).filter(name => name !== "")
+
+  const trackingFilteredOrders = allOrders.filter((group:any) => {
+      const fullName = `${group.profiles?.first_name || ''} ${group.profiles?.last_name || ''}`.trim()
+      const matchesRequester = trackingRequesterFilter === "ALL" || fullName === trackingRequesterFilter
+      
+      const searchStr = trackingSearchTerm.toLowerCase()
+      const matchesSearch = 
+          (group.request_no || "").toLowerCase().includes(searchStr) ||
+          fullName.toLowerCase().includes(searchStr) ||
+          (group.material_type || "").toLowerCase().includes(searchStr) ||
+          (group.status || "").replace('_', ' ').toLowerCase().includes(searchStr)
+          
+      return matchesRequester && matchesSearch
+  })
+
   const menuGroups = [
-    { title: "GENEL", allowedRoles: ["yönetim", "admin", "arge" , "satış", "muhasebe", "mühendis", "üretim", "proje", "mühendis", "satın", "otomasyon","çelik",], items: [ { href: "/dashboard", label: "Ana Sayfa", icon: Home }, { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package }, { href: "/dashboard/customers", label: "Müşteriler", icon: Users }, { href: "/dashboard/suppliers", label: "Tedarikçiler", icon: Truck }, { href: "/dashboard/archive", label: "Üretim Arşivi", icon: ArchiveRestore } ] },
+    { title: "GENEL", allowedRoles: ["yönetim", "admin", "satış", "muhasebe", "mühendis", "üretim", "proje", "mühendis", "satın", "otomasyon","çelik",], items: [ { href: "/dashboard", label: "Ana Sayfa", icon: Home }, { href: "/dashboard/inventory", label: "Stok & Envanter", icon: Package }, { href: "/dashboard/customers", label: "Müşteriler", icon: Users }, { href: "/dashboard/suppliers", label: "Tedarikçiler", icon: Truck }, { href: "/dashboard/archive", label: "Üretim Arşivi", icon: ArchiveRestore } ] },
     { title: "SATIN ALMA BİRİMİ", allowedRoles: ["satın", "admin", "yönetim", "proje",], items: [ { href: "/dashboard/purchases", label: "Satın Alma Paneli", icon: ClipboardList }, { href: "/dashboard/purchase-history", label: "Sipariş Geçmişi", icon: History } ] },
     { title: "MÜHENDİSLİK & PROJE", allowedRoles: ["mühendis", "arge", "proje", "tasarım", "mühendis"], items: [ { href: "/dashboard/engineering/projects", label: "Proje Paneli", icon: FileCog }, { href: "/dashboard/offers", label: "Teklif & Hesaplama", icon: Calculator } ] },
-    { title: "İMALAT YÖNETİMİ", allowedRoles: ["imalat", "üretim", "fabrika", "proje"], items: [ { href: "/dashboard/manufacturing/dashboard", label: "İmalat Paneli", icon: Factory }, { href: "/dashboard/manufacturing/missing", label: "Eksik Malzemeler", icon: AlertCircle } ] },
-    { title: "SAHA (ÜRETİM)", allowedRoles: ["imalat", "üretim", "saha", "montaj", "proje","satın","otomasyon"], items: [ { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat } ] },
+    { title: "İMALAT YÖNETİMİ", allowedRoles: ["imalat", "üretim", "fabrika", "proje",], items: [ { href: "/dashboard/manufacturing/dashboard", label: "İmalat Paneli", icon: Factory }, { href: "/dashboard/manufacturing/missing", label: "Eksik Malzemeler", icon: AlertCircle } ] },
+    { title: "SAHA (ÜRETİM)", allowedRoles: ["imalat", "üretim", "saha", "montaj", "proje","satın"], items: [ { href: "/dashboard/production-screen", label: "Üretim Ekranı", icon: HardHat } ] },
     { title: "DEPO & LOJİSTİK", allowedRoles: ["depo", "lojistik", "üretim", "satın", "mühendis", "proje",], items: [ { href: "/dashboard/warehouse/products", label: "Depo Ürünleri (QR)", icon: Archive }, { href: "/dashboard/warehouse/entries", label: "Mal Kabul & İrsaliye", icon: ClipboardList }, { href: "/dashboard/warehouse/scanner", label: "QR Barkod Terminali", icon: ScanLine }, { href: "/dashboard/warehouse/logs", label: "Stok Hareket Analizi", icon: History } ] },
     { title: "MUHASEBE & FİNANS", allowedRoles: ["muhasebe", "finans", "yönetici", "admin", "proje",], items: [ { href: "/dashboard/finance/invoices", label: "Faturalar & İrsaliyeler", icon: FileText }, { href: "/dashboard/finance/dashboard", label: "Finans Özeti", icon: Wallet }, { href: "/dashboard/finance/payroll", label: "Puantaj & Bordro", icon: Calculator } ] },
     { title: "SATIŞ TAKİP", allowedRoles: ["satış", "pazarlama", "bayi", "üretim", "muhasebe", "proje" ], items: [ { href: "/dashboard/tracking", label: "Takip Paneli", icon: PieChart }, { href: "/dashboard/tracking/products", label: "Ürünler / Modeller", icon: Package }, { href: "/dashboard/tracking/sales", label: "Satış İşlemleri", icon: TrendingUp }, { href: "/dashboard/tracking/personnel", label: "Personeller", icon: Users } ] },
@@ -587,10 +605,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogContent>
       </Dialog>
 
-      {/* 🚀 SİPARİŞ TAKİP MODALI (SADELEŞTİRİLMİŞ ONAY AKIŞI) */}
+      {/* 🚀 SİPARİŞ TAKİP MODALI (ARAMA VE FİLTRELEME EKLENDİ) */}
       <Dialog open={isTrackingModalOpen} onOpenChange={setIsTrackingModalOpen}>
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[90vh] rounded-[2rem] p-6 border-none bg-card shadow-2xl overflow-hidden flex flex-col z-[100]">
-              <DialogHeader className="shrink-0"><DialogTitle className="text-2xl font-black text-foreground flex items-center gap-2"><ListOrdered className="text-primary"/> Şirket İçi Tüm Formlar</DialogTitle></DialogHeader>
+              <DialogHeader className="shrink-0">
+                  <DialogTitle className="text-2xl font-black text-foreground flex items-center gap-2"><ListOrdered className="text-primary"/> Şirket İçi Tüm Formlar</DialogTitle>
+              </DialogHeader>
+
+              {/* 🚀 YENİ EKLENEN EN ÜST SEVİYE ARAMA VE FİLTRE ÇUBUĞU */}
+              <div className="flex flex-col sm:flex-row gap-3 mt-4 shrink-0 bg-muted/30 p-3 rounded-2xl border border-border">
+                  <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                      <Input 
+                          placeholder="Form No, İsim, Malzeme veya Durum ara..." 
+                          value={trackingSearchTerm}
+                          onChange={(e) => setTrackingSearchTerm(e.target.value)}
+                          className="pl-10 h-12 rounded-xl bg-background border-border focus:ring-2 focus:ring-primary font-bold shadow-sm"
+                      />
+                  </div>
+                  <div className="relative flex-shrink-0">
+                      <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
+                      <select 
+                          value={trackingRequesterFilter} 
+                          onChange={(e) => setTrackingRequesterFilter(e.target.value)}
+                          className="h-12 pl-9 pr-8 rounded-xl bg-primary/5 border border-primary/20 text-sm font-black text-primary outline-none focus:ring-2 focus:ring-primary w-full sm:w-[220px] shadow-sm appearance-none cursor-pointer"
+                      >
+                          <option value="ALL">Tüm Personeller</option>
+                          {uniqueRequesters.map(req => (
+                              <option key={req} value={req}>{req}</option>
+                          ))}
+                      </select>
+                  </div>
+              </div>
+
               <div className="overflow-y-auto custom-scrollbar flex-1 mt-4 border border-border rounded-xl">
                   <table className="w-full text-left border-collapse text-sm">
                       <thead className="bg-muted sticky top-0 z-10">
@@ -604,14 +651,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                          {allOrders.map(group => {
+                          {trackingFilteredOrders.map((group: any) => {
                               const isMyOrder = group.requested_by === profile?.id || isMaster;
                               const safeStatus = group.status || 'BEKLIYOR';
                               
-                              // 🚀 KUSURSUZ YETKİLENDİRME (KİMSE YANLIŞ BUTONA BASAMAZ)
                               const canCancel = isMyOrder && safeStatus === 'BEKLIYOR'; 
-                              const canApprove = isMyOrder && safeStatus === 'TERMIN_GIRILDI'; // Onaylarsan SİPARİŞ VERİLDİ olur
-                              const canAlarm = isMyOrder && safeStatus === 'SIPARIS_VERILDI';  // Alarm/Geldi SADECE Sipariş Verildiyse çıkar
+                              const canApprove = isMyOrder && safeStatus === 'TERMIN_GIRILDI'; 
+                              const canAlarm = isMyOrder && safeStatus === 'SIPARIS_VERILDI';  
 
                               return (
                               <tr key={group.request_no} className={`hover:bg-muted/50 transition-colors ${safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500/10' : safeStatus === 'GELDI' ? 'bg-emerald-500/10' : isMyOrder ? 'bg-primary/5' : 'bg-background'}`}>
@@ -630,19 +676,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                                   <td className="px-4 py-3">
                                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-widest 
-                                          ${safeStatus === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' 
+                                          ${safeStatus === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' 
                                           : safeStatus === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
-                                          : safeStatus === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700' 
+                                          : safeStatus === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-400' 
                                           : safeStatus === 'GELDI' ? 'bg-emerald-500 text-white shadow-md' 
                                           : safeStatus === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse shadow-lg'
-                                          : 'bg-rose-100 text-rose-700'}`}>
+                                          : 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400'}`}>
                                           {safeStatus.replace('_', ' ')}
                                       </span>
                                   </td>
                                   <td className="px-4 py-3 text-right">
                                       <div className="flex items-center justify-end gap-2 flex-wrap">
                                           
-                                          {/* TERMİN ONAY/RED BUTONLARI (TEK ADIM ONAY) */}
                                           {canApprove && (
                                               <>
                                                 <Button onClick={() => rejectTermin(group.request_no)} size="sm" variant="outline" className="h-8 text-rose-600 border-rose-200 hover:bg-rose-50 font-bold text-xs">
@@ -654,7 +699,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                               </>
                                           )}
 
-                                          {/* DEPO ALARM VE TESLİM ALINDI BUTONLARI */}
                                           {canAlarm && (
                                               <>
                                                 <Button onClick={() => triggerAlarm(group.request_no)} size="sm" className="h-8 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/30">
@@ -670,7 +714,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                               <FileText className="h-3.5 w-3.5 mr-1" /> Form
                                           </Button>
 
-                                          {/* SADECE BEKLIYORKEN (SATIN ALMA EL SÜRMEDEN) KOMPLE IPTAL HAKKI */}
                                           {canCancel && (
                                               <button onClick={() => handleCancelMyRequest(group.request_no)} className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors" title="Talebi İptal Et"><Trash2 className="h-4 w-4" /></button>
                                           )}
@@ -678,7 +721,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   </td>
                               </tr>
                           )})}
-                          {allOrders.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-muted-foreground font-medium">Henüz verilen bir sipariş yok.</td></tr>}
+                          {trackingFilteredOrders.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-muted-foreground font-medium">Arama kriterlerinize uyan bir form bulunamadı.</td></tr>}
                       </tbody>
                   </table>
               </div>
