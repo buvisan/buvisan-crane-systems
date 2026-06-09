@@ -53,6 +53,9 @@ export default function PurchasesPage() {
   const [historySearch, setHistorySearch] = useState("")
   const [historySupplierFilter, setHistorySupplierFilter] = useState("")
   const [historyDateFilter, setHistoryDateFilter] = useState("")
+  
+  // EKLENEN: Sipariş Formları Arama State'i
+  const [orderFormSearch, setOrderFormSearch] = useState("")
 
   useEffect(() => { 
       fetchRequests(); 
@@ -94,6 +97,7 @@ export default function PurchasesPage() {
                       if (req.priority === 'ACIL') acc[req.request_no].priority = 'ACIL' 
                       if (req.status === 'GELMEDI_ALARM') acc[req.request_no].status = 'GELMEDI_ALARM'
                       if (req.status === 'BEKLIYOR') acc[req.request_no].status = 'BEKLIYOR'
+                      if (req.is_order_form_created) acc[req.request_no].is_order_form_created = true // EKLENDİ: Grup form durumunu korusun
                   }
                   return acc
               }, {})
@@ -155,7 +159,8 @@ export default function PurchasesPage() {
                   currency: data.currency,
                   expected_date: data.leadTime,
                   lead_time_days: diffDays,
-                  status: purchaseGroup.status === 'GELMEDI_ALARM' ? 'SIPARIS_VERILDI' : 'TERMIN_GIRILDI'
+                  status: purchaseGroup.status === 'GELMEDI_ALARM' ? 'SIPARIS_VERILDI' : 'TERMIN_GIRILDI',
+                  is_order_form_created: true // DÜZELTME: Artık siparişi kaydederken formu oluşturulmuş sayıyor.
               }).eq('id', item.id);
           }
           alert("Satın alma verileri başarıyla işlendi ve onaya sunuldu!");
@@ -254,7 +259,6 @@ export default function PurchasesPage() {
   const uniquePersons = Array.from(new Set(requests.map(r => `${r.profiles?.first_name} ${r.profiles?.last_name}`)));
   
   const rightPanelData = requests.filter(r => {
-      // DÜZELTME BURADA YAPILDI: Verenler ise GELDI olmayanları, Alanlar ise GELDI olanları gösterir.
       const statusMatch = rightPanelTab === 'VERENLER' ? r.status !== 'GELDI' : r.status === 'GELDI';
       const personMatch = personFilter ? `${r.profiles?.first_name} ${r.profiles?.last_name}` === personFilter : true;
       const dateMatch = dateFilter ? r.created_at?.startsWith(dateFilter) : true;
@@ -270,7 +274,11 @@ export default function PurchasesPage() {
       return searchMatch && supplierMatch && dateMatch;
   });
 
-  const orderFormsArchive = requests.filter(r => r.is_order_form_created || r.status !== 'BEKLIYOR');
+  // DÜZELTME: Arama state'i eklendi, mantık güncellendi
+  const orderFormsArchive = requests.filter(r => 
+      (r.is_order_form_created || r.status !== 'BEKLIYOR') && 
+      (orderFormSearch === "" || r.request_no.toLowerCase().includes(orderFormSearch.toLowerCase()))
+  );
 
   return (
     <div className="flex flex-col gap-6 font-sans xl:h-[calc(100vh-100px)] w-full pb-10 xl:pb-0 overflow-hidden transition-colors">
@@ -473,7 +481,8 @@ export default function PurchasesPage() {
       <div className="flex flex-col flex-1 bg-card/60 backdrop-blur-2xl border border-border shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full p-6">
           <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-black text-foreground flex items-center gap-2"><FileBadge className="h-6 w-6 text-primary"/> Oluşturulan Sipariş Formları</h2>
-              <div className="relative w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Form No Ara..." className="pl-9 h-11 bg-background border-border text-xs rounded-xl" /></div>
+              {/* DÜZELTME: Arama inputuna value ve onChange eklendi */}
+              <div className="relative w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Form No Ara..." value={orderFormSearch} onChange={(e) => setOrderFormSearch(e.target.value)} className="pl-9 h-11 bg-background border-border text-xs rounded-xl" /></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar pb-6">
               {orderFormsArchive.map((formGroup, i) => (
@@ -513,7 +522,6 @@ export default function PurchasesPage() {
                               <span className="text-xs font-bold bg-background px-3 py-1 rounded-md border border-border shadow-sm">İstenen: {item.quantity} {item.unit}</span>
                           </div>
                           
-                          {/* DÜZELTME BURADA YAPILDI: md:grid-cols-4 yerine sm:grid-cols-3 yapıldı. 3 eşit büyük sütun. */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
                               <div className="space-y-1">
                                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Tedarikçi Firma</Label>
