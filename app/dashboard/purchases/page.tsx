@@ -86,7 +86,7 @@ export default function PurchasesPage() {
                         request_no: req.request_no, project_code: req.project_code, material_type: req.description, 
                         status: req.status, created_at: req.created_at, requested_by: req.requested_by, profiles: req.profiles, 
                         priority: req.priority, expected_date: req.expected_date, 
-                        supplier_name: req.supplier_name, is_order_form_created: req.is_order_form_created, // Yeni eklendi
+                        supplier_name: req.supplier_name, is_order_form_created: req.is_order_form_created,
                         items: [req] 
                       }
                   } else {
@@ -111,7 +111,6 @@ export default function PurchasesPage() {
       finally { setLoading(false) }
   }
 
-  // --- YENİ: SATIN ALMA TAMAMLAMA MODALI İŞLEMLERİ ---
   const openPurchaseModal = (reqGroup: any) => {
       setPurchaseGroup(reqGroup);
       const initialData: any = {};
@@ -137,7 +136,6 @@ export default function PurchasesPage() {
   const submitPurchaseData = async () => {
       setIsSavingForm(true);
       try {
-          // Her bir item için veritabanını güncelle
           for (const item of purchaseGroup.items) {
               const data = purchaseData[item.id];
               if(!data.supplier || !data.price || !data.leadTime) {
@@ -211,12 +209,10 @@ export default function PurchasesPage() {
       } catch (error: any) { alert("Hata: " + error.message); } finally { setIsSavingForm(false); }
   }
 
-  // --- DİNAMİK PDF İNDİRME / YAZDIRMA (Sipariş Formu Mantığı Eklendi) ---
   const handlePrint = async () => {
       const originalTitle = document.title;
       
       if (isOrderFormMode) {
-          // LocalStorage üzerinden sayaç artırma mantığı (Sıfırdan sonsuza)
           let currentCount = parseInt(localStorage.getItem('siparisFormCount') || '0');
           currentCount += 1;
           localStorage.setItem('siparisFormCount', currentCount.toString());
@@ -224,7 +220,6 @@ export default function PurchasesPage() {
           const formattedCount = String(currentCount).padStart(3, '0');
           document.title = `siparis-formu-${formattedCount}`;
 
-          // Formun sipariş formuna dönüştürüldüğünü db'ye işle (Arşiv sekmesi için)
           if(viewingOrderGroup && !viewingOrderGroup.is_order_form_created) {
               await supabase.from('material_requests').update({ is_order_form_created: true }).eq('request_no', viewingOrderGroup.request_no);
               fetchRequests();
@@ -251,24 +246,21 @@ export default function PurchasesPage() {
       
       document.body.removeChild(printWrapper); document.head.removeChild(style);
       originalVisibility.forEach(({ el, display }) => { (el as HTMLElement).style.display = display; });
-      document.title = originalTitle; // Title'ı eski haline çevir
+      document.title = originalTitle; 
   };
 
-  // Veri Filtreleri
   const filteredRequests = filterAlarm ? requests.filter(r => r.status === 'GELMEDI_ALARM') : requests;
   
-  // Sağ Panel Filtrelemesi (Verenler ve Alanlar)
   const uniquePersons = Array.from(new Set(requests.map(r => `${r.profiles?.first_name} ${r.profiles?.last_name}`)));
   
   const rightPanelData = requests.filter(r => {
-      // Siparişi Verenler = Tümü, Teslim Alanlar = Sadece GELDI statüsünde olanlar
-      const statusMatch = rightPanelTab === 'VERENLER' ? true : r.status === 'GELDI';
+      // DÜZELTME BURADA YAPILDI: Verenler ise GELDI olmayanları, Alanlar ise GELDI olanları gösterir.
+      const statusMatch = rightPanelTab === 'VERENLER' ? r.status !== 'GELDI' : r.status === 'GELDI';
       const personMatch = personFilter ? `${r.profiles?.first_name} ${r.profiles?.last_name}` === personFilter : true;
       const dateMatch = dateFilter ? r.created_at?.startsWith(dateFilter) : true;
       return statusMatch && personMatch && dateMatch;
   });
 
-  // Geçmiş Satın Alınanlar Filtrelemesi (Sadece Termin Girildi, Sipariş Verildi veya Geldi olanlar)
   const historyData = requests.filter(r => 
       ['TERMIN_GIRILDI', 'SIPARIS_VERILDI', 'GELDI'].includes(r.status)
   ).flatMap(r => r.items).filter(item => {
@@ -278,13 +270,11 @@ export default function PurchasesPage() {
       return searchMatch && supplierMatch && dateMatch;
   });
 
-  // Oluşturulmuş Sipariş Formları Arşivi
   const orderFormsArchive = requests.filter(r => r.is_order_form_created || r.status !== 'BEKLIYOR');
 
   return (
     <div className="flex flex-col gap-6 font-sans xl:h-[calc(100vh-100px)] w-full pb-10 xl:pb-0 overflow-hidden transition-colors">
       
-      {/* ÜST BAR & ANA SEKMELER */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 shrink-0">
         <div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Satın Alma Kokpiti</h1>
@@ -313,10 +303,8 @@ export default function PurchasesPage() {
         </div>
       </div>
 
-      {/* --- KOKPİT SEKMESİ --- */}
       {activeMainTab === 'KOKPIT' && (
       <div className="flex flex-col xl:flex-row gap-6 flex-1 min-h-0 w-full">
-          {/* SOL PANEL: SAHA İSTEKLERİ */}
           <div className="w-full xl:w-6/12 flex flex-col bg-card/60 backdrop-blur-2xl border border-primary/20 shadow-lg shadow-primary/5 rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shrink-0 transition-all max-h-[800px] xl:max-h-full">
               <div className="flex flex-col border-b border-primary/20 bg-primary/5">
                   <button onClick={() => setShowRequests(!showRequests)} className="flex items-center justify-between p-4 md:p-5 hover:bg-primary/10 cursor-pointer">
@@ -395,7 +383,6 @@ export default function PurchasesPage() {
               )}
           </div>
 
-          {/* SAĞ PANEL: SİPARİŞİ VERENLER & TESLİM ALANLAR */}
           <div className="w-full xl:w-6/12 flex flex-col bg-card/60 backdrop-blur-2xl border border-border shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden">
               <div className="flex border-b border-border bg-muted/30">
                   <button onClick={() => setRightPanelTab('VERENLER')} className={`flex-1 py-4 text-sm font-black transition-all border-b-2 ${rightPanelTab === 'VERENLER' ? 'border-primary text-primary bg-background' : 'border-transparent text-muted-foreground hover:bg-muted'}`}>Siparişi Verenler</button>
@@ -439,7 +426,6 @@ export default function PurchasesPage() {
       </div>
       )}
 
-      {/* --- GEÇMİŞ SATIN ALINANLAR SEKMESİ --- */}
       {activeMainTab === 'GECMIS' && (
       <div className="flex flex-col flex-1 bg-card/60 backdrop-blur-2xl border border-border shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full">
           <div className="p-5 border-b border-border bg-background flex flex-col md:flex-row gap-4 justify-between items-center shrink-0">
@@ -483,7 +469,6 @@ export default function PurchasesPage() {
       </div>
       )}
 
-      {/* --- SİPARİŞ FORMLARI SEKMESİ --- */}
       {activeMainTab === 'FORMLAR' && (
       <div className="flex flex-col flex-1 bg-card/60 backdrop-blur-2xl border border-border shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full p-6">
           <div className="flex justify-between items-center mb-6">
@@ -512,7 +497,7 @@ export default function PurchasesPage() {
 
       {/* --- MODALLAR --- */}
 
-      {/* 1. SATIN ALMA GİRİŞ MODALI (YENİ) */}
+      {/* 1. SATIN ALMA GİRİŞ MODALI */}
       <Dialog open={isPurchaseModalOpen} onOpenChange={setIsPurchaseModalOpen}>
           <DialogContent className="rounded-[2rem] p-6 max-w-4xl w-[95vw] border-none bg-card shadow-2xl flex flex-col max-h-[90vh]">
               <DialogHeader className="shrink-0 mb-4">
@@ -528,7 +513,8 @@ export default function PurchasesPage() {
                               <span className="text-xs font-bold bg-background px-3 py-1 rounded-md border border-border shadow-sm">İstenen: {item.quantity} {item.unit}</span>
                           </div>
                           
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                          {/* DÜZELTME BURADA YAPILDI: md:grid-cols-4 yerine sm:grid-cols-3 yapıldı. 3 eşit büyük sütun. */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
                               <div className="space-y-1">
                                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Tedarikçi Firma</Label>
                                   <Input value={purchaseData[item.id]?.supplier || ""} onChange={e => handlePurchaseItemChange(item.id, 'supplier', e.target.value)} placeholder="Firma Adı" className="h-10 bg-background text-xs font-bold" />
@@ -537,7 +523,7 @@ export default function PurchasesPage() {
                                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Birim Fiyat</Label>
                                   <div className="flex gap-1">
                                       <Input type="number" step="0.01" value={purchaseData[item.id]?.price || ""} onChange={e => handlePurchaseItemChange(item.id, 'price', e.target.value)} placeholder="0.00" className="h-10 bg-background text-xs font-black text-primary w-full" />
-                                      <select value={purchaseData[item.id]?.currency || "TL"} onChange={e => handlePurchaseItemChange(item.id, 'currency', e.target.value)} className="w-16 h-10 rounded-md border border-border bg-background text-xs font-bold px-1 outline-none">
+                                      <select value={purchaseData[item.id]?.currency || "TL"} onChange={e => handlePurchaseItemChange(item.id, 'currency', e.target.value)} className="w-16 h-10 rounded-md border border-border bg-background text-xs font-bold px-1 outline-none shrink-0">
                                           <option value="TL">₺</option><option value="USD">$</option><option value="EUR">€</option>
                                       </select>
                                   </div>
@@ -560,7 +546,7 @@ export default function PurchasesPage() {
           </DialogContent>
       </Dialog>
 
-      {/* 2. FORM REVİZE MODALI (Eski Haliyle Korundu) */}
+      {/* 2. FORM REVİZE MODALI */}
       <Dialog open={isFormEditModalOpen} onOpenChange={setIsFormEditModalOpen}>
           <DialogContent className="rounded-[2rem] p-6 max-w-[95vw] w-[95vw] h-[90vh] border-none bg-card shadow-2xl flex flex-col max-h-[95vh] print:hidden">
               <DialogHeader className="shrink-0 mb-4">
@@ -619,11 +605,10 @@ export default function PurchasesPage() {
           </DialogContent>
       </Dialog>
 
-      {/* 3. DİJİTAL FORM GÖRÜNTÜLEYİCİ (İstek Formu & Sipariş Formu Ortak) */}
+      {/* 3. DİJİTAL FORM GÖRÜNTÜLEYİCİ */}
       <Dialog open={isFormViewerOpen} onOpenChange={setIsFormViewerOpen}>
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[95vh] p-0 border-none bg-muted shadow-2xl flex flex-col z-[200] overflow-hidden print:!w-full print:!max-w-none print:!h-auto print:!shadow-none print:block print:p-0 print:m-0 print:bg-white">
               
-              {/* Ekrana Özel Toolbar - Yazıcıda Görünmez */}
               <div className="bg-card border-b border-border p-4 shrink-0 flex justify-between items-center print:hidden shadow-sm z-10">
                   <div className="flex gap-2">
                       <Button onClick={() => setIsOrderFormMode(false)} variant={!isOrderFormMode ? 'default' : 'outline'} className={`h-10 text-xs font-bold rounded-xl ${!isOrderFormMode ? 'shadow-md' : ''}`}>İstek Formu Olarak Gör</Button>
@@ -722,7 +707,6 @@ export default function PurchasesPage() {
                                       <td className="border border-black p-1 text-center font-bold text-[#1e293b]">{(item.expected_date) ? `${new Date(item.expected_date).toLocaleDateString('tr-TR')}` : '-'}</td>
                                   </tr>
                               ))}
-                              {/* Boş Satırlar */}
                               {[...Array(Math.max(0, 15 - (viewingOrderGroup?.items?.length || 0)))].map((_, i) => (
                                   <tr key={`empty-${i}`} className="h-8">
                                       <td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td><td className="border border-black"></td>{isOrderFormMode && <td className="border border-black"></td>}
