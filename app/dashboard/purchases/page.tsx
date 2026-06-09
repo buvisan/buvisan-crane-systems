@@ -20,10 +20,13 @@ export default function PurchasesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const supabase = createClient()
 
+  // ANA SEKMELER: KOKPIT | GECMIS | FORMLAR
   const [activeMainTab, setActiveMainTab] = useState<'KOKPIT' | 'GECMIS' | 'FORMLAR'>('KOKPIT')
+
   const [requests, setRequests] = useState<any[]>([])
   const [showRequests, setShowRequests] = useState(true)
   
+  // SAĞ PANEL SEKMELERİ
   const [rightPanelTab, setRightPanelTab] = useState<'VERENLER' | 'ALANLAR'>('VERENLER')
   const [personFilter, setPersonFilter] = useState("")
   const [dateFilter, setDateFilter] = useState("")
@@ -38,6 +41,7 @@ export default function PurchasesPage() {
   const [newItemForm, setNewItemForm] = useState({ material_name: "", current_stock: "0", quantity: "1", unit: "ADET" })
   const [isSavingForm, setIsSavingForm] = useState(false)
 
+  // SATIN ALMA GİRİŞ MODALI
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
   const [purchaseGroup, setPurchaseGroup] = useState<any>(null)
   const [purchaseData, setPurchaseData] = useState<any>({})
@@ -45,10 +49,12 @@ export default function PurchasesPage() {
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [filterAlarm, setFilterAlarm] = useState(false)
 
+  // Geçmiş Satın Alınanlar Filtreleri
   const [historySearch, setHistorySearch] = useState("")
   const [historySupplierFilter, setHistorySupplierFilter] = useState("")
   const [historyDateFilter, setHistoryDateFilter] = useState("")
   
+  // Sipariş Formları Arama State'i
   const [orderFormSearch, setOrderFormSearch] = useState("")
 
   useEffect(() => { 
@@ -81,17 +87,16 @@ export default function PurchasesPage() {
                   if (!acc[req.request_no]) {
                       acc[req.request_no] = { 
                         request_no: req.request_no, project_code: req.project_code, material_type: req.description, 
-                        status: req.status, created_at: req.created_at, requested_by: req.requested_by, profiles: req.profiles, 
+                        status: req.status || 'BEKLIYOR', created_at: req.created_at, requested_by: req.requested_by, profiles: req.profiles, 
                         priority: req.priority, expected_date: req.expected_date, 
-                        supplier_name: req.supplier_name, is_order_form_created: req.is_order_form_created,
+                        supplier_name: req.supplier_name,
                         items: [req] 
                       }
                   } else {
                       acc[req.request_no].items.push(req)
                       if (req.priority === 'ACIL') acc[req.request_no].priority = 'ACIL' 
                       if (req.status === 'GELMEDI_ALARM') acc[req.request_no].status = 'GELMEDI_ALARM'
-                      if (req.status === 'BEKLIYOR') acc[req.request_no].status = 'BEKLIYOR'
-                      if (req.is_order_form_created) acc[req.request_no].is_order_form_created = true
+                      if (req.status === 'BEKLIYOR' || !req.status) acc[req.request_no].status = 'BEKLIYOR'
                   }
                   return acc
               }, {})
@@ -153,8 +158,7 @@ export default function PurchasesPage() {
                   currency: data.currency,
                   expected_date: data.leadTime,
                   lead_time_days: diffDays,
-                  status: purchaseGroup.status === 'GELMEDI_ALARM' ? 'SIPARIS_VERILDI' : 'TERMIN_GIRILDI',
-                  is_order_form_created: true
+                  status: purchaseGroup.status === 'GELMEDI_ALARM' ? 'SIPARIS_VERILDI' : 'TERMIN_GIRILDI'
               }).eq('id', item.id);
           }
           alert("Satın alma verileri başarıyla işlendi ve onaya sunuldu!");
@@ -218,11 +222,6 @@ export default function PurchasesPage() {
           
           const formattedCount = String(currentCount).padStart(3, '0');
           document.title = `siparis-formu-${formattedCount}`;
-
-          if(viewingOrderGroup && !viewingOrderGroup.is_order_form_created) {
-              await supabase.from('material_requests').update({ is_order_form_created: true }).eq('request_no', viewingOrderGroup.request_no);
-              fetchRequests();
-          }
       }
 
       const printContent = document.getElementById('printable-form');
@@ -268,11 +267,10 @@ export default function PurchasesPage() {
       return searchMatch && supplierMatch && dateMatch;
   });
 
-  // DÜZELTME: Arama algoritması geliştirildi ve BEKLIYOR olmayanların listelenmesi garantiye alındı.
+  // DÜZELTME YAPILAN YER: Sadece statü üzerinden çalışarak Sipariş Formlarını garantiler.
   const orderFormsArchive = requests.filter(r => {
-      // Satın alma işlemi yapılmış olanları Sipariş Formu kabul et.
-      const isActuallyOrdered = r.is_order_form_created || !['BEKLIYOR', 'GELMEDI_ALARM', 'REDDEDILDI'].includes(r.status);
-      if (!isActuallyOrdered) return false;
+      const isOrdered = ['TERMIN_GIRILDI', 'SIPARIS_VERILDI', 'GELDI'].includes(r.status);
+      if (!isOrdered) return false;
       
       if (orderFormSearch === "") return true;
 
@@ -376,7 +374,6 @@ export default function PurchasesPage() {
                                                   <ShoppingCart className="h-4 w-4 mr-2" /> {isAlarm ? 'Satın Almayı Güncelle (Alarmı Kapat)' : 'Satın Almayı Gir & Onayla'}
                                               </Button>
                                           ) : (safeStatus === 'TERMIN_GIRILDI' || safeStatus === 'SIPARIS_VERILDI' || safeStatus === 'GELDI') ? (
-                                              /* DÜZELTME: Satın alma yapıldıktan sonra artık form detaylarına buradan da erişilebilecek. */
                                               <div className="flex flex-col gap-2">
                                                   <Button onClick={() => openFormViewer(reqGroup, true)} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-xl shadow-md">
                                                       <FileBadge className="h-4 w-4 mr-2" /> Sipariş Formunu Görüntüle
@@ -497,7 +494,6 @@ export default function PurchasesPage() {
       <div className="flex flex-col flex-1 bg-card/60 backdrop-blur-2xl border border-border shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full p-6">
           <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-black text-foreground flex items-center gap-2"><FileBadge className="h-6 w-6 text-primary"/> Oluşturulan Sipariş Formları</h2>
-              {/* DÜZELTME: Arama inputuna value ve onChange bağlandı. */}
               <div className="relative w-80"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Form No, Ürün veya Kişi Ara..." value={orderFormSearch} onChange={(e) => setOrderFormSearch(e.target.value)} className="pl-9 h-11 bg-background border-border text-xs rounded-xl" /></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar pb-6">
