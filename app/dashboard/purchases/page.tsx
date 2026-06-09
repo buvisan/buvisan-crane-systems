@@ -20,20 +20,17 @@ export default function PurchasesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const supabase = createClient()
 
-  // ANA SEKMELER: KOKPIT | GECMIS | FORMLAR
   const [activeMainTab, setActiveMainTab] = useState<'KOKPIT' | 'GECMIS' | 'FORMLAR'>('KOKPIT')
-
   const [requests, setRequests] = useState<any[]>([])
   const [showRequests, setShowRequests] = useState(true)
   
-  // SAĞ PANEL SEKMELERİ
   const [rightPanelTab, setRightPanelTab] = useState<'VERENLER' | 'ALANLAR'>('VERENLER')
   const [personFilter, setPersonFilter] = useState("")
   const [dateFilter, setDateFilter] = useState("")
 
   const [isFormViewerOpen, setIsFormViewerOpen] = useState(false)
   const [viewingOrderGroup, setViewingOrderGroup] = useState<any>(null)
-  const [isOrderFormMode, setIsOrderFormMode] = useState(false) // Malzeme İstek -> Sipariş Formu geçişi
+  const [isOrderFormMode, setIsOrderFormMode] = useState(false) 
 
   const [isFormEditModalOpen, setIsFormEditModalOpen] = useState(false)
   const [editFormGroup, setEditFormGroup] = useState<any>(null)
@@ -41,20 +38,17 @@ export default function PurchasesPage() {
   const [newItemForm, setNewItemForm] = useState({ material_name: "", current_stock: "0", quantity: "1", unit: "ADET" })
   const [isSavingForm, setIsSavingForm] = useState(false)
 
-  // SATIN ALMA GİRİŞ MODALI
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
   const [purchaseGroup, setPurchaseGroup] = useState<any>(null)
-  const [purchaseData, setPurchaseData] = useState<any>({}) // item.id -> { supplier, price, currency, leadTime }
+  const [purchaseData, setPurchaseData] = useState<any>({})
 
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [filterAlarm, setFilterAlarm] = useState(false)
 
-  // Geçmiş Satın Alınanlar Filtreleri
   const [historySearch, setHistorySearch] = useState("")
   const [historySupplierFilter, setHistorySupplierFilter] = useState("")
   const [historyDateFilter, setHistoryDateFilter] = useState("")
   
-  // Sipariş Formları Arama State'i
   const [orderFormSearch, setOrderFormSearch] = useState("")
 
   useEffect(() => { 
@@ -274,22 +268,22 @@ export default function PurchasesPage() {
       return searchMatch && supplierMatch && dateMatch;
   });
 
-  // DÜZELTME: Arama algoritması geliştirildi (Form No, Malzeme Adı, Kişi Adı)
+  // DÜZELTME: Arama algoritması geliştirildi ve BEKLIYOR olmayanların listelenmesi garantiye alındı.
   const orderFormsArchive = requests.filter(r => {
-      // 1. Önce gösterim şartını kontrol et
-      if (!(r.is_order_form_created || r.status !== 'BEKLIYOR')) return false;
+      // Satın alma işlemi yapılmış olanları Sipariş Formu kabul et.
+      const isActuallyOrdered = r.is_order_form_created || !['BEKLIYOR', 'GELMEDI_ALARM', 'REDDEDILDI'].includes(r.status);
+      if (!isActuallyOrdered) return false;
       
-      // 2. Arama kelimesi boşsa hepsini göster
       if (orderFormSearch === "") return true;
 
       const term = orderFormSearch.toLowerCase();
       
-      // 3. Eşleşme durumları
       const matchNo = r.request_no?.toLowerCase().includes(term);
-      const matchMaterial = r.material_type?.toLowerCase().includes(term);
+      const matchMaterialType = r.material_type?.toLowerCase().includes(term);
       const matchPerson = `${r.profiles?.first_name || ''} ${r.profiles?.last_name || ''}`.toLowerCase().includes(term);
+      const matchItemName = r.items?.some((item: any) => item.material_name?.toLowerCase().includes(term));
       
-      return matchNo || matchMaterial || matchPerson;
+      return matchNo || matchMaterialType || matchPerson || matchItemName;
   });
 
   return (
@@ -381,12 +375,22 @@ export default function PurchasesPage() {
                                               <Button onClick={() => openPurchaseModal(reqGroup)} className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-sm rounded-xl shadow-md">
                                                   <ShoppingCart className="h-4 w-4 mr-2" /> {isAlarm ? 'Satın Almayı Güncelle (Alarmı Kapat)' : 'Satın Almayı Gir & Onayla'}
                                               </Button>
-                                          ) : safeStatus === 'TERMIN_GIRILDI' ? (
-                                              <div className="bg-amber-100 text-amber-700 p-3 rounded-xl text-center text-xs font-black border border-amber-200">SAHA ONAYI BEKLENİYOR</div>
-                                          ) : safeStatus === 'SIPARIS_VERILDI' ? (
-                                              <div className="bg-indigo-100 text-indigo-700 p-3 rounded-xl text-center text-xs font-black border border-indigo-200">SİPARİŞ VERİLDİ (Saha Teslimatı Bekleniyor)</div>
-                                          ) : safeStatus === 'GELDI' ? (
-                                              <div className="bg-emerald-500 text-white p-3 rounded-xl text-center text-xs font-black flex justify-center items-center gap-2"><CheckCircle2 className="h-4 w-4" /> TESLİM ALINDI</div>
+                                          ) : (safeStatus === 'TERMIN_GIRILDI' || safeStatus === 'SIPARIS_VERILDI' || safeStatus === 'GELDI') ? (
+                                              /* DÜZELTME: Satın alma yapıldıktan sonra artık form detaylarına buradan da erişilebilecek. */
+                                              <div className="flex flex-col gap-2">
+                                                  <Button onClick={() => openFormViewer(reqGroup, true)} className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-xl shadow-md">
+                                                      <FileBadge className="h-4 w-4 mr-2" /> Sipariş Formunu Görüntüle
+                                                  </Button>
+                                                  <div className={`p-3 rounded-xl text-center text-[11px] font-black border ${
+                                                      safeStatus === 'GELDI' ? 'bg-emerald-500 text-white border-emerald-600' : 
+                                                      safeStatus === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 
+                                                      'bg-amber-100 text-amber-700 border-amber-200'
+                                                  }`}>
+                                                      {safeStatus === 'GELDI' ? 'ÜRÜN TESLİM ALINDI' : 
+                                                       safeStatus === 'SIPARIS_VERILDI' ? 'SİPARİŞ VERİLDİ (Saha Teslimatı Bekleniyor)' : 
+                                                       'TERMİN GİRİLDİ (Saha Onayı Bekleniyor)'}
+                                                  </div>
+                                              </div>
                                           ) : safeStatus === 'REDDEDILDI' ? (
                                               <div className="bg-muted text-muted-foreground p-3 rounded-xl text-center text-xs font-black line-through">REDDEDİLDİ</div>
                                           ) : null}
@@ -493,8 +497,8 @@ export default function PurchasesPage() {
       <div className="flex flex-col flex-1 bg-card/60 backdrop-blur-2xl border border-border shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden w-full p-6">
           <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-black text-foreground flex items-center gap-2"><FileBadge className="h-6 w-6 text-primary"/> Oluşturulan Sipariş Formları</h2>
-              {/* DÜZELTME: Arama input placeholder'ı güncellendi */}
-              <div className="relative w-72"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Form No, Ürün veya Kişi Ara..." value={orderFormSearch} onChange={(e) => setOrderFormSearch(e.target.value)} className="pl-9 h-11 bg-background border-border text-xs rounded-xl" /></div>
+              {/* DÜZELTME: Arama inputuna value ve onChange bağlandı. */}
+              <div className="relative w-80"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="Form No, Ürün veya Kişi Ara..." value={orderFormSearch} onChange={(e) => setOrderFormSearch(e.target.value)} className="pl-9 h-11 bg-background border-border text-xs rounded-xl" /></div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto custom-scrollbar pb-6">
               {orderFormsArchive.map((formGroup, i) => (
@@ -507,7 +511,7 @@ export default function PurchasesPage() {
                           <h4 className="text-sm font-black text-foreground mb-1">{formGroup.material_type || "Genel Malzeme"}</h4>
                           <p className="text-xs text-muted-foreground font-medium">{formGroup.profiles?.first_name} {formGroup.profiles?.last_name}</p>
                       </div>
-                      <Button onClick={() => openFormViewer(formGroup, true)} variant="outline" className="w-full mt-4 h-10 rounded-xl font-bold text-xs bg-muted/50 border-border hover:bg-primary hover:text-white">
+                      <Button onClick={() => openFormViewer(formGroup, true)} variant="outline" className="w-full mt-4 h-10 rounded-xl font-bold text-xs bg-muted/50 border-border hover:bg-indigo-600 hover:text-white">
                           <Printer className="h-3.5 w-3.5 mr-2" /> Sipariş Formunu Aç
                       </Button>
                   </div>
