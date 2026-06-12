@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label"
 import { 
     Calculator, Trash2, Loader2, Users, FileText, 
     Search, Save, UserPlus, Table, Landmark, AlertCircle, 
-    FileDown, CalendarDays, Edit, RefreshCw, Upload, File, Eye
+    FileDown, CalendarDays, Edit, RefreshCw, Upload, File, Eye,
+    User, Download // Fotoğraf ikonları için eklendi
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -36,6 +37,9 @@ export default function PayrollPage() {
     const [detailTab, setDetailTab] = useState<"bilgi" | "evrak">("bilgi")
     const [docName, setDocName] = useState("")
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    // Vesikalık Fotoğraf Görüntüleyici State
+    const [photoViewerData, setPhotoViewerData] = useState<{url: string, name: string} | null>(null)
 
     // Bordro State
     const [periodMonth, setPeriodMonth] = useState(CURRENT_MONTH)
@@ -97,7 +101,8 @@ export default function PayrollPage() {
                 hire_date: selectedPerson.hire_date,
                 termination_date: selectedPerson.termination_date,
                 used_leave_days: selectedPerson.used_leave_days,
-                documents: selectedPerson.documents
+                documents: selectedPerson.documents,
+                profile_photo: selectedPerson.profile_photo // Fotoğraf eklendi
             }).eq('id', selectedPerson.id)
             if (error) throw error;
             alert("✅ Personel bilgileri güncellendi.");
@@ -397,7 +402,32 @@ export default function PayrollPage() {
                                 <tbody className="divide-y divide-slate-100">
                                     {filteredPersonnel.map(p => (
                                         <tr key={p.id} className={`hover:bg-muted/50 transition-colors group cursor-pointer ${p.termination_date ? 'opacity-60 bg-slate-50' : ''}`} onClick={() => { setSelectedPerson(p); setIsDetailModalOpen(true); }}>
-                                            <td className="px-6 py-4 font-black text-foreground">{p.full_name}</td>
+                                            <td className="px-6 py-4">
+                                                {/* VESİKALIK FOTOĞRAF VE İSİM ALANI (EKLENDİ) */}
+                                                <div className="flex items-center gap-3">
+                                                    <div 
+                                                        className="h-10 w-10 rounded-full border border-slate-200 bg-slate-100 flex items-center justify-center cursor-pointer overflow-hidden shrink-0 hover:ring-2 hover:ring-emerald-500 transition-all shadow-sm"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (p.profile_photo) {
+                                                                setPhotoViewerData({ url: p.profile_photo, name: p.full_name });
+                                                            } else {
+                                                                setSelectedPerson(p); 
+                                                                setIsDetailModalOpen(true);
+                                                                setDetailTab("bilgi"); // Fotoğraf yüklemesi için bilgi sekmesine at
+                                                            }
+                                                        }}
+                                                        title={p.profile_photo ? "Fotoğrafı Büyüt" : "Fotoğraf Yüklemek İçin Tıklayın"}
+                                                    >
+                                                        {p.profile_photo ? (
+                                                            <img src={p.profile_photo} alt={p.full_name} className="h-full w-full object-cover" />
+                                                        ) : (
+                                                            <User className="h-5 w-5 text-slate-400" />
+                                                        )}
+                                                    </div>
+                                                    <span className="font-black text-foreground">{p.full_name}</span>
+                                                </div>
+                                            </td>
                                             <td className="px-6 py-4 font-bold text-muted-foreground">{p.department || "-"}</td>
                                             <td className="px-6 py-4">
                                                 {p.termination_date ? <span className="bg-rose-100 text-rose-700 px-2 py-1 rounded-md text-xs font-bold">İşten Ayrıldı</span> : <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md text-xs font-bold">Aktif Çalışan</span>}
@@ -541,6 +571,35 @@ export default function PayrollPage() {
                             <div className="p-6 max-h-[70vh] overflow-y-auto">
                                 {detailTab === "bilgi" && (
                                     <div className="space-y-6">
+                                        {/* YENİ EKLENEN FOTOĞRAF YÜKLEME ALANI */}
+                                        <div className="flex flex-col sm:flex-row items-center gap-4 mb-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                            <div className="h-20 w-20 rounded-full border-4 border-white shadow-md bg-slate-200 flex items-center justify-center overflow-hidden shrink-0 relative group">
+                                                {selectedPerson.profile_photo ? (
+                                                    <img src={selectedPerson.profile_photo} alt="Profil" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <User className="h-8 w-8 text-slate-400" />
+                                                )}
+                                                <label className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center cursor-pointer transition-all">
+                                                    <Upload className="h-5 w-5 text-white" />
+                                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if(file) {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => setSelectedPerson({...selectedPerson, profile_photo: reader.result});
+                                                            reader.readAsDataURL(file);
+                                                        }
+                                                    }} />
+                                                </label>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-black text-slate-800">Vesikalık Fotoğraf</h4>
+                                                <p className="text-xs text-slate-500 mb-2">Personelin listeleme ekranında görünecek profil fotoğrafı. (Değiştirmek için resmin üzerine tıklayın)</p>
+                                                {selectedPerson.profile_photo && (
+                                                    <Button variant="ghost" size="sm" onClick={() => setSelectedPerson({...selectedPerson, profile_photo: null})} className="h-8 text-rose-500 bg-rose-50 hover:bg-rose-100 hover:text-rose-600 px-3 text-xs font-bold rounded-lg">Fotoğrafı Kaldır</Button>
+                                                )}
+                                            </div>
+                                        </div>
+
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             <div className="space-y-2"><Label className="text-xs font-bold text-muted-foreground">Ad Soyad</Label><Input value={selectedPerson.full_name} onChange={e=>setSelectedPerson({...selectedPerson, full_name: e.target.value})} className="font-bold h-12 rounded-xl" /></div>
                                             <div className="space-y-2"><Label className="text-xs font-bold text-muted-foreground">Departman</Label><Input value={selectedPerson.department} onChange={e=>setSelectedPerson({...selectedPerson, department: e.target.value})} className="font-bold h-12 rounded-xl" /></div>
@@ -738,6 +797,32 @@ export default function PayrollPage() {
                             </Button>
                         </div>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* FOTOĞRAF GÖRÜNTÜLEYİCİ MODAL (YENİ EKLENDİ) */}
+            <Dialog open={!!photoViewerData} onOpenChange={(open) => !open && setPhotoViewerData(null)}>
+                <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-transparent border-none shadow-none z-[999999] flex flex-col items-center justify-center">
+                    {photoViewerData && (
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="relative group rounded-[2rem] overflow-hidden bg-slate-900 border-4 border-white shadow-2xl">
+                                <img src={photoViewerData.url} alt={photoViewerData.name} className="max-w-full max-h-[70vh] object-contain" />
+                            </div>
+                            <div className="flex gap-4 mt-2">
+                                <Button onClick={() => {
+                                    const a = document.createElement('a');
+                                    a.href = photoViewerData.url;
+                                    a.download = `${photoViewerData.name.replace(/\s+/g, '_')}_vesikalik.jpg`;
+                                    a.click();
+                                }} className="h-12 px-6 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg rounded-xl">
+                                    <Download className="h-5 w-5 mr-2" /> İndir
+                                </Button>
+                                <Button variant="outline" onClick={() => setPhotoViewerData(null)} className="h-12 px-6 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-xl font-bold backdrop-blur-md">
+                                    Kapat
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
 
