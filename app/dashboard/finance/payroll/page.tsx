@@ -132,22 +132,33 @@ export default function PayrollPage() {
         setSelectedPerson({...selectedPerson, documents: selectedPerson.documents.filter((d:any) => d.id !== docId)});
     }
 
-    // 🚀 YENİ: TARAYICI ENGELİNİ AŞAN BLOB GÖRÜNTÜLEYİCİ
+    // GÜNCELLENDİ: Sınırlamalara takılmayan daha güvenli base64 okuyucu
     const handleViewDocument = async (docUrl: string) => {
         if (!docUrl) return;
         try {
-            // Data URL'i Blob'a dönüştürüp temiz bir ObjectURL yaratıyoruz
-            const res = await fetch(docUrl);
-            const blob = await res.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            window.open(blobUrl, '_blank');
-            
-            // İsteğe bağlı bellek temizliği (1 dakika sonra URL'i iptal et)
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            if (docUrl.startsWith('data:')) {
+                const arr = docUrl.split(',');
+                const mimeMatch = arr[0].match(/:(.*?);/);
+                if (!mimeMatch) throw new Error("Geçersiz dosya formatı");
+                const mime = mimeMatch[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                const blob = new Blob([u8arr], { type: mime });
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+                
+                // Bellek temizliği (1 dakika sonra URL'i iptal et)
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            } else {
+                window.open(docUrl, '_blank');
+            }
         } catch (err) {
             console.error("Evrak açılamadı:", err);
-            // Hata olursa yine de eski yöntemle zorla
-            window.open(docUrl, '_blank');
+            alert("Evrak açılırken bir hata oluştu.");
         }
     }
 
@@ -229,6 +240,7 @@ export default function PayrollPage() {
         setHasChanges(true)
     }
 
+    // GÜNCELLENDİ: missingHours eklendi
     const generateMonthDays = (month: number, year: number) => {
         const daysInMonth = new Date(year, month, 0).getDate()
         const days = []
@@ -242,7 +254,8 @@ export default function PayrollPage() {
                 isWeekend: isWeekend,
                 status: isWeekend ? 'HAFTA_TATİLİ' : 'ÇALIŞTI',
                 ot15: 0,
-                ot20: 0
+                ot20: 0,
+                missingHours: 0
             })
         }
         return days
@@ -265,22 +278,26 @@ export default function PayrollPage() {
         setDailyRecords(updatedDays)
     }
 
+    // GÜNCELLENDİ: Eksik saatleri de hesaplayıp tabloya ekler
     const applyTimesheetToGrid = () => {
         if (activeRowIndex === null) return;
         
         let totalMissingDays = 0;
         let totalOt15 = 0;
         let totalOt20 = 0;
+        let totalMissingHours = 0;
 
         dailyRecords.forEach(day => {
             if (day.status === 'EKSİK' || day.status === 'RAPORLU') totalMissingDays += 1;
             if (day.status === 'RESMİ_TATİL') totalOt20 += 7.5; 
             totalOt15 += Number(day.ot15) || 0;
             totalOt20 += Number(day.ot20) || 0;
+            totalMissingHours += Number(day.missingHours) || 0;
         })
 
         const updatedGrid = [...payrollGrid]
         updatedGrid[activeRowIndex].missing_days = totalMissingDays
+        updatedGrid[activeRowIndex].missing_hours = totalMissingHours
         updatedGrid[activeRowIndex].overtime_15x = totalOt15
         updatedGrid[activeRowIndex].overtime_20x = totalOt20
         updatedGrid[activeRowIndex].daily_records = dailyRecords 
@@ -508,7 +525,7 @@ export default function PayrollPage() {
 
             {/* PERSONEL DETAY MODALI */}
             <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl bg-card overflow-hidden">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl bg-card overflow-hidden z-[99999]">
                     {selectedPerson && (
                         <>
                             <div className="bg-slate-900 p-6 flex items-center gap-4">
@@ -578,7 +595,7 @@ export default function PayrollPage() {
 
             {/* PERSONEL EKLEME MODALI */}
             <Dialog open={isAddPersonModalOpen} onOpenChange={setIsAddPersonModalOpen}>
-                <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-xl border-none shadow-2xl">
+                <DialogContent className="rounded-[2rem] p-6 md:p-8 max-w-xl border-none shadow-2xl z-[99999]">
                     <DialogHeader className="mb-4"><DialogTitle className="text-2xl font-black text-foreground flex items-center gap-3"><UserPlus className="h-6 w-6 text-emerald-600" /> Yeni Finansal Personel Kaydı</DialogTitle></DialogHeader>
                     <form onSubmit={savePersonnel} className="flex flex-col gap-4">
                         <div className="space-y-2"><Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Ad Soyad</Label><Input required placeholder="Örn: Ali Yılmaz" value={personForm.full_name} onChange={e=>setPersonForm({...personForm, full_name: e.target.value})} className="h-12 rounded-xl border-border shadow-sm font-bold text-sm" /></div>
@@ -595,9 +612,9 @@ export default function PayrollPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* RAPOR & HAKEDİŞ MODALI - TAM EKRAN (w-[95vw] max-w-[1600px]) */}
+            {/* RAPOR & HAKEDİŞ MODALI - TAM EKRAN */}
             <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
-                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl bg-slate-50 overflow-hidden">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl bg-slate-50 overflow-hidden z-[99999]">
                     <DialogHeader className="p-6 bg-slate-900 text-white">
                         <DialogTitle className="text-2xl font-black flex items-center justify-between">
                             <div className="flex items-center gap-3"><FileText className="h-7 w-7 text-emerald-400" /> Banka & Elden Ödeme Raporu</div>
@@ -639,9 +656,9 @@ export default function PayrollPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* DETAYLI PUANTAJ (TIMESHEET) MODALI - TAM EKRAN (w-[95vw] max-w-[1600px]) */}
+            {/* DETAYLI PUANTAJ (TIMESHEET) MODALI - TAM EKRAN */}
             <Dialog open={isTimesheetOpen} onOpenChange={setIsTimesheetOpen}>
-                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] overflow-hidden bg-muted">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] overflow-hidden bg-muted z-[99999]">
                     <DialogHeader className="p-6 bg-card border-b border-border shrink-0">
                         <DialogTitle className="text-xl md:text-2xl font-black text-foreground flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -664,6 +681,7 @@ export default function PayrollPage() {
                                         <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Durum</th>
                                         <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-center text-primary w-40">N. Mesai (1.5x)</th>
                                         <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-center text-amber-600 w-40">P. Mesai (2.0x)</th>
+                                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-center text-rose-500 w-40">Eksik (Saat)</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -700,6 +718,9 @@ export default function PayrollPage() {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <Input type="number" min="0" value={day.ot20} onChange={e=>handleDailyChange(idx, 'ot20', e.target.value)} className="h-12 text-center font-bold text-base bg-card border-border focus:border-amber-500" placeholder="0" />
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <Input type="number" min="0" value={day.missingHours} onChange={e=>handleDailyChange(idx, 'missingHours', e.target.value)} className="h-12 text-center font-bold text-base bg-card border-border focus:border-rose-500 text-rose-600" placeholder="0" />
                                             </td>
                                         </tr>
                                     ))}
