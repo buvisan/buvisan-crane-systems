@@ -132,7 +132,6 @@ export default function PayrollPage() {
         setSelectedPerson({...selectedPerson, documents: selectedPerson.documents.filter((d:any) => d.id !== docId)});
     }
 
-    // GÜNCELLENDİ: Sınırlamalara takılmayan daha güvenli base64 okuyucu
     const handleViewDocument = async (docUrl: string) => {
         if (!docUrl) return;
         try {
@@ -240,7 +239,6 @@ export default function PayrollPage() {
         setHasChanges(true)
     }
 
-    // GÜNCELLENDİ: missingHours eklendi
     const generateMonthDays = (month: number, year: number) => {
         const daysInMonth = new Date(year, month, 0).getDate()
         const days = []
@@ -278,7 +276,6 @@ export default function PayrollPage() {
         setDailyRecords(updatedDays)
     }
 
-    // GÜNCELLENDİ: Eksik saatleri de hesaplayıp tabloya ekler
     const applyTimesheetToGrid = () => {
         if (activeRowIndex === null) return;
         
@@ -584,7 +581,7 @@ export default function PayrollPage() {
                                             ))}
                                             {(!selectedPerson.documents || selectedPerson.documents.length === 0) && <p className="text-center text-sm font-bold text-slate-400 py-10">Henüz evrak yüklenmemiş.</p>}
                                         </div>
-                                        {selectedPerson.documents?.length > 0 && <Button onClick={updatePersonnelDetail} className="w-full h-12 mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"><Save className="mr-2 h-4 w-4" /> Evrak Değişikliklerini Kaydet</Button>}
+                                        <Button onClick={updatePersonnelDetail} className="w-full h-12 mt-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"><Save className="mr-2 h-4 w-4" /> Evrak Değişikliklerini Kaydet</Button>
                                     </div>
                                 )}
                             </div>
