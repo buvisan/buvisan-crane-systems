@@ -132,6 +132,25 @@ export default function PayrollPage() {
         setSelectedPerson({...selectedPerson, documents: selectedPerson.documents.filter((d:any) => d.id !== docId)});
     }
 
+    // 🚀 YENİ: TARAYICI ENGELİNİ AŞAN BLOB GÖRÜNTÜLEYİCİ
+    const handleViewDocument = async (docUrl: string) => {
+        if (!docUrl) return;
+        try {
+            // Data URL'i Blob'a dönüştürüp temiz bir ObjectURL yaratıyoruz
+            const res = await fetch(docUrl);
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            window.open(blobUrl, '_blank');
+            
+            // İsteğe bağlı bellek temizliği (1 dakika sonra URL'i iptal et)
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } catch (err) {
+            console.error("Evrak açılamadı:", err);
+            // Hata olursa yine de eski yöntemle zorla
+            window.open(docUrl, '_blank');
+        }
+    }
+
     const fetchPayrollGrid = async () => {
         setLoading(true)
         const { data } = await supabase.from('fin_payroll').select(`*, fin_personnel(full_name, department, base_salary, is_active)`).eq('period_month', periodMonth).eq('period_year', periodYear).order('created_at', { ascending: true })
@@ -195,12 +214,11 @@ export default function PayrollPage() {
     const handleCellChange = (index: number, field: string, value: string) => {
         const val = Number(value) || 0
         const updatedGrid = [...payrollGrid]
-        updatedGrid[index][field] = value // Kullanıcının sildiği boş değerleri tutabilmek için string olarak atıyoruz
+        updatedGrid[index][field] = value 
         
         const net = calculateNetSalary(updatedGrid[index])
         updatedGrid[index].net_salary = net
         
-        // Hakediş oto-hesaplama (NaN hatalarını önlemek için Number ile sarmalıyoruz)
         if (field === 'bank_payment') {
             updatedGrid[index].cash_payment = net - val;
         } else {
@@ -216,7 +234,7 @@ export default function PayrollPage() {
         const days = []
         for (let i = 1; i <= daysInMonth; i++) {
             const date = new Date(year, month - 1, i)
-            const isWeekend = date.getDay() === 0 || date.getDay() === 6 // 0: Pazar, 6: Cumartesi
+            const isWeekend = date.getDay() === 0 || date.getDay() === 6 
             days.push({
                 dayNum: i,
                 dateStr: date.toLocaleDateString('tr-TR'),
@@ -488,9 +506,9 @@ export default function PayrollPage() {
                 )}
             </div>
 
-            {/* PERSONEL DETAY MODALI - GENİŞLETİLDİ */}
+            {/* PERSONEL DETAY MODALI */}
             <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-[1000px] border-none shadow-2xl bg-card overflow-hidden">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl bg-card overflow-hidden">
                     {selectedPerson && (
                         <>
                             <div className="bg-slate-900 p-6 flex items-center gap-4">
@@ -506,7 +524,7 @@ export default function PayrollPage() {
                                 <button onClick={()=>setDetailTab("evrak")} className={`flex-1 py-4 font-bold text-sm ${detailTab === 'evrak' ? 'border-b-2 border-emerald-500 text-emerald-600 bg-emerald-50/50' : 'text-muted-foreground hover:bg-muted'}`}>Personel Evrakları</button>
                             </div>
 
-                            <div className="p-6 max-h-[60vh] overflow-y-auto">
+                            <div className="p-6 max-h-[70vh] overflow-y-auto">
                                 {detailTab === "bilgi" && (
                                     <div className="space-y-6">
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -542,9 +560,8 @@ export default function PayrollPage() {
                                                 <div key={doc.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-indigo-300 transition-all">
                                                     <div className="flex items-center gap-3"><div className="bg-indigo-100 p-2 rounded-lg"><File className="h-5 w-5 text-indigo-600" /></div><div><p className="font-bold text-slate-800 text-sm">{doc.name}</p><p className="text-[10px] text-slate-500">{doc.fileName} • {doc.date}</p></div></div>
                                                     <div className="flex gap-2">
-                                                        {/* YENİ: DOSYAYI YENİ SEKMEYE AÇAN BUTON */}
-                                                        <Button variant="outline" onClick={() => window.open(doc.fileUrl || '', '_blank')} className="h-8 w-8 p-0" title="Görüntüle"><Eye className="h-4 w-4" /></Button>
-                                                        <Button variant="outline" onClick={()=>removeDocument(doc.id)} className="h-8 w-8 p-0 border-rose-200 text-rose-600 hover:bg-rose-50" title="Sil"><Trash2 className="h-4 w-4" /></Button>
+                                                        <Button variant="outline" type="button" onClick={() => handleViewDocument(doc.fileUrl)} className="h-8 w-8 p-0" title="Görüntüle"><Eye className="h-4 w-4" /></Button>
+                                                        <Button variant="outline" type="button" onClick={()=>removeDocument(doc.id)} className="h-8 w-8 p-0 border-rose-200 text-rose-600 hover:bg-rose-50" title="Sil"><Trash2 className="h-4 w-4" /></Button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -578,9 +595,9 @@ export default function PayrollPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* RAPOR & HAKEDİŞ MODALI - GENİŞLETİLDİ (w-[95vw] max-w-[1200px]) */}
+            {/* RAPOR & HAKEDİŞ MODALI - TAM EKRAN (w-[95vw] max-w-[1600px]) */}
             <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
-                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-[1200px] border-none shadow-2xl bg-slate-50 overflow-hidden">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl bg-slate-50 overflow-hidden">
                     <DialogHeader className="p-6 bg-slate-900 text-white">
                         <DialogTitle className="text-2xl font-black flex items-center justify-between">
                             <div className="flex items-center gap-3"><FileText className="h-7 w-7 text-emerald-400" /> Banka & Elden Ödeme Raporu</div>
@@ -602,10 +619,9 @@ export default function PayrollPage() {
                                     {payrollGrid.map((row, idx) => (
                                         <tr key={idx} className="hover:bg-slate-50">
                                             <td className="px-6 py-4 font-black text-slate-800">{row.fin_personnel?.full_name}</td>
-                                            <td className="px-6 py-3"><Input type="number" value={row.bank_payment} onChange={e=>handleCellChange(idx, 'bank_payment', e.target.value)} className="h-10 text-right font-black text-indigo-700 border-indigo-200 bg-indigo-50/50 focus:ring-indigo-500" /></td>
-                                            {/* NaN Hataları Number() sarmalaması ile giderildi */}
-                                            <td className="px-6 py-4 text-right font-black text-amber-700">{formatMoney(Number(row.cash_payment) || 0)}</td>
-                                            <td className="px-6 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 text-lg">{formatMoney(Number(row.net_salary) || 0)}</td>
+                                            <td className="px-6 py-3"><Input type="number" value={row.bank_payment} onChange={e=>handleCellChange(idx, 'bank_payment', e.target.value)} className="h-12 text-right font-black text-indigo-700 border-indigo-200 bg-indigo-50/50 focus:ring-indigo-500 text-lg" /></td>
+                                            <td className="px-6 py-4 text-right font-black text-amber-700 text-lg">{formatMoney(Number(row.cash_payment) || 0)}</td>
+                                            <td className="px-6 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 text-xl">{formatMoney(Number(row.net_salary) || 0)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -614,18 +630,18 @@ export default function PayrollPage() {
                     </div>
                     <div className="p-6 bg-white border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex gap-8 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Toplam Banka</p><p className="text-xl font-black text-indigo-600">{formatMoney(payrollGrid.reduce((s,r)=>s+(Number(r.bank_payment)||0),0))}</p></div>
-                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Toplam Elden</p><p className="text-xl font-black text-amber-600">{formatMoney(payrollGrid.reduce((s,r)=>s+(Number(r.cash_payment)||0),0))}</p></div>
-                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Genel Toplam</p><p className="text-2xl font-black text-emerald-600">{formatMoney(grandTotalNet)}</p></div>
+                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Toplam Banka</p><p className="text-2xl font-black text-indigo-600">{formatMoney(payrollGrid.reduce((s,r)=>s+(Number(r.bank_payment)||0),0))}</p></div>
+                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Toplam Elden</p><p className="text-2xl font-black text-amber-600">{formatMoney(payrollGrid.reduce((s,r)=>s+(Number(r.cash_payment)||0),0))}</p></div>
+                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Genel Toplam</p><p className="text-3xl font-black text-emerald-600">{formatMoney(grandTotalNet)}</p></div>
                         </div>
-                        <Button onClick={saveBulkGrid} className="h-14 w-full md:w-auto px-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-xl shadow-emerald-500/20 shrink-0"><Save className="h-5 w-5 mr-2" /> Aktar & Kaydet</Button>
+                        <Button onClick={saveBulkGrid} className="h-16 w-full md:w-auto px-10 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xl shadow-xl shadow-emerald-500/20 shrink-0"><Save className="h-6 w-6 mr-3" /> Aktar & Kaydet</Button>
                     </div>
                 </DialogContent>
             </Dialog>
 
-            {/* DETAYLI PUANTAJ (TIMESHEET) MODALI - GENİŞLETİLDİ (w-[95vw] max-w-[1200px]) */}
+            {/* DETAYLI PUANTAJ (TIMESHEET) MODALI - TAM EKRAN (w-[95vw] max-w-[1600px]) */}
             <Dialog open={isTimesheetOpen} onOpenChange={setIsTimesheetOpen}>
-                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-[1200px] border-none shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] overflow-hidden bg-muted">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-full md:max-w-[1600px] border-none shadow-2xl flex flex-col max-h-[95vh] md:max-h-[90vh] overflow-hidden bg-muted">
                     <DialogHeader className="p-6 bg-card border-b border-border shrink-0">
                         <DialogTitle className="text-xl md:text-2xl font-black text-foreground flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -664,7 +680,7 @@ export default function PayrollPage() {
                                                 <select 
                                                     value={day.status} 
                                                     onChange={(e) => handleDailyChange(idx, 'status', e.target.value)}
-                                                    className={`h-12 rounded-xl text-sm font-black px-4 outline-none border focus:ring-2 focus:ring-indigo-500 w-full max-w-[250px] ${
+                                                    className={`h-12 rounded-xl text-sm font-black px-4 outline-none border focus:ring-2 focus:ring-indigo-500 w-full max-w-[300px] ${
                                                         day.status === 'ÇALIŞTI' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                                         day.status === 'EKSİK' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                                         day.status === 'RAPORLU' ? 'bg-orange-50 text-orange-700 border-orange-200' :
