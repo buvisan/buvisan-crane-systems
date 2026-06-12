@@ -108,13 +108,24 @@ export default function PayrollPage() {
     const uploadDocument = () => {
         if (!docName || !fileInputRef.current?.files?.[0]) return alert("Lütfen evrak adı girin ve dosya seçin.");
         const file = fileInputRef.current.files[0];
-        const newDoc = { id: Date.now(), name: docName, fileName: file.name, date: new Date().toLocaleDateString('tr-TR') };
         
-        // Gerçek bir sistemde burada Supabase Storage'a upload işlemi yapılır. 
-        // Şimdilik JSON içine meta data kaydediyoruz.
-        setSelectedPerson({...selectedPerson, documents: [...(selectedPerson.documents || []), newDoc]});
-        setDocName("");
-        if(fileInputRef.current) fileInputRef.current.value = "";
+        // Dosyayı Base64 formatına çevirip JSON içine kaydediyoruz
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const newDoc = { 
+                id: Date.now(), 
+                name: docName, 
+                fileName: file.name, 
+                date: new Date().toLocaleDateString('tr-TR'),
+                fileUrl: reader.result // Base64 verisi
+            };
+            
+            setSelectedPerson((prev: any) => ({...prev, documents: [...(prev.documents || []), newDoc]}));
+            setDocName("");
+            if(fileInputRef.current) fileInputRef.current.value = "";
+        };
+        
+        reader.readAsDataURL(file);
     }
 
     const removeDocument = (docId: number) => {
@@ -184,14 +195,16 @@ export default function PayrollPage() {
     const handleCellChange = (index: number, field: string, value: string) => {
         const val = Number(value) || 0
         const updatedGrid = [...payrollGrid]
-        updatedGrid[index][field] = val
-        updatedGrid[index].net_salary = calculateNetSalary(updatedGrid[index])
+        updatedGrid[index][field] = value // Kullanıcının sildiği boş değerleri tutabilmek için string olarak atıyoruz
         
-        // Hakediş oto-hesaplama
+        const net = calculateNetSalary(updatedGrid[index])
+        updatedGrid[index].net_salary = net
+        
+        // Hakediş oto-hesaplama (NaN hatalarını önlemek için Number ile sarmalıyoruz)
         if (field === 'bank_payment') {
-            updatedGrid[index].cash_payment = updatedGrid[index].net_salary - val;
+            updatedGrid[index].cash_payment = net - val;
         } else {
-            updatedGrid[index].cash_payment = updatedGrid[index].net_salary - (Number(updatedGrid[index].bank_payment) || 0);
+            updatedGrid[index].cash_payment = net - (Number(updatedGrid[index].bank_payment) || 0);
         }
 
         setPayrollGrid(updatedGrid)
@@ -238,13 +251,11 @@ export default function PayrollPage() {
         if (activeRowIndex === null) return;
         
         let totalMissingDays = 0;
-        let totalMissingHours = 0; // İsteğe bağlı, detaylı eklenebilir. Şu an ana tablodan giriliyor.
         let totalOt15 = 0;
         let totalOt20 = 0;
 
         dailyRecords.forEach(day => {
             if (day.status === 'EKSİK' || day.status === 'RAPORLU') totalMissingDays += 1;
-            // Resmi Tatil mantığı (1.0x ekstra mesai olarak ekliyoruz)
             if (day.status === 'RESMİ_TATİL') totalOt20 += 7.5; 
             totalOt15 += Number(day.ot15) || 0;
             totalOt20 += Number(day.ot20) || 0;
@@ -256,8 +267,9 @@ export default function PayrollPage() {
         updatedGrid[activeRowIndex].overtime_20x = totalOt20
         updatedGrid[activeRowIndex].daily_records = dailyRecords 
         
-        updatedGrid[activeRowIndex].net_salary = calculateNetSalary(updatedGrid[activeRowIndex])
-        updatedGrid[activeRowIndex].cash_payment = updatedGrid[activeRowIndex].net_salary - (Number(updatedGrid[activeRowIndex].bank_payment) || 0);
+        const net = calculateNetSalary(updatedGrid[activeRowIndex])
+        updatedGrid[activeRowIndex].net_salary = net
+        updatedGrid[activeRowIndex].cash_payment = net - (Number(updatedGrid[activeRowIndex].bank_payment) || 0);
 
         setPayrollGrid(updatedGrid)
         setHasChanges(true)
@@ -269,11 +281,11 @@ export default function PayrollPage() {
         try {
             const updatePromises = payrollGrid.map(row => 
                 supabase.from('fin_payroll').update({
-                    work_days: row.work_days, overtime_15x: row.overtime_15x, overtime_20x: row.overtime_20x,
-                    missing_days: row.missing_days, missing_hours: row.missing_hours, 
-                    advance_payment: row.advance_payment, additions: row.additions, travel_allowance: row.travel_allowance,
-                    bank_payment: row.bank_payment, cash_payment: row.cash_payment,
-                    net_salary: row.net_salary, daily_records: row.daily_records
+                    work_days: Number(row.work_days)||0, overtime_15x: Number(row.overtime_15x)||0, overtime_20x: Number(row.overtime_20x)||0,
+                    missing_days: Number(row.missing_days)||0, missing_hours: Number(row.missing_hours)||0, 
+                    advance_payment: Number(row.advance_payment)||0, additions: Number(row.additions)||0, travel_allowance: Number(row.travel_allowance)||0,
+                    bank_payment: Number(row.bank_payment)||0, cash_payment: Number(row.cash_payment)||0,
+                    net_salary: Number(row.net_salary)||0, daily_records: row.daily_records
                 }).eq('id', row.id)
             )
             await Promise.all(updatePromises)
@@ -296,8 +308,8 @@ export default function PayrollPage() {
         return { total: totalLeave, remaining };
     }
 
-    const formatMoney = (val: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(val)
-    const grandTotalNet = payrollGrid.reduce((sum, row) => sum + Number(row.net_salary), 0)
+    const formatMoney = (val: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(val) || 0)
+    const grandTotalNet = payrollGrid.reduce((sum, row) => sum + (Number(row.net_salary) || 0), 0)
     const filteredPersonnel = personnel.filter(p => p.full_name?.toLowerCase().includes(searchTerm.toLowerCase()))
 
     return (
@@ -408,7 +420,6 @@ export default function PayrollPage() {
                             <div className="flex flex-col gap-4">
                                 <div className="bg-card border border-border rounded-[1.5rem] shadow-xl overflow-hidden">
                                     <div className="overflow-x-auto custom-scrollbar">
-                                        {/* TABLO GENİŞLİĞİ ARTIRILDI */}
                                         <table className="w-full text-left border-collapse whitespace-nowrap min-w-[1600px]">
                                             <thead className="bg-[#1e293b] text-primary-foreground">
                                                 <tr>
@@ -417,14 +428,11 @@ export default function PayrollPage() {
                                                     <th className="px-2 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-24 text-blue-300">N. Mesai (S)</th>
                                                     <th className="px-2 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-24 text-amber-300">P. Mesai (S)</th>
                                                     <th className="px-2 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-20 text-rose-300">Eksik (G)</th>
-                                                    {/* YENİ: EKSİK SAAT */}
                                                     <th className="px-2 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-24 text-rose-400">Eksik (Saat)</th>
-                                                    {/* YENİ: YOL PARASI */}
                                                     <th className="px-2 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-24 text-cyan-300">Yol (TL)</th>
                                                     <th className="px-2 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-24 text-rose-300">Avans (TL)</th>
                                                     <th className="px-2 py-3 text-[10px] font-black uppercase tracking-widest text-center border-r border-slate-700 w-24 text-emerald-300">Prim (TL)</th>
                                                     <th className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-right bg-emerald-800 border-r border-slate-700">NET (TL)</th>
-                                                    {/* YENİ: HAKEDİŞ SÜTUNLARI */}
                                                     <th className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-right bg-indigo-900 border-r border-slate-700">BANKA (TL)</th>
                                                     <th className="px-3 py-3 text-[10px] font-black uppercase tracking-widest text-right bg-amber-900 border-r border-slate-700">ELDEN (TL)</th>
                                                     <th className="px-4 py-3 text-[11px] font-black uppercase tracking-widest text-right bg-slate-900">HAKEDİŞ</th>
@@ -468,8 +476,8 @@ export default function PayrollPage() {
                                     <div className="flex items-center gap-3 text-muted-foreground"><Users className="h-5 w-5" /> <span className="text-sm font-bold">{payrollGrid.length} Personel Kayıtlı</span></div>
                                     <div className="flex flex-col items-end gap-1">
                                         <div className="flex gap-4 text-xs font-bold text-slate-400">
-                                            <span>Banka Toplam: {formatMoney(payrollGrid.reduce((s, r)=>s+Number(r.bank_payment), 0))}</span>
-                                            <span>Elden Toplam: {formatMoney(payrollGrid.reduce((s, r)=>s+Number(r.cash_payment), 0))}</span>
+                                            <span>Banka Toplam: {formatMoney(payrollGrid.reduce((s, r)=>s+(Number(r.bank_payment)||0), 0))}</span>
+                                            <span>Elden Toplam: {formatMoney(payrollGrid.reduce((s, r)=>s+(Number(r.cash_payment)||0), 0))}</span>
                                         </div>
                                         <div className="flex items-center gap-4"><span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Genel Hakediş Toplamı:</span><span className="text-2xl md:text-4xl font-black text-emerald-400 tabular-nums tracking-tight">{formatMoney(grandTotalNet)}</span></div>
                                     </div>
@@ -480,9 +488,9 @@ export default function PayrollPage() {
                 )}
             </div>
 
-            {/* YENİ: PERSONEL DETAY MODALI */}
+            {/* PERSONEL DETAY MODALI - GENİŞLETİLDİ */}
             <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-                <DialogContent className="rounded-[2rem] p-0 max-w-3xl border-none shadow-2xl bg-card overflow-hidden">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-[1000px] border-none shadow-2xl bg-card overflow-hidden">
                     {selectedPerson && (
                         <>
                             <div className="bg-slate-900 p-6 flex items-center gap-4">
@@ -501,7 +509,7 @@ export default function PayrollPage() {
                             <div className="p-6 max-h-[60vh] overflow-y-auto">
                                 {detailTab === "bilgi" && (
                                     <div className="space-y-6">
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             <div className="space-y-2"><Label className="text-xs font-bold text-muted-foreground">Ad Soyad</Label><Input value={selectedPerson.full_name} onChange={e=>setSelectedPerson({...selectedPerson, full_name: e.target.value})} className="font-bold h-12 rounded-xl" /></div>
                                             <div className="space-y-2"><Label className="text-xs font-bold text-muted-foreground">Departman</Label><Input value={selectedPerson.department} onChange={e=>setSelectedPerson({...selectedPerson, department: e.target.value})} className="font-bold h-12 rounded-xl" /></div>
                                             <div className="space-y-2"><Label className="text-xs font-bold text-muted-foreground">Kök Maaş</Label><Input type="number" value={selectedPerson.base_salary} onChange={e=>setSelectedPerson({...selectedPerson, base_salary: e.target.value})} className="font-bold text-emerald-600 h-12 rounded-xl" /></div>
@@ -523,10 +531,10 @@ export default function PayrollPage() {
 
                                 {detailTab === "evrak" && (
                                     <div className="space-y-6">
-                                        <div className="flex items-end gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                                            <div className="flex-1 space-y-2"><Label className="text-xs font-bold">Evrak Adı (Örn: SGK İşe Giriş)</Label><Input value={docName} onChange={e=>setDocName(e.target.value)} placeholder="Evrak ismi girin" className="h-10 rounded-lg" /></div>
-                                            <div className="flex-1 space-y-2"><Label className="text-xs font-bold">Dosya</Label><Input type="file" ref={fileInputRef} accept=".pdf,image/*" className="h-10 rounded-lg cursor-pointer bg-white" /></div>
-                                            <Button onClick={uploadDocument} className="h-10 bg-indigo-600 hover:bg-indigo-700 px-6"><Upload className="h-4 w-4 mr-2" /> Yükle</Button>
+                                        <div className="flex flex-col md:flex-row items-end gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                            <div className="flex-1 w-full space-y-2"><Label className="text-xs font-bold">Evrak Adı (Örn: SGK İşe Giriş)</Label><Input value={docName} onChange={e=>setDocName(e.target.value)} placeholder="Evrak ismi girin" className="h-10 rounded-lg" /></div>
+                                            <div className="flex-1 w-full space-y-2"><Label className="text-xs font-bold">Dosya</Label><Input type="file" ref={fileInputRef} accept=".pdf,image/*" className="h-10 rounded-lg cursor-pointer bg-white" /></div>
+                                            <Button onClick={uploadDocument} className="h-10 w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 px-6"><Upload className="h-4 w-4 mr-2" /> Yükle</Button>
                                         </div>
 
                                         <div className="space-y-3">
@@ -534,7 +542,8 @@ export default function PayrollPage() {
                                                 <div key={doc.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:border-indigo-300 transition-all">
                                                     <div className="flex items-center gap-3"><div className="bg-indigo-100 p-2 rounded-lg"><File className="h-5 w-5 text-indigo-600" /></div><div><p className="font-bold text-slate-800 text-sm">{doc.name}</p><p className="text-[10px] text-slate-500">{doc.fileName} • {doc.date}</p></div></div>
                                                     <div className="flex gap-2">
-                                                        <Button variant="outline" className="h-8 w-8 p-0" title="Görüntüle"><Eye className="h-4 w-4" /></Button>
+                                                        {/* YENİ: DOSYAYI YENİ SEKMEYE AÇAN BUTON */}
+                                                        <Button variant="outline" onClick={() => window.open(doc.fileUrl || '', '_blank')} className="h-8 w-8 p-0" title="Görüntüle"><Eye className="h-4 w-4" /></Button>
                                                         <Button variant="outline" onClick={()=>removeDocument(doc.id)} className="h-8 w-8 p-0 border-rose-200 text-rose-600 hover:bg-rose-50" title="Sil"><Trash2 className="h-4 w-4" /></Button>
                                                     </div>
                                                 </div>
@@ -569,9 +578,9 @@ export default function PayrollPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* RAPOR & HAKEDİŞ MODALI */}
+            {/* RAPOR & HAKEDİŞ MODALI - GENİŞLETİLDİ (w-[95vw] max-w-[1200px]) */}
             <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
-                <DialogContent className="rounded-[2rem] p-0 max-w-5xl border-none shadow-2xl bg-slate-50 overflow-hidden">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-[1200px] border-none shadow-2xl bg-slate-50 overflow-hidden">
                     <DialogHeader className="p-6 bg-slate-900 text-white">
                         <DialogTitle className="text-2xl font-black flex items-center justify-between">
                             <div className="flex items-center gap-3"><FileText className="h-7 w-7 text-emerald-400" /> Banka & Elden Ödeme Raporu</div>
@@ -594,28 +603,29 @@ export default function PayrollPage() {
                                         <tr key={idx} className="hover:bg-slate-50">
                                             <td className="px-6 py-4 font-black text-slate-800">{row.fin_personnel?.full_name}</td>
                                             <td className="px-6 py-3"><Input type="number" value={row.bank_payment} onChange={e=>handleCellChange(idx, 'bank_payment', e.target.value)} className="h-10 text-right font-black text-indigo-700 border-indigo-200 bg-indigo-50/50 focus:ring-indigo-500" /></td>
-                                            <td className="px-6 py-4 text-right font-black text-amber-700">{formatMoney(row.cash_payment)}</td>
-                                            <td className="px-6 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 text-lg">{formatMoney(row.net_salary)}</td>
+                                            {/* NaN Hataları Number() sarmalaması ile giderildi */}
+                                            <td className="px-6 py-4 text-right font-black text-amber-700">{formatMoney(Number(row.cash_payment) || 0)}</td>
+                                            <td className="px-6 py-4 text-right font-black text-emerald-700 bg-emerald-50/30 text-lg">{formatMoney(Number(row.net_salary) || 0)}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                     </div>
-                    <div className="p-6 bg-white border-t border-slate-200 flex items-center justify-between">
-                        <div className="flex gap-8">
-                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Toplam Banka</p><p className="text-xl font-black text-indigo-600">{formatMoney(payrollGrid.reduce((s,r)=>s+Number(r.bank_payment),0))}</p></div>
-                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Toplam Elden</p><p className="text-xl font-black text-amber-600">{formatMoney(payrollGrid.reduce((s,r)=>s+Number(r.cash_payment),0))}</p></div>
+                    <div className="p-6 bg-white border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex gap-8 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Toplam Banka</p><p className="text-xl font-black text-indigo-600">{formatMoney(payrollGrid.reduce((s,r)=>s+(Number(r.bank_payment)||0),0))}</p></div>
+                            <div><p className="text-[10px] font-black text-slate-500 uppercase">Toplam Elden</p><p className="text-xl font-black text-amber-600">{formatMoney(payrollGrid.reduce((s,r)=>s+(Number(r.cash_payment)||0),0))}</p></div>
                             <div><p className="text-[10px] font-black text-slate-500 uppercase">Genel Toplam</p><p className="text-2xl font-black text-emerald-600">{formatMoney(grandTotalNet)}</p></div>
                         </div>
-                        <Button onClick={saveBulkGrid} className="h-14 px-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-xl shadow-emerald-500/20"><Save className="h-5 w-5 mr-2" /> Aktar & Kaydet</Button>
+                        <Button onClick={saveBulkGrid} className="h-14 w-full md:w-auto px-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg shadow-xl shadow-emerald-500/20 shrink-0"><Save className="h-5 w-5 mr-2" /> Aktar & Kaydet</Button>
                     </div>
                 </DialogContent>
             </Dialog>
 
-            {/* DETAYLI PUANTAJ (TIMESHEET) MODALI */}
+            {/* DETAYLI PUANTAJ (TIMESHEET) MODALI - GENİŞLETİLDİ (w-[95vw] max-w-[1200px]) */}
             <Dialog open={isTimesheetOpen} onOpenChange={setIsTimesheetOpen}>
-                <DialogContent className="rounded-[2rem] p-0 max-w-4xl border-none shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] overflow-hidden bg-muted">
+                <DialogContent className="rounded-[2rem] p-0 w-[95vw] max-w-[1200px] border-none shadow-2xl flex flex-col max-h-[90vh] md:max-h-[85vh] overflow-hidden bg-muted">
                     <DialogHeader className="p-6 bg-card border-b border-border shrink-0">
                         <DialogTitle className="text-xl md:text-2xl font-black text-foreground flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -633,28 +643,28 @@ export default function PayrollPage() {
                             <table className="w-full text-left border-collapse whitespace-nowrap">
                                 <thead className="bg-[#f8fafc] border-b border-border sticky top-0 z-10">
                                     <tr>
-                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground w-16">Gün</th>
-                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tarih</th>
-                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Durum</th>
-                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center text-primary w-32">N. Mesai (1.5x)</th>
-                                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-center text-amber-600 w-32">P. Mesai (2.0x)</th>
+                                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground w-16">Gün</th>
+                                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Tarih</th>
+                                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-muted-foreground">Durum</th>
+                                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-center text-primary w-40">N. Mesai (1.5x)</th>
+                                        <th className="px-6 py-4 text-xs font-black uppercase tracking-widest text-center text-amber-600 w-40">P. Mesai (2.0x)</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {dailyRecords.map((day, idx) => (
                                         <tr key={idx} className={`transition-colors ${day.isWeekend ? 'bg-amber-50/30' : 'hover:bg-muted/50'} ${day.status === 'EKSİK' || day.status === 'RAPORLU' ? 'bg-rose-50/50' : ''} ${day.status === 'RESMİ_TATİL' ? 'bg-indigo-50' : ''}`}>
-                                            <td className="px-4 py-3 text-xs font-black text-muted-foreground text-center">{day.dayNum}</td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-6 py-4 text-sm font-black text-muted-foreground text-center">{day.dayNum}</td>
+                                            <td className="px-6 py-4">
                                                 <div className="flex flex-col">
-                                                    <span className={`text-sm font-bold ${day.isWeekend ? 'text-amber-700' : 'text-foreground'}`}>{day.dateStr}</span>
-                                                    <span className={`text-[10px] font-black uppercase ${day.isWeekend ? 'text-amber-500' : 'text-muted-foreground'}`}>{day.dayName}</span>
+                                                    <span className={`text-base font-bold ${day.isWeekend ? 'text-amber-700' : 'text-foreground'}`}>{day.dateStr}</span>
+                                                    <span className={`text-[11px] font-black uppercase ${day.isWeekend ? 'text-amber-500' : 'text-muted-foreground'}`}>{day.dayName}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-6 py-4">
                                                 <select 
                                                     value={day.status} 
                                                     onChange={(e) => handleDailyChange(idx, 'status', e.target.value)}
-                                                    className={`h-10 rounded-xl text-xs font-black px-3 outline-none border focus:ring-2 focus:ring-indigo-500 ${
+                                                    className={`h-12 rounded-xl text-sm font-black px-4 outline-none border focus:ring-2 focus:ring-indigo-500 w-full max-w-[250px] ${
                                                         day.status === 'ÇALIŞTI' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                                         day.status === 'EKSİK' ? 'bg-rose-50 text-rose-700 border-rose-200' :
                                                         day.status === 'RAPORLU' ? 'bg-orange-50 text-orange-700 border-orange-200' :
@@ -669,11 +679,11 @@ export default function PayrollPage() {
                                                     <option value="RESMİ_TATİL">🇹🇷 Resmi Tatil</option>
                                                 </select>
                                             </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <Input type="number" min="0" value={day.ot15} onChange={e=>handleDailyChange(idx, 'ot15', e.target.value)} className="h-10 text-center font-bold text-sm bg-card border-border focus:border-blue-500" placeholder="0" />
+                                            <td className="px-6 py-4 text-center">
+                                                <Input type="number" min="0" value={day.ot15} onChange={e=>handleDailyChange(idx, 'ot15', e.target.value)} className="h-12 text-center font-bold text-base bg-card border-border focus:border-blue-500" placeholder="0" />
                                             </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <Input type="number" min="0" value={day.ot20} onChange={e=>handleDailyChange(idx, 'ot20', e.target.value)} className="h-10 text-center font-bold text-sm bg-card border-border focus:border-amber-500" placeholder="0" />
+                                            <td className="px-6 py-4 text-center">
+                                                <Input type="number" min="0" value={day.ot20} onChange={e=>handleDailyChange(idx, 'ot20', e.target.value)} className="h-12 text-center font-bold text-base bg-card border-border focus:border-amber-500" placeholder="0" />
                                             </td>
                                         </tr>
                                     ))}
@@ -683,13 +693,13 @@ export default function PayrollPage() {
                     </div>
 
                     <div className="p-6 bg-card border-t border-border shrink-0 flex items-center justify-between">
-                        <div className="flex gap-4">
-                            <div className="flex flex-col"><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Eksik Gün</span><span className="text-lg font-black text-rose-600">{dailyRecords.filter(d=>d.status === 'EKSİK' || d.status==='RAPORLU').length} Gün</span></div>
-                            <div className="flex flex-col"><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Toplam Mesai</span><span className="text-lg font-black text-primary">{dailyRecords.reduce((acc, curr) => acc + (Number(curr.ot15)||0) + (Number(curr.ot20)||0), 0)} Saat</span></div>
+                        <div className="flex gap-6">
+                            <div className="flex flex-col"><span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Eksik Gün</span><span className="text-xl font-black text-rose-600">{dailyRecords.filter(d=>d.status === 'EKSİK' || d.status==='RAPORLU').length} Gün</span></div>
+                            <div className="flex flex-col"><span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Toplam Mesai</span><span className="text-xl font-black text-primary">{dailyRecords.reduce((acc, curr) => acc + (Number(curr.ot15)||0) + (Number(curr.ot20)||0), 0)} Saat</span></div>
                         </div>
                         <div className="flex gap-3">
-                            <Button variant="ghost" onClick={() => setIsTimesheetOpen(false)} className="h-12 px-6 rounded-xl font-bold bg-muted hover:bg-slate-200">İptal</Button>
-                            <Button onClick={applyTimesheetToGrid} className="h-12 px-8 rounded-xl bg-primary hover:bg-indigo-700 text-primary-foreground font-black shadow-lg shadow-indigo-500/30">
+                            <Button variant="ghost" onClick={() => setIsTimesheetOpen(false)} className="h-14 px-8 rounded-xl font-bold bg-muted hover:bg-slate-200 text-base">İptal</Button>
+                            <Button onClick={applyTimesheetToGrid} className="h-14 px-10 rounded-xl bg-primary hover:bg-indigo-700 text-primary-foreground font-black text-base shadow-lg shadow-indigo-500/30">
                                 Tümünü Ana Tabloya Aktar
                             </Button>
                         </div>
