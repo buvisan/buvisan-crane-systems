@@ -467,12 +467,13 @@ export default function PurchasesPage() {
                           <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Miktar</th>
                           <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Tedarikçi Firma</th>
                           <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Birim Fiyat</th>
+                          <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Toplam Fiyat</th>
                           <th className="px-5 py-4 text-[10px] font-black text-muted-foreground uppercase tracking-widest">Sipariş No</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-border bg-background">
                       {historyData.length === 0 ? (
-                          <tr><td colSpan={6} className="px-6 py-16 text-center text-muted-foreground font-bold">Geçmiş kayıt bulunamadı.</td></tr>
+                          <tr><td colSpan={7} className="px-6 py-16 text-center text-muted-foreground font-bold">Geçmiş kayıt bulunamadı.</td></tr>
                       ) : (
                           historyData.map((item, idx) => (
                               <tr key={idx} className="hover:bg-muted/30 transition-colors">
@@ -481,6 +482,7 @@ export default function PurchasesPage() {
                                   <td className="px-5 py-3 text-xs font-bold text-primary bg-primary/5 rounded-md text-center w-24">{item.quantity} {item.unit}</td>
                                   <td className="px-5 py-3 text-xs font-bold text-foreground">{item.supplier_name || '-'}</td>
                                   <td className="px-5 py-3 text-xs font-black text-emerald-600">{item.price ? `${item.price} ${item.currency}` : '-'}</td>
+                                  <td className="px-5 py-3 text-xs font-black text-emerald-600">{item.price && item.quantity ? `${Number((item.price * item.quantity).toFixed(2))} ${item.currency}` : '-'}</td>
                                   <td className="px-5 py-3 text-[10px] font-mono text-muted-foreground">{item.request_no}</td>
                               </tr>
                           ))
