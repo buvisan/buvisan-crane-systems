@@ -233,24 +233,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const newItems = [...orderItems]; newItems.splice(index, 1); setOrderItems(newItems);
   }
 
-  const handleOrderSubmit = async () => {
+const handleOrderSubmit = async () => {
       if (!orderHeader.material_type) return alert("Lütfen Malzeme Cinsi (Örn: Elektrik, Çelik) belirtiniz.");
       if (orderItems.length === 0) return alert("Lütfen listeye en az 1 malzeme ekleyin!");
       
       setOrderSubmitting(true)
       try {
           const requestNo = `FRM-${Date.now().toString().slice(-5)}`
+          const finalProjectCode = orderHeader.project_code || "-";
+
           const payloads = orderItems.map(item => ({
-              request_no: requestNo, project_code: orderHeader.project_code || "-", description: orderHeader.material_type,
-              material_name: item.material_name, current_stock: Number(item.current_stock), quantity: Number(item.quantity), 
+              request_no: requestNo, 
+              project_code: finalProjectCode, 
+              description: orderHeader.material_type,
+              material_name: item.material_name, 
+              current_stock: Number(item.current_stock), 
+              quantity: Number(item.quantity), 
               unit: item.unit, 
-              priority: orderHeader.priority, status: 'BEKLIYOR', requested_by: profile?.id
+              priority: orderHeader.priority, 
+              status: 'BEKLIYOR', 
+              requested_by: profile?.id
           }))
           
           const { error } = await supabase.from('material_requests').insert(payloads)
           if (error) throw error
           
-          alert(`✅ Sipariş formu oluşturuldu ve Satın Almaya iletildi! \nForm No: ${requestNo}`)
+          alert(`✅ Sipariş formu oluşturuldu ve Satın Almaya iletildi! 
+Form No: ${requestNo}`)
           setOrderItems([]); setOrderHeader({ project_code: "", material_type: "", priority: "NORMAL" });
           setIsOrderModalOpen(false); fetchAllOrders();
       } catch (err: any) { alert("Hata: " + err.message) }
@@ -569,7 +578,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-6">
                   <div className="bg-primary/5 border border-primary/20 rounded-[1.5rem] p-4 flex flex-col gap-4">
                       <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2"><Label className="text-[10px] font-bold text-primary uppercase tracking-widest">Proje No (Varsa)</Label><Input placeholder="Örn: 26-092" value={orderHeader.project_code} onChange={e=>setOrderHeader({...orderHeader, project_code: e.target.value})} className="font-bold border-primary/30 focus:ring-primary h-11 bg-background text-foreground" /></div>
+                          <div className="space-y-2 relative">
+                              <Label className="text-[10px] font-bold text-primary uppercase tracking-widest">Proje No (Varsa)</Label>
+                              <Input 
+                                  placeholder="Örn: 26-092 veya Firma Adı" 
+                                  value={orderHeader.project_code} 
+                                  onChange={e => {
+                                      setOrderHeader({...orderHeader, project_code: e.target.value});
+                                      setShowMachineSelect(true);
+                                  }} 
+                                  onFocus={() => setShowMachineSelect(true)}
+                                  onBlur={() => setTimeout(() => setShowMachineSelect(false), 200)}
+                                  className="font-bold border-primary/30 focus:ring-primary h-11 bg-background text-foreground" 
+                              />
+                              {showMachineSelect && activeProjects.length > 0 && (
+                                  <div className="absolute top-full left-0 w-full mt-1 bg-card border border-border shadow-xl rounded-xl z-[200] max-h-48 overflow-y-auto custom-scrollbar p-1">
+                                      {activeProjects.filter(p => 
+                                          (p.customers?.name || "").toLowerCase().includes(orderHeader.project_code.toLowerCase()) || 
+                                          (p.project_code || "").toLowerCase().includes(orderHeader.project_code.toLowerCase())
+                                      ).map((project, idx) => (
+                                          <button 
+                                              key={idx}
+                                              type="button"
+                                              onClick={() => {
+                                                  setOrderHeader({...orderHeader, project_code: project.project_code});
+                                                  setShowMachineSelect(false);
+                                              }}
+                                              className="w-full flex flex-col text-left px-3 py-2 rounded-lg hover:bg-muted transition-colors"
+                                          >
+                                              <span className="font-bold text-xs text-foreground">{project.project_code} <span className="font-medium text-muted-foreground">- {project.customers?.name}</span></span>
+                                          </button>
+                                      ))}
+                                      {activeProjects.filter(p => 
+                                          (p.customers?.name || "").toLowerCase().includes(orderHeader.project_code.toLowerCase()) || 
+                                          (p.project_code || "").toLowerCase().includes(orderHeader.project_code.toLowerCase())
+                                      ).length === 0 && (
+                                          <div className="px-3 py-2 text-xs font-bold text-muted-foreground text-center">Sonuç bulunamadı</div>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
                           <div className="space-y-2"><Label className="text-[10px] font-bold text-primary uppercase tracking-widest">Malzeme Cinsi / Kategori</Label><Input placeholder="Örn: Elektrik, Çelik, Hırdavat..." value={orderHeader.material_type} onChange={e=>setOrderHeader({...orderHeader, material_type: e.target.value})} className="font-bold border-primary/30 focus:ring-primary h-11 bg-background text-foreground" /></div>
                       </div>
                   </div>
@@ -620,57 +668,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       </div>
                   )}
               </div>
-                {/* 🚀 GÜNCELLENEN BUTONLAR VE MAKİNE SEÇİM ALANI */}
-              <div className="shrink-0 pt-4 mt-2 border-t border-border relative">
-                  
-                  {/* MAKİNE SEÇİM EKRANI (Üstte açılır) */}
-                  {showMachineSelect ? (
-                      <div className="absolute bottom-full left-0 w-full bg-card border border-border shadow-2xl rounded-2xl p-4 mb-4 z-50 animate-in slide-in-from-bottom-2">
-                          <div className="flex items-center justify-between mb-3">
-                              <h4 className="font-black text-indigo-600 flex items-center gap-2"><Factory className="h-4 w-4"/> Hangi Makine İçin Sipariş Geçiliyor?</h4>
-                              <button onClick={() => setShowMachineSelect(false)} className="text-muted-foreground hover:text-destructive"><X className="h-5 w-5"/></button>
-                          </div>
-                          <Input 
-                              placeholder="Firma Adı veya Proje No Ara..." 
-                              value={machineSearchTerm}
-                              onChange={(e) => setMachineSearchTerm(e.target.value)}
-                              className="mb-3 h-10 border-indigo-200 focus:ring-indigo-500"
-                          />
-                          <div className="max-h-[200px] overflow-y-auto custom-scrollbar flex flex-col gap-2">
-                              {activeProjects.filter(p => 
-                                  (p.customers?.name || "").toLowerCase().includes(machineSearchTerm.toLowerCase()) || 
-                                  (p.project_code || "").toLowerCase().includes(machineSearchTerm.toLowerCase())
-                              ).map((project, idx) => (
-                                  <button 
-                                      key={idx}
-                                      onClick={() => {
-                                          setOrderHeader({...orderHeader, project_code: project.project_code});
-                                          setShowMachineSelect(false);
-                                          // Timeout koyuyoruz ki state güncellensin, sonra formu göndersin
-                                          setTimeout(() => handleOrderSubmit(), 100); 
-                                      }}
-                                      className="flex flex-col text-left p-3 rounded-xl border border-border hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
-                                  >
-                                      <span className="font-black text-sm text-foreground">{project.customers?.name}</span>
-                                      <span className="font-bold text-[10px] text-muted-foreground">Proje No: <span className="text-indigo-600">{project.project_code}</span></span>
-                                  </button>
-                              ))}
-                              {activeProjects.length === 0 && <span className="text-xs text-center font-bold text-muted-foreground py-4">Üretimde makine bulunamadı.</span>}
-                          </div>
-                      </div>
-                  ) : null}
-
-                  <div className="flex flex-col gap-3">
-                      {/* STANDART SİPARİŞ BUTONU (Mevcut Mavi Buton) */}
-                      <Button onClick={handleOrderSubmit} disabled={orderSubmitting || orderItems.length === 0} className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-base rounded-xl shadow-xl shadow-primary/20 transition-all">
-                          {orderSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <FileText className="h-5 w-5 mr-2" />} {orderSubmitting ? "FORM OLUŞTURULUYOR..." : `FORMU OLUŞTUR VE İLET (${orderItems.length} Kalem)`}
-                      </Button>
-
-                      {/* YENİ EKLENEN MAKİNE SİPARİŞ BUTONU */}
-                      <Button onClick={() => setShowMachineSelect(true)} disabled={orderSubmitting || orderItems.length === 0} variant="outline" className="w-full h-14 border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 font-black text-base rounded-xl transition-all">
-                          <Factory className="h-5 w-5 mr-2" /> MAKİNE İÇİN FORMU OLUŞTUR VE İLET
-                      </Button>
-                  </div>
+                <div className="shrink-0 pt-4 mt-2 border-t border-border">
+                  <Button onClick={() => handleOrderSubmit()} disabled={orderSubmitting || orderItems.length === 0} className="w-full h-14 md:h-16 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-base md:text-lg rounded-xl shadow-xl shadow-primary/20 transition-all">
+                      {orderSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <FileText className="h-5 w-5 mr-2" />} {orderSubmitting ? "FORM OLUŞTURULUYOR..." : `FORMU OLUŞTUR VE İLET (${orderItems.length} Kalem)`}
+                  </Button>
               </div>
           </DialogContent>
       </Dialog>
@@ -760,23 +761,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                           
                                           {canApprove && (
                                               <>
-                                                <Button onClick={() => rejectTermin(group.request_no)} size="sm" variant="outline" className="h-8 text-rose-600 border-rose-200 hover:bg-rose-50 font-bold text-xs">
-                                                    <X className="h-3.5 w-3.5 mr-1" /> Reddet
-                                                </Button>
-                                                <Button onClick={() => approveTermin(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md">
-                                                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Termini Onayla (Siparişi Geç)
-                                                </Button>
+                                                  <Button onClick={() => rejectTermin(group.request_no)} size="sm" variant="outline" className="h-8 text-rose-600 border-rose-200 hover:bg-rose-50 font-bold text-xs">
+                                                      <X className="h-3.5 w-3.5 mr-1" /> Reddet
+                                                  </Button>
+                                                  <Button onClick={() => approveTermin(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md">
+                                                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Termini Onayla (Siparişi Geç)
+                                                  </Button>
                                               </>
                                           )}
 
                                           {canAlarm && (
                                               <>
-                                                <Button onClick={() => triggerAlarm(group.request_no)} size="sm" className="h-8 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/30">
-                                                    <AlertTriangle className="h-3.5 w-3.5 mr-1" /> GELMEDİ ALARMI
-                                                </Button>
-                                                <Button onClick={() => markAsReceived(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-500/30">
-                                                    <Box className="h-3.5 w-3.5 mr-1" /> GELDİ (Teslim Alındı)
-                                                </Button>
+                                                  <Button onClick={() => triggerAlarm(group.request_no)} size="sm" className="h-8 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md shadow-rose-500/30">
+                                                      <AlertTriangle className="h-3.5 w-3.5 mr-1" /> GELMEDİ ALARMI
+                                                  </Button>
+                                                  <Button onClick={() => markAsReceived(group.request_no)} size="sm" className="h-8 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-500/30">
+                                                      <Box className="h-3.5 w-3.5 mr-1" /> GELDİ (Teslim Alındı)
+                                                  </Button>
                                               </>
                                           )}
 
@@ -802,7 +803,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <DialogContent className="!max-w-[95vw] !w-[95vw] !h-[95vh] p-0 border-none bg-muted shadow-2xl flex flex-col z-[200] overflow-hidden print:!w-full print:!max-w-none print:!h-auto print:!shadow-none print:block print:p-0 print:m-0 print:bg-white">
               <div className="flex-1 overflow-y-auto custom-scrollbar p-6 print:bg-white print:p-0 w-full">
                   <div className="bg-white text-black border-[3px] border-black w-full min-w-[700px] mx-auto shadow-sm print:shadow-none print:min-w-0" id="printable-form">
-                      <table className="w-full border-collapse border border-black mb-4">
+                      <table className="w-full border-collapse border-black mb-4">
                           <tbody>
                               <tr>
                                   <td className="border border-black w-1/4 p-2 text-center align-middle">
