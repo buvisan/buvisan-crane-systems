@@ -2,14 +2,14 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { 
   UploadCloud, FileCog, Loader2, CheckCircle2, AlertTriangle, 
-  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2, Trash2, ChevronDown, Package, Building2
+  Clock, Factory, FileText, Send, Layers, Hammer, Search, X, PlusCircle, Download, TrendingUp, ArrowRight, Edit2, Trash2, ChevronDown, Package, Building2, ShoppingCart
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -36,6 +36,9 @@ export default function ProjectPanelPage() {
   
   // 🚀 ÜRETİME İNENLER İÇİN YENİ AÇILIR KAPANIR HAFIZA
   const [expandedProductionGroups, setExpandedProductionGroups] = useState<string[]>([])
+  
+  // 🚀 YENİ: MAKİNE İÇİN VERİLEN SİPARİŞLERİ TUTACAK STATE
+  const [machineOrders, setMachineOrders] = useState<any[]>([])
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [editProjectData, setEditProjectData] = useState<any>(null)
@@ -45,6 +48,7 @@ export default function ProjectPanelPage() {
   useEffect(() => { 
       fetchCustomers();
       fetchPendingSales();
+      fetchMachineOrders(); // 🚀 BUNA YENİ EKLENDİ
   }, [])
 
   useEffect(() => {
@@ -155,6 +159,20 @@ export default function ProjectPanelPage() {
           grouped[customerName].push(p);
       });
       return grouped;
+  }
+
+  // 🚀 YENİ: MAKİNE (PROJE) İÇİN GEÇİLMİŞ SİPARİŞLERİ ÇEK
+  const fetchMachineOrders = async () => {
+      // Proje kodu (project_code) olan ve silinmemiş siparişleri çekiyoruz
+      const { data } = await supabase
+          .from('material_requests')
+          .select('*')
+          .neq('project_code', '')
+          .neq('project_code', '-')
+          .not('project_code', 'is', null)
+          .order('created_at', { ascending: false });
+      
+      if (data) setMachineOrders(data);
   }
 
   const deleteProject = async (id: number) => {
@@ -613,35 +631,86 @@ export default function ProjectPanelPage() {
                                                           </thead>
                                                           <tbody className="divide-y divide-slate-100">
                                                               {groupItems.map((item) => (
-                                                                  <tr key={item.id} className="hover:bg-card/80 transition-colors">
-                                                                      <td className="py-4 px-4 font-mono text-sm font-bold text-foreground">{item.project_code}</td>
-                                                                      <td className="py-4 px-4">
-                                                                          <div className="flex flex-wrap gap-1.5 md:gap-2">
-                                                                              {item.project_files && item.project_files.length > 0 ? (
-                                                                                  item.project_files.map((file: any, idx: number) => {
-                                                                                      const isEmriColor = file.file_type === 'IS_EMRI' ? 'bg-primary/10 text-blue-700 border-blue-200 hover:bg-blue-100' : file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-muted text-slate-600 border-border hover:bg-muted';
-                                                                                      return (
-                                                                                          <a key={idx} href={file.file_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-md border hover:shadow-sm transition-all ${isEmriColor}`}>
-                                                                                              <Download className="h-3 w-3" /> {file.file_type.replace('_', ' ')}
-                                                                                          </a>
-                                                                                      )
-                                                                                  })
-                                                                              ) : (
-                                                                                  <span className="text-[10px] text-muted-foreground font-bold">Dosya Yok</span>
-                                                                              )}
-                                                                          </div>
-                                                                      </td>
-                                                                      <td className="py-4 px-4 text-center">
-                                                                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold w-max bg-emerald-100 text-emerald-700">
-                                                                              <Factory className="h-3.5 w-3.5" /> Üretimde
-                                                                          </span>
-                                                                      </td>
-                                                                      <td className="py-4 px-4 text-right">
-                                                                          <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-9 text-xs font-bold text-primary border-primary/30 hover:bg-primary/10">
-                                                                              <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Düzenle
-                                                                          </Button>
-                                                                      </td>
-                                                                  </tr>
+                                                                  <React.Fragment key={item.id}>
+                                                                      <tr className="hover:bg-card/80 transition-colors">
+                                                                          <td className="py-4 px-4 font-mono text-sm font-bold text-foreground">{item.project_code}</td>
+                                                                          <td className="py-4 px-4">
+                                                                              <div className="flex flex-wrap gap-1.5 md:gap-2">
+                                                                                  {item.project_files && item.project_files.length > 0 ? (
+                                                                                      item.project_files.map((file: any, idx: number) => {
+                                                                                          const isEmriColor = file.file_type === 'IS_EMRI' ? 'bg-primary/10 text-blue-700 border-blue-200 hover:bg-blue-100' : file.file_type === 'FATURA' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-muted text-slate-600 border-border hover:bg-muted';
+                                                                                          return (
+                                                                                              <a key={idx} href={file.file_url} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2 py-1 rounded-md border hover:shadow-sm transition-all ${isEmriColor}`}>
+                                                                                                  <Download className="h-3 w-3" /> {file.file_type.replace('_', ' ')}
+                                                                                              </a>
+                                                                                          )
+                                                                                      })
+                                                                                  ) : (
+                                                                                      <span className="text-[10px] text-muted-foreground font-bold">Dosya Yok</span>
+                                                                                  )}
+                                                                              </div>
+                                                                          </td>
+                                                                          <td className="py-4 px-4 text-center">
+                                                                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold w-max bg-emerald-100 text-emerald-700">
+                                                                                  <Factory className="h-3.5 w-3.5" /> Üretimde
+                                                                              </span>
+                                                                          </td>
+                                                                          <td className="py-4 px-4 text-right">
+                                                                              <Button variant="outline" size="sm" onClick={() => openEditModal(item)} className="h-9 text-xs font-bold text-primary border-primary/30 hover:bg-primary/10">
+                                                                                  <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Düzenle
+                                                                              </Button>
+                                                                          </td>
+                                                                      </tr>
+
+                                                                      {/* 🚀 SİPARİŞİ GEÇİLEN MALZEMELER LİSTESİ */}
+                                                                      {(() => {
+                                                                          const thisProjectOrders = machineOrders.filter(order => order.project_code === item.project_code);
+                                                                          if (thisProjectOrders.length === 0) return null;
+                                                                          
+                                                                          return (
+                                                                              <tr className="bg-muted/10">
+                                                                                  <td colSpan={4} className="p-0 border-b border-border/50">
+                                                                                      <div className="mx-4 my-3 p-4 bg-card rounded-xl border border-indigo-100/50 shadow-inner">
+                                                                                          <h3 className="text-[10px] md:text-xs font-black text-indigo-600 mb-3 flex items-center gap-2 uppercase tracking-widest"><ShoppingCart className="h-4 w-4" /> Siparişi Geçilen Malzemeler</h3>
+                                                                                          <div className="border border-border/50 rounded-lg overflow-hidden bg-background">
+                                                                                              <table className="w-full text-left text-[10px] md:text-xs">
+                                                                                                  <thead className="bg-muted/30 border-b border-border/50">
+                                                                                                      <tr>
+                                                                                                          <th className="py-2 px-3 font-bold text-muted-foreground w-10">No</th>
+                                                                                                          <th className="py-2 px-3 font-bold text-muted-foreground">Malzeme Adı</th>
+                                                                                                          <th className="py-2 px-3 font-bold text-muted-foreground text-center">Miktar</th>
+                                                                                                          <th className="py-2 px-3 font-bold text-muted-foreground text-center">Durum</th>
+                                                                                                      </tr>
+                                                                                                  </thead>
+                                                                                                  <tbody className="divide-y divide-border/30">
+                                                                                                      {thisProjectOrders.map((order, idx) => (
+                                                                                                          <tr key={order.id} className="hover:bg-muted/50 transition-colors">
+                                                                                                              <td className="py-1.5 px-3 font-bold text-slate-400">{idx + 1}</td>
+                                                                                                              <td className="py-1.5 px-3 font-black text-foreground">{order.material_name}</td>
+                                                                                                              <td className="py-1.5 px-3 font-black text-indigo-600 text-center">{order.quantity} {order.unit}</td>
+                                                                                                              <td className="py-1.5 px-3 text-center">
+                                                                                                                  <span className={`px-2 py-0.5 rounded text-[8px] md:text-[9px] font-bold uppercase ${
+                                                                                                                      order.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' 
+                                                                                                                      : order.status === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
+                                                                                                                      : order.status === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700'
+                                                                                                                      : order.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700'
+                                                                                                                      : order.status === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse'
+                                                                                                                      : 'bg-muted text-muted-foreground'
+                                                                                                                  }`}>
+                                                                                                                      {order.status?.replace('_', ' ')}
+                                                                                                                  </span>
+                                                                                                              </td>
+                                                                                                          </tr>
+                                                                                                      ))}
+                                                                                                  </tbody>
+                                                                                              </table>
+                                                                                          </div>
+                                                                                      </div>
+                                                                                  </td>
+                                                                              </tr>
+                                                                          );
+                                                                      })()}
+                                                                  </React.Fragment>
                                                               ))}
                                                           </tbody>
                                                       </table>
@@ -651,6 +720,7 @@ export default function ProjectPanelPage() {
                                       </div>
                                   )
                               })}
+                              
                               {dataList.length === 0 && <div className="p-10 text-center text-sm font-bold text-muted-foreground bg-card/40 rounded-[1.5rem] border border-border">Kayıt bulunamadı.</div>}
                           </div>
                       </div>
