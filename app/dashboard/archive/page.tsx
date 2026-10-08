@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { 
     ArchiveRestore, Search, Loader2, CheckCircle2, 
-    AlertTriangle, PackageMinus, Clock, Hammer, CalendarDays, ArrowRight, Trash2
+    AlertTriangle, PackageMinus, Clock, Hammer, CalendarDays, ArrowRight, Trash2, ShoppingCart
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
@@ -108,6 +108,66 @@ export default function ArchivePage() {
                     icon: <PackageMinus className="h-5 w-5 text-rose-500" />,
                     color: 'bg-destructive/10 border-destructive/20'
                 })
+            })
+        }
+
+        // YENİ: Bu makine (proje) için verilmiş siparişleri çekiyoruz
+        const { data: materialOrders } = await supabase
+            .from('material_requests')
+            .select('*')
+            .eq('project_code', project.project_code)
+            
+        if (materialOrders && materialOrders.length > 0) {
+            // Aynı tarihte/yakın zamanda verilen siparişleri gruplayabiliriz ama şecerede her siparişi
+            // ayrı bir olay olarak da gösterebiliriz. Biz gruplamayı tercih edelim:
+            // Sadece "GELDI" olanları veya hepsini gösterebiliriz. Hepsini gösterelim ki tam liste olsun.
+            
+            // Tüm siparişleri tek bir timeline olayına gömüyoruz (Tarih olarak projenin ortalarında bir yer gibi görünebilir)
+            // Ya da en eski siparişin tarihini baz alabiliriz.
+            
+            // Siparişleri tek bir HTML/JSX bloğu haline getiriyoruz
+            const orderListContent = (
+                <div className="mt-2 flex flex-col gap-2 w-full">
+                    <div className="bg-background rounded-lg border border-border overflow-hidden">
+                        <table className="w-full text-left text-[10px] md:text-xs">
+                            <thead className="bg-muted/50 border-b border-border">
+                                <tr>
+                                    <th className="py-2 px-3 font-bold text-muted-foreground">Malzeme Adı</th>
+                                    <th className="py-2 px-3 font-bold text-muted-foreground text-center">Miktar</th>
+                                    <th className="py-2 px-3 font-bold text-muted-foreground text-center">Durum</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/50">
+                                {materialOrders.map((order:any) => (
+                                    <tr key={order.id} className="hover:bg-muted/30">
+                                        <td className="py-1.5 px-3 font-black text-foreground">{order.material_name}</td>
+                                        <td className="py-1.5 px-3 font-bold text-indigo-600 text-center">{order.quantity} {order.unit}</td>
+                                        <td className="py-1.5 px-3 text-center">
+                                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                                order.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                            }`}>
+                                                {order.status?.replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+            
+            // Siparişlerin ortalama tarihini veya ilk siparişin tarihini olay tarihi yapalım
+            const orderDate = materialOrders[0].created_at || project.created_at;
+
+            events.push({
+                id: 'orders',
+                type: 'ORDERS',
+                date: orderDate,
+                title: 'Makine İçin Malzeme Siparişleri',
+                description: orderListContent,
+                icon: <ShoppingCart className="h-5 w-5 text-indigo-500" />,
+                color: 'bg-indigo-500/10 border-indigo-500/20'
             })
         }
 
