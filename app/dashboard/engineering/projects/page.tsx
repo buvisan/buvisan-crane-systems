@@ -161,18 +161,31 @@ export default function ProjectPanelPage() {
       return grouped;
   }
 
-  // 🚀 YENİ: MAKİNE (PROJE) İÇİN GEÇİLMİŞ SİPARİŞLERİ ÇEK
+// 🚀 YENİ: MAKİNE (PROJE) İÇİN GEÇİLMİŞ SİPARİŞLERİ ÇEK
   const fetchMachineOrders = async () => {
       // Proje kodu (project_code) olan ve silinmemiş siparişleri çekiyoruz
       const { data } = await supabase
           .from('material_requests')
           .select('*')
-          .neq('project_code', '')
-          .neq('project_code', '-')
-          .not('project_code', 'is', null)
+          // Sıkılaştırılmış Filtreler:
+          .not('project_code', 'is', null) // null olanları alma
+          .neq('project_code', '')         // boş olanları alma
+          .neq('project_code', '-')        // - olanları alma
+          // Sadece en az 3 karakter uzunluğunda olan proje kodlarını al (PRJ, 26- gibi)
+          .gte('project_code', '   ') 
           .order('created_at', { ascending: false });
       
-      if (data) setMachineOrders(data);
+      if (data) {
+          // Gelen veriyi JavaScript tarafında da kontrol edelim. Sadece geçerli, 
+          // boş olmayan ve "-" olmayanları filtreleyip state'e atalım.
+          const filteredOrders = data.filter(order => 
+              order.project_code && 
+              order.project_code.trim() !== "" && 
+              order.project_code.trim() !== "-" &&
+              order.project_code.length > 2 // Geçerli bir proje kodunun en az 3 karakter olmasını bekliyoruz.
+          );
+          setMachineOrders(filteredOrders);
+      }
   }
 
   const deleteProject = async (id: number) => {
