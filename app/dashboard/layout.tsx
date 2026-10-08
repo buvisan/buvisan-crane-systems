@@ -28,6 +28,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
+  // 🚀 YENİ: MAKİNE İÇİN SİPARİŞ STATELERİ
+  const [activeProjects, setActiveProjects] = useState<any[]>([])
+  const [showMachineSelect, setShowMachineSelect] = useState(false)
+  const [machineSearchTerm, setMachineSearchTerm] = useState("")
   
   const [latestNotif, setLatestNotif] = useState<any>(null)
 
@@ -168,6 +172,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           setAllOrders(Object.values(grouped))
       }
   }
+
+  // 🚀 YENİ: SİPARİŞİ MAKİNEYE BAĞLAMAK İÇİN ÜRETİMDEKİ PROJELERİ ÇEK
+  const fetchActiveProjectsForOrder = async () => {
+      const { data } = await supabase
+          .from('projects')
+          .select('project_code, customers(name)')
+          .eq('status', 'URETIMDE')
+          .order('created_at', { ascending: false });
+      
+      if (data) setActiveProjects(data);
+  }
+
+  // Bu fonksiyonu Modal açıldığında tetiklemek için useEffect içine ekliyoruz:
+  useEffect(() => {
+      if (isOrderModalOpen) {
+          fetchActiveProjectsForOrder();
+          setShowMachineSelect(false); // Modal her açıldığında seçim ekranını sıfırla
+      }
+  }, [isOrderModalOpen])
 
   const approveTermin = async (requestNo: string) => {
       if(!confirm("Termini onaylıyorsunuz. Bu işlem satın almaya 'ONAY' verecek ve sipariş KESİNLEŞECEKTİR!")) return;
@@ -597,10 +620,57 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       </div>
                   )}
               </div>
-              <div className="shrink-0 pt-4 mt-2 border-t border-border">
-                  <Button onClick={handleOrderSubmit} disabled={orderSubmitting || orderItems.length === 0} className="w-full h-14 md:h-16 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-base md:text-lg rounded-xl shadow-xl shadow-primary/20 transition-all">
-                      {orderSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <FileText className="h-5 w-5 mr-2" />} {orderSubmitting ? "FORM OLUŞTURULUYOR..." : `FORMU OLUŞTUR VE İLET (${orderItems.length} Kalem)`}
-                  </Button>
+                {/* 🚀 GÜNCELLENEN BUTONLAR VE MAKİNE SEÇİM ALANI */}
+              <div className="shrink-0 pt-4 mt-2 border-t border-border relative">
+                  
+                  {/* MAKİNE SEÇİM EKRANI (Üstte açılır) */}
+                  {showMachineSelect ? (
+                      <div className="absolute bottom-full left-0 w-full bg-card border border-border shadow-2xl rounded-2xl p-4 mb-4 z-50 animate-in slide-in-from-bottom-2">
+                          <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-black text-indigo-600 flex items-center gap-2"><Factory className="h-4 w-4"/> Hangi Makine İçin Sipariş Geçiliyor?</h4>
+                              <button onClick={() => setShowMachineSelect(false)} className="text-muted-foreground hover:text-destructive"><X className="h-5 w-5"/></button>
+                          </div>
+                          <Input 
+                              placeholder="Firma Adı veya Proje No Ara..." 
+                              value={machineSearchTerm}
+                              onChange={(e) => setMachineSearchTerm(e.target.value)}
+                              className="mb-3 h-10 border-indigo-200 focus:ring-indigo-500"
+                          />
+                          <div className="max-h-[200px] overflow-y-auto custom-scrollbar flex flex-col gap-2">
+                              {activeProjects.filter(p => 
+                                  (p.customers?.name || "").toLowerCase().includes(machineSearchTerm.toLowerCase()) || 
+                                  (p.project_code || "").toLowerCase().includes(machineSearchTerm.toLowerCase())
+                              ).map((project, idx) => (
+                                  <button 
+                                      key={idx}
+                                      onClick={() => {
+                                          setOrderHeader({...orderHeader, project_code: project.project_code});
+                                          setShowMachineSelect(false);
+                                          // Timeout koyuyoruz ki state güncellensin, sonra formu göndersin
+                                          setTimeout(() => handleOrderSubmit(), 100); 
+                                      }}
+                                      className="flex flex-col text-left p-3 rounded-xl border border-border hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+                                  >
+                                      <span className="font-black text-sm text-foreground">{project.customers?.name}</span>
+                                      <span className="font-bold text-[10px] text-muted-foreground">Proje No: <span className="text-indigo-600">{project.project_code}</span></span>
+                                  </button>
+                              ))}
+                              {activeProjects.length === 0 && <span className="text-xs text-center font-bold text-muted-foreground py-4">Üretimde makine bulunamadı.</span>}
+                          </div>
+                      </div>
+                  ) : null}
+
+                  <div className="flex flex-col gap-3">
+                      {/* STANDART SİPARİŞ BUTONU (Mevcut Mavi Buton) */}
+                      <Button onClick={handleOrderSubmit} disabled={orderSubmitting || orderItems.length === 0} className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-black text-base rounded-xl shadow-xl shadow-primary/20 transition-all">
+                          {orderSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <FileText className="h-5 w-5 mr-2" />} {orderSubmitting ? "FORM OLUŞTURULUYOR..." : `FORMU OLUŞTUR VE İLET (${orderItems.length} Kalem)`}
+                      </Button>
+
+                      {/* YENİ EKLENEN MAKİNE SİPARİŞ BUTONU */}
+                      <Button onClick={() => setShowMachineSelect(true)} disabled={orderSubmitting || orderItems.length === 0} variant="outline" className="w-full h-14 border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 font-black text-base rounded-xl transition-all">
+                          <Factory className="h-5 w-5 mr-2" /> MAKİNE İÇİN FORMU OLUŞTUR VE İLET
+                      </Button>
+                  </div>
               </div>
           </DialogContent>
       </Dialog>
