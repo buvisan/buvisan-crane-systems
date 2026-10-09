@@ -2,15 +2,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { calculateCraneProject, OfferInputs } from '@/lib/craneCalculator';
 
 export default function YeniTeklifSayfasi() {
   const router = useRouter();
   const supabase = createClient();
   const teklifCiktisiRef = useRef<HTMLDivElement>(null);
   
-  // ==========================================
-  // 1. CANLI DÖVİZ KURLARI
-  // ==========================================
   const [dovizKurlari, setDovizKurlari] = useState<{ [key: string]: number }>({
     TRY: 1, USD: 0, EUR: 0, GBP: 0
   });
@@ -30,212 +28,101 @@ export default function YeniTeklifSayfasi() {
     kurlariGetir();
   }, []);
 
-  // ==========================================
-  // 2. EXCEL'İN BÜTÜN GİRDİLERİ (Birim Fiyatlar Eklendi!)
-  // ==========================================
-  const [formData, setFormData] = useState({
-    // --- Müşteri ---
-    firmaAdi: 'ECOILS', yetkili: 'Angelo Aulicino', telefon: '+39 345 0694833', 
-    email: 'angelo.aulicino@ecoils.it', adres: 'Via E. Mattei 25 84035 Polla (SA) - Italy',
-    paraBirimi: 'USD',
-    
-    // --- Genel Özellikler ---
-    kapasiteKg: 35000, aciklikS: 25000, yukseklikH: 7500, 
-    holBoyuL: 30000, direkArasiL1: 6000, direkAdeti: 12, direkBoyu: 6000,
-    kopruTipi: 'Çift Kiriş Kutu Tipi', direkTipi: 'Kare Kutu Profil',
-    
-    // --- Statik ve Köprü ---
-    kutuAltUstGenislik: 390, kutuAltUstKalinlik: 6, 
-    kutuYanYukseklik: 800, kutuYanKalinlik: 6,
-    kareGenislikb: 40, kareYukseklikh: 30, 
-    dikPayandaAraligi: 1000, payandaKalinligi: 5, 
-    kosebent: '30x30x3 mm', calismaProfiliKopru: 'IPE400',
-    
-    // --- Yürüme Yolu ---
-    yurumeYoluTipi: 'Çelik Yürüme Yolu', yurumeYoluProfili: 'IPE300', 
+  const [formData, setFormData] = useState<OfferInputs>({
+    kapasiteKg: 35000, aciklikS: 25000, yukseklikH: 7500, holBoyuL: 30000, 
+    kopruTipi: 'Çift Kiriş Kutu Tipi',
+    kutuAltUstGenislik: 390, kutuAltUstKalinlik: 6, kutuYanYukseklik: 800, kutuYanKalinlik: 6,
+    kareGenislikb: 40, kareYukseklikh: 30, dikPayandaAraligi: 1000, payandaKalinligi: 5, kosebent: '30x30x3 mm',
     rayAltiGenislik: 120, rayAltiYukseklik: 10,
-    
-    // --- Mekanik Motor ---
-    makineAgirligi: 960, baslikTekerSayisi: 4, 
-    tamburCapi: 300, halatSayisi: 6, tamburaGelenHalatSayisi: 1,
+    makineAgirligi: 960, baslikTekerSayisi: 4, tamburCapi: 300, halatSayisi: 6, tamburaGelenHalatSayisi: 1,
     kaldirmaHizi: 3, yurutmeHizi: 20, ivmelenmeSuresi: 5,
-    makineTekerMerkezi: 1260, baslikTekerMerkezi: 2800, 
     
-    // --- Maliyet Opsiyonları ---
-    guseYapilacak: 'YAPILMAYACAK', platformYapilacak: 'YAPILACAK', cRayKopru: 'YAPILACAK', 
-    cRayYurumeYolu: 'YOK', uzaktanKumanda: 'YAPILACAK', boyaKumlama: 'YAPILACAK', 
-    asiriYukSivici: 'CWL-35T', montajYapilacak: 'YAPILACAK', montajSuresiGun: 3, montajElemaniSayisi: 3,
+    guseYapilacak: 'YAPILMAYACAK', // TYPE HATASI BURADAN KAYNAKLANIYORDU, EKLENDİ!
+    platformYapilacak: 'YAPILACAK', cRayKopru: 'YAPILACAK', cRayYurumeYolu: 'YOK', 
+    uzaktanKumanda: 'YAPILACAK', boyaKumlama: 'YAPILACAK', montajYapilacak: 'YAPILACAK', 
+    montajSuresiGun: 3, montajElemaniSayisi: 3,
+    
+    fiyatIscilikKg: 75, fiyatMakineListe: 277900, fiyatPlatformMetre: 2000, fiyatCRayKopru: 30000, 
+    fiyatCRayYurume: 45000, fiyatUzaktanKumanda: 15000, fiyatBoyaKumlama: 37500, fiyatMontajYevmiye: 6000,
+    
+    paraBirimi: 'USD',
+  } as OfferInputs);
 
-    // --- YENİ: BİRİM FİYATLAR (Bütün Fiyat Kontrolü Sende) ---
-    fiyatIscilikKg: 75,
-    fiyatMakineListe: 277900,
-    fiyatPlatformMetre: 2000,
-    fiyatCRayKopru: 30000,
-    fiyatCRayYurume: 45000,
-    fiyatUzaktanKumanda: 15000,
-    fiyatBoyaKumlama: 37500,
-    fiyatMontajYevmiye: 6000
+  const [firmaBilgileri, setFirmaBilgileri] = useState({
+     firmaAdi: 'ECOILS', yetkili: 'Angelo Aulicino', telefon: '+39 345 0694833', 
+     email: 'angelo.aulicino@ecoils.it', adres: 'Via E. Mattei 25 84035 Polla (SA) - Italy'
   });
 
   const [activeTab, setActiveTab] = useState('genel');
   const [hesaplamaSonucu, setHesaplamaSonucu] = useState<any>(null);
-  const [hesaplaniyor, setHesaplaniyor] = useState(false);
   const [kaydediliyor, setKaydediliyor] = useState(false);
 
   useEffect(() => {
-    if (hesaplamaSonucu) handleHesapla();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.paraBirimi, formData.fiyatMakineListe, formData.fiyatIscilikKg, formData.fiyatMontajYevmiye]); 
+    if (dovizKurlari.USD > 0) {
+      handleHesapla();
+    }
+  }, [formData.paraBirimi, dovizKurlari, formData.fiyatMakineListe, formData.fiyatIscilikKg, formData.fiyatMontajYevmiye]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'number' ? Number(value) : value }));
+    if(Object.keys(firmaBilgileri).includes(name)) {
+        setFirmaBilgileri(prev => ({ ...prev, [name]: value }));
+    } else {
+        setFormData(prev => ({ ...prev, [name]: type === 'number' ? Number(value) : value }));
+    }
   };
 
-  // ==========================================
-  // 3. MÜHENDİSLİK MOTORU (Excel 1:1 Klonu)
-  // ==========================================
   const handleHesapla = () => {
-    setHesaplaniyor(true);
-    setTimeout(() => {
-      let kopruAgirlikKg = 0;
-      
-      // EXCEL: KÖPRÜ AĞIRLIĞI HESAPLAMA SİSTEMATİĞİ
-      if (formData.kopruTipi === 'Çift Kiriş Kutu Tipi') {
-        const altUst = (formData.kutuAltUstKalinlik * formData.kutuAltUstGenislik * formData.aciklikS * 8 * 4) / 1000000;
-        const yan = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * 8 * 4) / 1000000;
-        const kareRay = (formData.kareGenislikb * formData.kareYukseklikh * formData.aciklikS * 8 * 2) / 1000000;
-        const payandaAdet = Math.ceil(formData.aciklikS / formData.dikPayandaAraligi);
-        const diyafram = ((formData.kutuYanYukseklik - 10) * (formData.kutuAltUstGenislik - 60) * formData.payandaKalinligi * payandaAdet * 2 * 8) / 1000000;
-        const kosebentCarpan = (formData.kosebent === '30x30x3 mm' && formData.kutuYanYukseklik < 1000) ? (1.36 * 8) : 
-                               (formData.kosebent === '30x30x3 mm' && formData.kutuYanYukseklik >= 1000) ? (1.36 * 12) : (2.42 * 12);
-        const kosebentAgirlik = (kosebentCarpan * formData.aciklikS) / 1000;
-        const ek = (formData.aciklikS * 30) / 1000;
-        kopruAgirlikKg = altUst + yan + kareRay + diyafram + kosebentAgirlik + ek;
-      } 
-      else if (formData.kopruTipi === 'Çift Kiriş Hadde Profil') {
-        const rayKareAgirlik = (formData.kareGenislikb * formData.kareYukseklikh * 8 * formData.aciklikS) / 1000000;
-        kopruAgirlikKg = ((66.3 * formData.aciklikS / 1000) + rayKareAgirlik) * 2;
-      }
-      else if (formData.kopruTipi === 'Tek Kiriş Kutu Profil') {
-         const altUst = (formData.kutuAltUstKalinlik * formData.kutuAltUstGenislik * formData.aciklikS * 8 * 2) / 1000000;
-         const yan = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * 8 * 2) / 1000000;
-         kopruAgirlikKg = altUst + yan;
-      }
-      else {
-         kopruAgirlikKg = (66.3 * formData.aciklikS / 1000);
-      }
-
-      // EXCEL: YÜRÜME YOLU
-      const rayAltiSacAgirlik = (formData.rayAltiGenislik * formData.rayAltiYukseklik * 7.85) / 1000;
-      const yurumeYoluAgirlikKg = (50.5 + rayAltiSacAgirlik) * (formData.holBoyuL / 1000) * (formData.kopruTipi.includes('Çift') ? 2 : 1);
-      const toplamCelikAgirlik = kopruAgirlikKg + yurumeYoluAgirlikKg;
-
-      // EXCEL: MEKANİK MOTOR
-      const mekanikEmniyetliAgirlik = kopruAgirlikKg * 1.1; 
-      const yaklasmaMesafesi = 1000; 
-      const maxTekerYuku = (mekanikEmniyetliAgirlik + ((formData.kapasiteKg + formData.makineAgirligi) * ((formData.aciklikS - yaklasmaMesafesi) / formData.aciklikS))) / formData.baslikTekerSayisi * 2;
-      
-      const gerekliKaldirmaTorku = (formData.kapasiteKg * 9.81 * (formData.tamburCapi / 2000) * formData.tamburaGelenHalatSayisi) / (0.95 * formData.halatSayisi);
-      const kaldirmaReduktorCikisDevri = (formData.kaldirmaHizi * formData.halatSayisi) / (Math.PI * (formData.tamburCapi / 1000) * formData.tamburaGelenHalatSayisi);
-      const gerekliMotorGucu = (gerekliKaldirmaTorku * kaldirmaReduktorCikisDevri) / (9550 * 0.94);
-      
-      const yurutmeDirenci = maxTekerYuku * (formData.baslikTekerSayisi / 2) * 6 * 9.81 / 1000000;
-      const ivmelenmeGucu = (maxTekerYuku * (formData.baslikTekerSayisi / 2)) * Math.pow((formData.yurutmeHizi / 60), 2) / (formData.ivmelenmeSuresi * 0.9 * 1000) * 1.2;
-      const yurutmeMotorGucu = (ivmelenmeGucu + ((yurutmeDirenci * formData.yurutmeHizi) / (60 * 0.9))) / 1.4;
-
-      // EXCEL: MALİYETLER (Dinamik Fiyatlardan Beslenir)
-      const celikIscilikMaliyetiTL = toplamCelikAgirlik * formData.fiyatIscilikKg; 
-      const makinaFiyatiTL = formData.fiyatMakineListe; 
-
-      let ekstraMaliyetlerTL = 0;
-      if (formData.platformYapilacak === 'YAPILACAK') ekstraMaliyetlerTL += (formData.aciklikS / 1000) * formData.fiyatPlatformMetre;
-      if (formData.cRayKopru === 'YAPILACAK') ekstraMaliyetlerTL += formData.fiyatCRayKopru;
-      if (formData.cRayYurumeYolu === 'YAPILACAK') ekstraMaliyetlerTL += formData.fiyatCRayYurume;
-      if (formData.uzaktanKumanda === 'YAPILACAK') ekstraMaliyetlerTL += formData.fiyatUzaktanKumanda;
-      if (formData.boyaKumlama === 'YAPILACAK') ekstraMaliyetlerTL += formData.fiyatBoyaKumlama;
-      
-      let montajMaliyetiTL = formData.montajYapilacak === 'YAPILACAK' ? (formData.montajSuresiGun * formData.montajElemaniSayisi * formData.fiyatMontajYevmiye) : 0;
-      
-      const tahminiToplamSatisTL = celikIscilikMaliyetiTL + makinaFiyatiTL + ekstraMaliyetlerTL + montajMaliyetiTL;
-      const kurCarpani = dovizKurlari[formData.paraBirimi] || 1; 
-      const semboller: any = { TRY: '₺', USD: '$', EUR: '€', GBP: '£' };
-
-      setHesaplamaSonucu({
-        kopruAgirlikKg: kopruAgirlikKg.toFixed(2), yurumeYoluAgirlikKg: yurumeYoluAgirlikKg.toFixed(2),
-        toplamCelikAgirlik: (toplamCelikAgirlik).toFixed(2), gerekliKaldirmaTorku: gerekliKaldirmaTorku.toFixed(2),
-        kaldirmaReduktorCikisDevri: kaldirmaReduktorCikisDevri.toFixed(2), gerekliMotorGucu: gerekliMotorGucu.toFixed(2),
-        yurutmeMotorGucu: yurutmeMotorGucu.toFixed(2), maxTekerYuku: maxTekerYuku.toFixed(2),
-        paraBirimi: formData.paraBirimi, paraBirimiSembolu: semboller[formData.paraBirimi],
-        celikIscilikMaliyeti: (celikIscilikMaliyetiTL * kurCarpani).toFixed(2), makinaFiyati: (makinaFiyatiTL * kurCarpani).toFixed(2),
-        ekstraMaliyetler: (ekstraMaliyetlerTL * kurCarpani).toFixed(2), montajMaliyeti: (montajMaliyetiTL * kurCarpani).toFixed(2),
-        tahminiToplamSatis: (tahminiToplamSatisTL * kurCarpani).toFixed(2)
-      });
-      setHesaplaniyor(false);
-    }, 400); 
+    const kurCarpani = dovizKurlari[formData.paraBirimi] || 1; 
+    const result = calculateCraneProject(formData, kurCarpani);
+    setHesaplamaSonucu(result);
   };
 
   const handleKaydet = async () => {
-    if (!hesaplamaSonucu) {
-      alert("Lütfen önce Maliyetleri Hesapla butonuna basınız.");
-      return;
-    }
+    if (!hesaplamaSonucu) return;
     setKaydediliyor(true);
-    const yeniTeklifNo = `2610-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+    const teklifNoStr = "2610-" + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     
     try {
-      const { error } = await supabase.from('sc_offers').insert([
-        {
-          offer_no: yeniTeklifNo, customer_name: formData.firmaAdi || 'İsimsiz Müşteri',
+      const { error } = await supabase.from('sc_offers').insert([{
+          offer_no: teklifNoStr, customer_name: firmaBilgileri.firmaAdi || 'İsimsiz Müşteri',
           capacity_ton: formData.kapasiteKg / 1000, span_m: formData.aciklikS,
-          status: 'TASLAK', total_price_eur: parseFloat(hesaplamaSonucu.tahminiToplamSatis),
-          currency: formData.paraBirimi, form_data: { inputs: formData, results: hesaplamaSonucu }
-        }
-      ]);
-      if (error) {
-         alert("SUPABASE HATASI: SQL Editorden 'currency' ve 'form_data' sütunlarını eklediğinize emin olun.");
-         throw error;
-      }
+          status: hesaplamaSonucu.isEngineeringValid ? 'TASLAK' : 'MÜHENDİSLİK ONAYI BEKLİYOR', 
+          total_price_eur: hesaplamaSonucu.tahminiToplamSatis,
+          currency: formData.paraBirimi, 
+          form_data: { inputs: formData, results: hesaplamaSonucu, customer: firmaBilgileri, kur: dovizKurlari[formData.paraBirimi] }
+      }]);
+      if (error) throw error;
       router.push('/dashboard/offers');
     } catch (error) {
-      console.error("Kaydetme hatası:", error);
+      alert("Kayıt Hatası: Lütfen Supabase 'currency' ve 'form_data' (JSONB) sütunlarını doğrulayın.");
       setKaydediliyor(false);
     }
   };
 
-  // ==========================================
-  // 4. KUSURSUZ 3 SAYFALIK NATIVE PDF MOTORU
-  // ==========================================
   const generateNativePDF = () => {
     if (!teklifCiktisiRef.current) return;
-    
     const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.width = '0px';
-    iframe.style.height = '0px';
-    iframe.style.border = 'none';
+    iframe.style.position = 'absolute'; iframe.style.width = '0px'; iframe.style.height = '0px'; iframe.style.border = 'none';
     document.body.appendChild(iframe);
-
     const iframeDoc = iframe.contentWindow?.document;
     if (!iframeDoc) return;
 
-    // Teklif No Üretimi
-    const teklifNoStr = `261006-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-
-    iframeDoc.open();
-    iframeDoc.write(`
+    const teklifNoStr = "261006-" + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const sembol = formData.paraBirimi === 'USD' ? '$' : formData.paraBirimi === 'EUR' ? '€' : formData.paraBirimi === 'GBP' ? '£' : '₺';
+    const kapasiteTon = formData.kapasiteKg / 1000;
+    const tarih = new Date().toLocaleDateString('tr-TR');
+    
+    // Güvenli PDF String Şablonu
+    const pdfContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Teklif-${formData.firmaAdi || 'ERP'}</title>
+          <title>Teklif-${firmaBilgileri.firmaAdi}</title>
           <style>
             @page { size: A4 portrait; margin: 12mm 15mm; }
             body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; margin: 0; padding: 0; font-size: 13px; line-height: 1.4; }
-            
-            /* Sayfa Sonu Kesme Kodu */
             .page-break { page-break-before: always; margin-top: 20px; }
-            
-            /* Başlık ve Header */
             .header-container { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #ea580c; padding-bottom: 15px; margin-bottom: 25px; }
             .logo-text { font-size: 42px; font-weight: 900; color: #1e3a8a; letter-spacing: -1px; margin: 0; line-height: 1; }
             .logo-sub { font-size: 13px; font-weight: bold; color: #ea580c; letter-spacing: 3px; margin: 5px 0 0 0; }
@@ -243,173 +130,112 @@ export default function YeniTeklifSayfasi() {
             .offer-meta table { border-collapse: collapse; margin-left: auto; }
             .offer-meta td { padding: 3px 8px; border: 1px solid #cbd5e1; }
             .offer-meta td.label { font-weight: bold; background: #f1f5f9; color: #1e3a8a; }
-
-            /* Başlıklar */
             h2.main-title { font-size: 18px; color: #1e3a8a; text-align: center; text-transform: uppercase; margin-bottom: 20px; text-decoration: underline; }
             h3.section-title { font-size: 16px; color: #ea580c; border-bottom: 2px solid #cbd5e1; padding-bottom: 5px; margin-bottom: 15px; margin-top: 25px;}
-            
-            /* Tablolar */
             table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
             table.data-table th, table.data-table td { border: 1px solid #cbd5e1; padding: 8px 12px; }
             table.data-table td.label-col { background-color: #f8fafc; font-weight: bold; width: 40%; color: #334155; }
-            
             .price-box { font-size: 24px; font-weight: 900; color: #1e3a8a; text-align: right; margin-top: 30px; padding: 15px; border-top: 2px dashed #cbd5e1; }
-            
-            /* İletişim Kutusu */
             .contact-box { border: 1px solid #cbd5e1; border-radius: 6px; padding: 15px; margin-bottom: 20px; background: #f8fafc; }
             .contact-box table { width: 100%; border-collapse: collapse; }
             .contact-box td { padding: 4px 0; }
             .contact-box td.label { font-weight: bold; width: 120px; color: #334155; }
-            
             p.intro { margin-bottom: 20px; font-size: 13px; color: #475569; }
-
-            /* Footer */
             .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; background: #fff;}
           </style>
         </head>
         <body>
           
-          <!-- SAYFA 1: KAPAK VE TEKLİF ÖZETİ -->
           <div class="header-container">
-              <div>
-                <h1 class="logo-text">BUVİSAN</h1>
-                <p class="logo-sub">VİNÇ SİSTEMLERİ</p>
-              </div>
+              <div><h1 class="logo-text">BUVİSAN</h1><p class="logo-sub">VİNÇ SİSTEMLERİ</p></div>
               <div class="offer-meta">
-                <table>
-                  <tr><td class="label">Offer No</td><td>${teklifNoStr}</td></tr>
-                  <tr><td class="label">Offer Date</td><td>${new Date().toLocaleDateString('tr-TR')}</td></tr>
-                </table>
+                <table><tr><td class="label">Offer No</td><td>${teklifNoStr}</td></tr><tr><td class="label">Offer Date</td><td>${tarih}</td></tr></table>
               </div>
           </div>
 
           <h2 class="main-title">Offer And Contract Form</h2>
-          
           <div class="contact-box">
              <h3 style="margin-top:0; margin-bottom: 10px; font-size: 14px; border-bottom: 1px solid #cbd5e1; padding-bottom: 5px; color:#1e3a8a;">Customer Contact</h3>
              <table>
-                <tr><td class="label">Company Name</td><td>: ${formData.firmaAdi}</td></tr>
-                <tr><td class="label">Authorized</td><td>: ${formData.yetkili}</td></tr>
-                <tr><td class="label">Telephone</td><td>: ${formData.telefon}</td></tr>
-                <tr><td class="label">E-Mail</td><td>: ${formData.email}</td></tr>
-                <tr><td class="label">Address</td><td>: ${formData.adres}</td></tr>
+                <tr><td class="label">Company Name</td><td>: ${firmaBilgileri.firmaAdi}</td></tr>
+                <tr><td class="label">Authorized</td><td>: ${firmaBilgileri.yetkili}</td></tr>
+                <tr><td class="label">Telephone</td><td>: ${firmaBilgileri.telefon}</td></tr>
+                <tr><td class="label">E-Mail</td><td>: ${firmaBilgileri.email}</td></tr>
+                <tr><td class="label">Address</td><td>: ${firmaBilgileri.adres}</td></tr>
              </table>
           </div>
 
           <p class="intro">Dear Customer;<br>First of all, thank you for your interest in our company. The price offer and technical details of the cranes you are planning to purchase are given below. You can contact the marketing and technical team for your questions and comments about the offer. We hope that our offer will be approved by you, and we wish the continuity of your investments.</p>
 
-          <h3 class="section-title" style="text-align: center; color: #1e3a8a; border: none;">${formData.kapasiteKg / 1000} TON ${formData.kopruTipi.toUpperCase()} SYSTEM</h3>
+          <h3 class="section-title" style="text-align: center; color: #1e3a8a; border: none;">${kapasiteTon} TON SYSTEM</h3>
           
           <table class="data-table">
             <tr><th colspan="2" style="background: #ea580c; color: white; text-align: left;">Offer Details</th></tr>
-            <tr><td class="label-col">Lifting Machine</td><td>${formData.kapasiteKg / 1000} TON ${formData.kopruTipi.includes('Çift') ? 'Double Girder Hoist' : 'Monorail Hoist'}</td></tr>
+            <tr><td class="label-col">Lifting Machine</td><td>${kapasiteTon} TON Hoist</td></tr>
             <tr><td class="label-col">Crane Type</td><td>${formData.kopruTipi}</td></tr>
             <tr><td class="label-col">Travelling Group</td><td>W300 P300</td></tr>
-            <tr><td class="label-col">Girder Electrical Installation</td><td>${formData.cRayKopru === 'YAPILACAK' ? 'C-Rail Electrical Installation' : 'Standard'}</td></tr>
+            <tr><td class="label-col">Girder Electrical Inst.</td><td>Standard</td></tr>
             <tr><td class="label-col">Cable Crane Control</td><td>Double Stage Six Movement</td></tr>
-            <tr><td class="label-col">Ratio Frequency Remote Control</td><td>${formData.uzaktanKumanda === 'YAPILACAK' ? 'Double Stage Six Movement - Elfatek Brand' : 'None'}</td></tr>
-            <tr><td class="label-col">Frequency Inverter</td><td>Lenze Brand / To&Fro, Right&Left, Back&Forth</td></tr>
-            <tr><td class="label-col">Overload Switch</td><td>${formData.asiriYukSivici} (Electro-Mechanical)</td></tr>
-            <tr><td class="label-col">Hook Limit Switch</td><td>Double Stage Rotary Limit Switch</td></tr>
+            <tr><td class="label-col">Remote Control</td><td>Double Stage Six Movement</td></tr>
+            <tr><td class="label-col">Overload Switch</td><td>Electro-Mechanical</td></tr>
           </table>
 
-          <div class="price-box">
-             TOTAL PRICE: <span style="color: #047857;">${hesaplamaSonucu?.tahminiToplamSatis} ${hesaplamaSonucu?.paraBirimiSembolu}</span>
-          </div>
+          <div class="price-box">TOTAL PRICE: <span style="color: #047857;">${hesaplamaSonucu?.tahminiToplamSatis} ${sembol}</span></div>
 
-          <!-- SAYFA 2: TEKNİK ÖZELLİKLER -->
           <div class="page-break"></div>
-          
           <div class="header-container">
-              <div>
-                <h1 class="logo-text">BUVİSAN</h1>
-              </div>
-              <div class="offer-meta">
-                <table>
-                  <tr><td class="label">Offer No</td><td>${teklifNoStr}</td></tr>
-                  <tr><td class="label">Date</td><td>${new Date().toLocaleDateString('tr-TR')}</td></tr>
-                </table>
-              </div>
+              <div><h1 class="logo-text">BUVİSAN</h1></div>
+              <div class="offer-meta"><table><tr><td class="label">Offer No</td><td>${teklifNoStr}</td></tr></table></div>
           </div>
-
           <h2 class="main-title">Crane Technical Specifications</h2>
-
           <table class="data-table">
             <tr><th colspan="2" style="background: #1e3a8a; color: white; text-align: left;">1- General Properties</th></tr>
-            <tr><td class="label-col">FEM/ISO</td><td>2m / M5</td></tr>
             <tr><td class="label-col">Crane Type</td><td>${formData.kopruTipi}</td></tr>
-            <tr><td class="label-col">Load Capacity</td><td>${formData.kapasiteKg / 1000} TON</td></tr>
+            <tr><td class="label-col">Load Capacity</td><td>${kapasiteTon} TON</td></tr>
             <tr><td class="label-col">Span</td><td>${formData.aciklikS} mm</td></tr>
             <tr><td class="label-col">Lifting Height</td><td>${formData.yukseklikH} mm</td></tr>
-            <tr><td class="label-col">Working Area</td><td>Outdoor / Indoor Area</td></tr>
-            <tr><td class="label-col">Working Temperature</td><td>-15 / +55 °C</td></tr>
           </table>
-
           <table class="data-table">
             <tr><th colspan="2" style="background: #1e3a8a; color: white; text-align: left;">2- Lifting Group</th></tr>
-            <tr><td class="label-col">Machine Type</td><td>${formData.kopruTipi.includes('Çift') ? 'Double Girder Hoist' : 'Monorail Hoist'}</td></tr>
             <tr><td class="label-col">Motor Power</td><td>${hesaplamaSonucu?.gerekliMotorGucu} kW</td></tr>
             <tr><td class="label-col">Lifting Speed</td><td>${formData.kaldirmaHizi} m/dk</td></tr>
-            <tr><td class="label-col">Gearbox Type</td><td>Yılmaz Brand (V Series)</td></tr>
             <tr><td class="label-col">Rope Reeving</td><td>${formData.halatSayisi} / ${formData.tamburaGelenHalatSayisi}</td></tr>
           </table>
-
           <table class="data-table">
             <tr><th colspan="2" style="background: #1e3a8a; color: white; text-align: left;">3- Trolley & Travel Group</th></tr>
             <tr><td class="label-col">Travel Motor Power</td><td>${hesaplamaSonucu?.yurutmeMotorGucu} kW</td></tr>
             <tr><td class="label-col">Trolley Speed</td><td>0 - ${formData.yurutmeHizi} m/dk</td></tr>
-            <tr><td class="label-col">Control Type</td><td>Inverter Controlled</td></tr>
             <tr><td class="label-col">Max Wheel Load</td><td>${hesaplamaSonucu?.maxTekerYuku} kg</td></tr>
           </table>
 
-          <table class="data-table">
-            <tr><th colspan="2" style="background: #1e3a8a; color: white; text-align: left;">4- Steel Construction / Bridge</th></tr>
-            <tr><td class="label-col">Bridge Weight</td><td>${hesaplamaSonucu?.kopruAgirlikKg} kg</td></tr>
-            <tr><td class="label-col">Maintenance Platform</td><td>${formData.platformYapilacak === 'YAPILACAK' ? 'Single Side Care Platform' : 'None'}</td></tr>
-            <tr><td class="label-col">Color</td><td>RAL 1028 (Yellow) / RAL 7016 (Anthracite)</td></tr>
-          </table>
-
-          <!-- SAYFA 3: ŞARTLAR VE İMZALAR -->
           <div class="page-break"></div>
-
           <div class="header-container">
               <div><h1 class="logo-text">BUVİSAN</h1></div>
-              <div class="offer-meta">
-                <table><tr><td class="label">Offer No</td><td>${teklifNoStr}</td></tr></table>
-              </div>
+              <div class="offer-meta"><table><tr><td class="label">Offer No</td><td>${teklifNoStr}</td></tr></table></div>
           </div>
-
           <h2 class="main-title">Responsibilities & Obligations</h2>
-
           <table class="data-table">
-             <tr><td class="label-col">Manufacturing Process</td><td>The production will be made by Buvisan according to the project parameters. Buvisan can make necessary revisions during manufacturing.</td></tr>
-             <tr><td class="label-col">Transport</td><td>Will be borne by the customer.</td></tr>
-             <tr><td class="label-col">Mobile Crane / Manlift</td><td>Will be borne by the customer.</td></tr>
-             <tr><td class="label-col">Setting Up The System</td><td>Making the site suitable for crane installation belongs to the customer. Electricity supply to the site is the customer's responsibility.</td></tr>
+             <tr><td class="label-col">Manufacturing Process</td><td>The production will be made by Buvisan. Buvisan can make necessary revisions.</td></tr>
+             <tr><td class="label-col">Transport & Crane</td><td>Will be borne by the customer.</td></tr>
              <tr><td class="label-col">Delivery Time</td><td>50 Work Days (Starts after advance payment)</td></tr>
              <tr><td class="label-col">Delivery Term</td><td>Ex-Works Bursa</td></tr>
-             <tr><td class="label-col">Warranty</td><td>Crane system is under warranty for two years against mechanical failures.</td></tr>
              <tr><td class="label-col">Payment</td><td>%50 will be paid when the contract is signed. %50 will be paid on delivery.</td></tr>
           </table>
 
           <div style="margin-top: 50px; display: flex; justify-content: space-between; padding: 0 40px;">
-             <div style="text-align: center;">
-                <p style="font-weight: bold; margin-bottom: 60px;">The Bidder</p>
-                <p>Project Manager<br>BUVISAN CRANE SYSTEMS</p>
-             </div>
-             <div style="text-align: center;">
-                <p style="font-weight: bold; margin-bottom: 60px;">Customer Sign.</p>
-                <p>${formData.firmaAdi}<br>${formData.yetkili}</p>
-             </div>
+             <div style="text-align: center;"><p style="font-weight: bold; margin-bottom: 60px;">The Bidder</p><p>Project Manager<br>BUVISAN CRANE SYSTEMS</p></div>
+             <div style="text-align: center;"><p style="font-weight: bold; margin-bottom: 60px;">Customer Sign.</p><p>${firmaBilgileri.firmaAdi}<br>${firmaBilgileri.yetkili}</p></div>
           </div>
-
           <div class="footer">
             BUVİSAN BİR ZM METAL MAK. İML. SAN. VE TİC. LTD. ŞTİ. MARKASIDIR<br>
             Demirci Mah. Doğan Cad. No:40 Nilüfer/BURSA | +90 224 374 00 01 | www.buvisan.com.tr
           </div>
         </body>
       </html>
-    `);
+    `;
+
+    iframeDoc.open();
+    iframeDoc.write(pdfContent);
     iframeDoc.close();
 
     iframe.onload = () => {
@@ -419,23 +245,31 @@ export default function YeniTeklifSayfasi() {
     };
   };
 
-  const InputRow = ({ label, name, type = 'number' }: { label: string, name: keyof typeof formData, type?: string }) => (
+const InputRow = ({ label, name, type = 'number' }: { label: string, name: string, type?: string }) => (
     <div>
       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">{label}</label>
-      <input type={type} name={name} value={formData[name] as any} onChange={handleInputChange} 
-             className="w-full p-2 border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-blue-600 outline-none" />
+      <input 
+        type={type} 
+        name={name} 
+        value={Object.keys(firmaBilgileri).includes(name) ? (firmaBilgileri as any)[name] : (formData as any)[name]} 
+        onChange={handleInputChange} 
+        className="w-full p-2 border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-blue-600 outline-none" 
+      />
     </div>
   );
-
-  const SelectRow = ({ label, name, options }: { label: string, name: keyof typeof formData, options: string[] }) => (
+  
+  const SelectRow = ({ label, name, options }: { label: string, name: string, options: string[] }) => (
     <div>
       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">{label}</label>
-      <select name={name} value={formData[name] as any} onChange={handleInputChange} 
+      <select name={name} value={formData[name as keyof typeof formData] as any} onChange={handleInputChange} 
               className="w-full p-2 border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-blue-600 outline-none">
         {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
       </select>
     </div>
   );
+
+  const semboller: any = { TRY: '₺', USD: '$', EUR: '€', GBP: '£' };
+  const sembol = semboller[formData.paraBirimi];
 
   return (
     <div className="p-4 md:p-8 max-w-[1500px] mx-auto bg-[#f8fafc] min-h-screen font-sans">
@@ -455,15 +289,25 @@ export default function YeniTeklifSayfasi() {
         </div>
       </div>
 
+      {hesaplamaSonucu && hesaplamaSonucu.isEngineeringValid === false && (
+        <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-md">
+           <h3 className="text-red-800 font-bold">Mühendislik Sınır Uyarısı!</h3>
+           <ul className="list-disc ml-5 text-sm text-red-700 mt-2">
+              {hesaplamaSonucu.engineeringWarnings.map((warn: string, i: number) => <li key={i}>{warn}</li>)}
+           </ul>
+           <p className="text-xs text-red-600 mt-2 font-semibold">Bu teklif 'Mühendislik Onayı Bekliyor' statüsünde kaydedilecektir.</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         <div className="xl:col-span-8 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
           <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto">
             {[
-              { id: 'genel', title: 'Genel Özellikler' }, 
+              { id: 'genel', title: 'Genel & Müşteri' }, 
               { id: 'kopru', title: 'Statik & Köprü' }, 
               { id: 'mekanik', title: 'Mekanik Motor' }, 
-              { id: 'opsiyon', title: 'Maliyet Opsiyonları' },
-              { id: 'fiyatlar', title: 'Birim Fiyatlar (YENİ)' } // YENİ EKLENEN SEKMEMİZ
+              { id: 'opsiyon', title: 'Donanım & Opsiyon' },
+              { id: 'fiyatlar', title: 'Birim Fiyatlar (Admin)' }
             ].map(sekme => (
               <button key={sekme.id} onClick={() => setActiveTab(sekme.id)}
                 className={`px-6 py-4 text-sm font-bold whitespace-nowrap transition-all border-b-2 
@@ -474,7 +318,6 @@ export default function YeniTeklifSayfasi() {
           </div>
 
           <div className="p-6 md:p-8 flex-1 overflow-y-auto">
-            {/* ... DİĞER SEKMELER (Aynı Kalıyor) ... */}
             {activeTab === 'genel' && (
               <div className="space-y-6 animate-in fade-in duration-300">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6 border-b">
@@ -490,10 +333,9 @@ export default function YeniTeklifSayfasi() {
                   <InputRow label="Kaldırma Yüksekliği (H)" name="yukseklikH" />
                   <InputRow label="Hol Boyu (L)" name="holBoyuL" />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <SelectRow label="Köprü Tipi" name="kopruTipi" options={['Çift Kiriş Kutu Tipi', 'Çift Kiriş Hadde Profil', 'Tek Kiriş Kutu Profil', 'Tek Kiriş Hadde Profil']} />
-                  <InputRow label="Direk Arası (L1)" name="direkArasiL1" />
-                  <InputRow label="Direk Adeti" name="direkAdeti" />
+                  <SelectRow label="Direk Tipi" name="direkTipi" options={['NPU Profil Örme', 'Kare Kutu Profil']} />
                 </div>
               </div>
             )}
@@ -514,11 +356,7 @@ export default function YeniTeklifSayfasi() {
                     <SelectRow label="Köşebent" name="kosebent" options={['30x30x3 mm', '40x40x4 mm']} />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-b pb-6">
-                  <InputRow label="Hadde Çalışma Profili" name="calismaProfiliKopru" type="text" />
-                  <InputRow label="Ray Kare Genişlik (b)" name="kareGenislikb" />
-                  <InputRow label="Ray Kare Yükseklik (h)" name="kareYukseklikh" />
-                </div>
+                
                 <div>
                    <h3 className="font-bold text-slate-700 mb-4">Yürüme Yolu ve Direk</h3>
                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -545,10 +383,6 @@ export default function YeniTeklifSayfasi() {
                     <InputRow label="Kaldırma Hızı (m/dk)" name="kaldirmaHizi" />
                     <InputRow label="Yürütme Hızı (m/dk)" name="yurutmeHizi" />
                   </div>
-                  <div className="grid grid-cols-2 gap-5 border-t border-purple-200 mt-4 pt-4">
-                    <InputRow label="Makine Teker Merkezi Arası (mm)" name="makineTekerMerkezi" />
-                    <InputRow label="Başlık Teker Merkezi Arası (mm)" name="baslikTekerMerkezi" />
-                  </div>
                 </div>
               </div>
             )}
@@ -570,7 +404,6 @@ export default function YeniTeklifSayfasi() {
               </div>
             )}
 
-            {/* 🚀 YENİ EKLENEN SEKME: BİRİM FİYAT KONTROLÜ */}
             {activeTab === 'fiyatlar' && (
               <div className="space-y-6 animate-in fade-in duration-300">
                 <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-lg">
@@ -643,7 +476,7 @@ export default function YeniTeklifSayfasi() {
                  </div>
 
                  <div>
-                   <p className="text-[10px] font-bold text-emerald-400 mb-1.5 tracking-widest uppercase">Maliyet Dağılımı ({hesaplamaSonucu.paraBirimiSembolu})</p>
+                   <p className="text-[10px] font-bold text-emerald-400 mb-1.5 tracking-widest uppercase">Maliyet Dağılımı ({sembol})</p>
                    <div className="space-y-1.5">
                      <div className="flex justify-between text-sm bg-slate-800/80 p-2 rounded">
                        <span className="text-slate-300">Çelik + İşçilik</span>
@@ -662,7 +495,7 @@ export default function YeniTeklifSayfasi() {
                  
                  <div className="pt-4 border-t border-slate-600 mt-6 flex justify-between items-end">
                    <span className="block text-sm text-slate-400 uppercase tracking-wider mb-1">PROJE TOPLAM TUTARI</span>
-                   <span className="text-3xl font-black text-emerald-400">{hesaplamaSonucu.tahminiToplamSatis} {hesaplamaSonucu.paraBirimiSembolu}</span>
+                   <span className="text-3xl font-black text-emerald-400">{hesaplamaSonucu.tahminiToplamSatis} {sembol}</span>
                  </div>
               </div>
             ) : (
@@ -676,13 +509,12 @@ export default function YeniTeklifSayfasi() {
             </button>
           )}
 
-          <button onClick={handleHesapla} disabled={hesaplaniyor} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl mt-4 font-bold text-lg tracking-wide shadow-lg transition-all">
-            {hesaplaniyor ? 'MÜHENDİSLİK MOTORU ÇALIŞIYOR...' : 'MALİYETLERİ HESAPLA'}
+          <button onClick={handleHesapla} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl mt-4 font-bold text-lg tracking-wide shadow-lg transition-all">
+            MALİYETLERİ HESAPLA
           </button>
         </div>
       </div>
       
-      {/* İFRAME İÇİN REFERANS DEPOSU */}
       <div ref={teklifCiktisiRef} style={{display:'none'}}></div>
 
     </div>
