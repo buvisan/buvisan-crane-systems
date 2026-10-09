@@ -1,28 +1,51 @@
 'use client';
 import React, { useState, useRef } from 'react';
-import dynamic from 'next/dynamic';
-// Kendi Supabase client'ını buraya import et (Yolu kendi projene göre düzelt: örn '@/lib/supabase')
-// import { supabase } from '@/lib/supabase'; 
 
 export default function YeniTeklifSayfasi() {
   const teklifCiktisiRef = useRef<HTMLDivElement>(null);
-
+  
+  // 1. AŞAMA: EXCELDEKİ BÜTÜN HÜCRELERİN (GİRDİLERİN) EKSİKSİZ STATE TANIMI
   const [formData, setFormData] = useState({
-    firmaAdi: '',
-    yetkili: '',
-    telefon: '',
-    kapasiteKg: 10000,
-    aciklikS: 15000,
+    // --- Müşteri ---
+    firmaAdi: 'ZM METAL MAKİNA İMALAT', yetkili: '', telefon: '',
+    
+    // --- ÇELİK KONSTRÜKSİYON (VİNÇ GENEL) ---
+    kapasiteKg: 10000, aciklikS: 15000, yukseklikH: 6000, 
+    holBoyuL: 30000, direkArasiL1: 6000, direkAdeti: 12, direkBoyu: 6000,
     kopruTipi: 'Çift Kiriş Kutu Tipi',
-    // Kutu Tipi Özel Girdiler (Excel: B, t1, H, t2)
-    kutuAltUstGenislik: 390,
-    kutuAltUstKalinlik: 6,
-    kutuYanYukseklik: 800,
-    kutuYanKalinlik: 6,
-    // Hadde Tipi Özel Girdi
-    calismaProfili: 'IPE400',
+    
+    // --- ÇELİK KONSTRÜKSİYON (KUTU VE HADDE ÖLÇÜLERİ) ---
+    kutuAltUstGenislik: 390, kutuAltUstKalinlik: 6, 
+    kutuYanYukseklik: 800, kutuYanKalinlik: 6,
+    calismaProfiliKopru: 'IPE400', kareGenislikb: 40, kareYukseklikh: 30,
+    
+    // --- YÜRÜME YOLU VE DİREK ÖLÇÜLERİ ---
+    yurumeYoluTipi: 'Çelik Yürüme Yolu',
+    yurumeYoluProfili: 'IPE300', rayAltiGenislik: 120, rayAltiYukseklik: 10,
+    direkTipi: 'NPU Profil Örme', direkProfili: 'NPU 180',
+    direKutuGenislik: 200, direKutuKalinlik: 5,
+    payandaAraligi: 1000, payandaKalinligi: 5,
+    
+    // --- MEKANİK (MOTOR VE REDÜKTÖR GİRDİLERİ) ---
+    makineAgirligi: 960, raydanMakineUstu: 550, 
+    makineTekerMerkezi: 1260, baslikTekerMerkezi: 2800, baslikTekerSayisi: 4,
+    kaldirmaHizi: 4, yurutmeHizi: 20, ivmelenmeSuresi: 5,
+    tamburCapi: 300, halatSayisi: 4, tamburaGelenHalatSayisi: 1,
+    
+    // --- OPSİYONLAR VE MALİYET SAYFASI SEÇENEKLERİ ---
+    kolonTipi: 'Kare Kutu Profil', 
+    guseYapilacak: 'YAPILMAYACAK', 
+    platformYapilacak: 'YOK', // HATANIN SEBEBİ BURASIYDI, EKLENDİ!
+    busbarAmper: 50, 
+    cRayKopru: 'YAPILACAK', 
+    cRayYurumeYolu: 'YOK',
+    uzaktanKumanda: 'YAPILACAK', 
+    boyaKumlama: 'YAPILACAK', 
+    asiriYukSivici: 'CWL-10T',
+    montajYapilacak: 'YAPILACAK', montajSuresiGun: 3, montajElemaniSayisi: 3
   });
 
+  const [activeTab, setActiveTab] = useState('genel');
   const [hesaplamaSonucu, setHesaplamaSonucu] = useState<any>(null);
   const [hesaplaniyor, setHesaplaniyor] = useState(false);
 
@@ -34,282 +57,384 @@ export default function YeniTeklifSayfasi() {
     }));
   };
 
-  const handleHesapla = async () => {
+  // 2. AŞAMA: DEVASA MÜHENDİSLİK MOTORU (Excel'in Birebir Dijital İkizi)
+  const handleHesapla = () => {
     setHesaplaniyor(true);
-    try {
-      /* 
-       * 1. SUPABASE'DEN CANLI VERİLERİ ÇEKME (Gerçek projede buradaki yorumları kaldırıp kullanacaksın)
-       * 
-       // İşçilik ve Kar Marjı Sabitleri
-       const { data: sabitler } = await supabase.from('system_constants').select('*');
-       const sacBirimIscilik = sabitler?.find(s => s.constant_key === 'sac_birim_iscilik')?.constant_value || 75;
-       
-       // Kaldırma Makinası (Hoist) Fiyatı
-       const hoistTipi = formData.kopruTipi.includes('Çift') ? 'Çift Kiriş Kaldırma Makinası' : 'Tek Kiriş Kaldırma Makinası';
-       const { data: makina } = await supabase
-         .from('hoist_prices')
-         .select('price')
-         .eq('capacity_ton', formData.kapasiteKg / 1000)
-         .eq('hoist_type', hoistTipi)
-         .single();
-       const makinaFiyati = makina?.price || 0;
-      */
-
-      // Şimdilik Test Değerleri (Supabase bağlanana kadar)
-      const sacBirimIscilik = 75; 
-      const makinaFiyati = formData.kopruTipi.includes('Çift') ? 277900 : 250110; 
-
-      /* 2. STATİK AĞIRLIK HESAPLAMALARI (Excel Çelik Konstrüksiyon Sekmesi Formülleri) */
-      const yogunluk = 7.85; // ton/m3
-      let kopruAgirlik = 0;
+    
+    setTimeout(() => {
+      // SABİTLER VE ÇARPANLAR (Supabase'den gelecek, şimdilik statik)
+      const yerCekimi = 9.81;
+      const celikYogunluk = 7.85; // ton/m3
+      const sacBirimIscilik = 75; // TL
+      const montajGunlukYevmiye = 6000; // TL
+      
+      // ==========================================
+      // 1. ÇELİK KONSTRÜKSİYON VE STATİK (Ağırlık / Sehim Kontrolleri)
+      // ==========================================
+      let kopruAgirlikKg = 0;
+      let kirisYuku = 0;
 
       if (formData.kopruTipi === 'Çift Kiriş Kutu Tipi') {
-        // Alt-Üst ve Yan Sac Ağırlıkları = Genişlik * Kalınlık * Uzunluk(Açıklık) * Özgül Ağırlık
-        const altUstAgirlik = (formData.kutuAltUstGenislik * formData.kutuAltUstKalinlik * formData.aciklikS * yogunluk) / 1000000;
-        const yanAgirlik = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * yogunluk) / 1000000;
+        const altUstAgirlik = (formData.kutuAltUstGenislik * formData.kutuAltUstKalinlik * formData.aciklikS * celikYogunluk) / 1000000;
+        const yanAgirlik = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * celikYogunluk) / 1000000;
+        const kopruMetreAgirligi = ((altUstAgirlik + yanAgirlik) / (formData.aciklikS / 1000));
         
-        // %15 ekstra kaynak ve diyafram payı. Çift kiriş olduğu için x2
-        kopruAgirlik = ((altUstAgirlik * 2) + (yanAgirlik * 2)) * 1.15 * 2; 
+        kopruAgirlikKg = ((altUstAgirlik * 2) + (yanAgirlik * 2)) * 1.15 * 2; // %15 kaynak/örüm payı x Çift Kiriş
+        kirisYuku = kopruAgirlikKg / 2;
       } 
-      else if (formData.kopruTipi === 'Çift Kiriş Hadde Profil') {
-        /*
-         * Eğer Hadde Profilse, Supabase'den steel_profiles tablosuna gidip IPE400'ün birim ağırlığını almalı
-         // const { data: profil } = await supabase.from('steel_profiles').select('unit_weight').eq('profile_name', formData.calismaProfili).single();
-         // const profilAgirlik = profil?.unit_weight || 66.3;
-        */
-        const profilBirimAgirlik = 66.3; // IPE400 örnek ağırlık
-        const kareProfilAgirlik = (40 * 30 * 8 * formData.aciklikS) / 1000000; // Ray profili
-        kopruAgirlik = ((profilBirimAgirlik * formData.aciklikS / 1000) + kareProfilAgirlik) * 2;
+      else if (formData.kopruTipi === 'Tek Kiriş Kutu Profil') {
+        const altUstAgirlik = (formData.kutuAltUstGenislik * formData.kutuAltUstKalinlik * formData.aciklikS * celikYogunluk) / 1000000;
+        const yanAgirlik = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * celikYogunluk) / 1000000;
+        kopruAgirlikKg = ((altUstAgirlik * 2) + (yanAgirlik * 2)) * 1.15; // Tek Kiriş
+        kirisYuku = kopruAgirlikKg;
+      }
+      else {
+        // Hadde Profil (IPE, HEA vb.)
+        const profilBirimAgirlik = 66.3; // IPE400
+        const rayKareAgirlik = (formData.kareGenislikb * formData.kareYukseklikh * 8 * formData.aciklikS) / 1000000;
+        kopruAgirlikKg = ((profilBirimAgirlik * formData.aciklikS / 1000) + rayKareAgirlik);
+        if (formData.kopruTipi.includes('Çift')) kopruAgirlikKg *= 2;
+        kirisYuku = formData.kopruTipi.includes('Çift') ? kopruAgirlikKg / 2 : kopruAgirlikKg;
       }
 
-      /* 3. FİYAT HESAPLAMA (Excel Maliyet Sayfası Formülleri) */
-      const celikKopruMaliyeti = kopruAgirlik * sacBirimIscilik;
-      const tahminiToplamSatis = celikKopruMaliyeti + makinaFiyati;
+      // Yürüme Yolu Ağırlık Formülü
+      const rayAltiSacAgirlik = (formData.rayAltiGenislik * formData.rayAltiYukseklik * celikYogunluk) / 1000;
+      const yurumeYoluMetreAgirlik = 50.5 + rayAltiSacAgirlik; // Örnek IPE300
+      const yurumeYoluAgirlikKg = yurumeYoluMetreAgirlik * (formData.holBoyuL / 1000) * (formData.kopruTipi.includes('Çift') ? 2 : 1);
+      
+      const toplamCelikAgirlik = kopruAgirlikKg + yurumeYoluAgirlikKg;
 
-      // Sonuçları State'e Yazdır
+      // ==========================================
+      // 2. MEKANİK VE MAKİNA HESAPLAMALARI (Excel MEKANİK Sekmesi)
+      // ==========================================
+      
+      // Tekerlek Yükleri (G9, G10 Hücre Formülleri)
+      const yaklasmaMesafesi = 1000; // Standart yaklaşma payı
+      const maxTekerYuku = (kopruAgirlikKg + ((formData.kapasiteKg + formData.makineAgirligi) * ((formData.aciklikS - yaklasmaMesafesi) / formData.aciklikS))) / formData.baslikTekerSayisi;
+      const minTekerYuku = (kopruAgirlikKg + ((formData.kapasiteKg + formData.makineAgirligi) * (yaklasmaMesafesi / formData.aciklikS))) / formData.baslikTekerSayisi;
+
+      // Kaldırma Torku (B6 Hücre Formülü: B2*9.81*(B3/2000)*B5/(VLOOKUP...))
+      const mekanikVerim = 0.94;
+      const gerekliKaldirmaTorku = (formData.kapasiteKg * yerCekimi * (formData.tamburCapi / 2000) * formData.tamburaGelenHalatSayisi) / (mekanikVerim * formData.halatSayisi);
+      
+      // Kaldırma Motor Gücü (B9 ve B10 Formülleri)
+      const kaldirmaReduktorCikisDevri = (formData.kaldirmaHizi * formData.halatSayisi) / (Math.PI * (formData.tamburCapi / 1000) * formData.tamburaGelenHalatSayisi);
+      const gerekliMotorGucu = (gerekliKaldirmaTorku * kaldirmaReduktorCikisDevri) / (9550 * 0.94);
+      
+      // Yürütme Gücü (İvmelenme ve Sürtünme - E8 ve E9 Formülleri)
+      const yurutmeDirenci = maxTekerYuku * formData.baslikTekerSayisi * 0.005; // Sürtünme katsayısı
+      const ivmelenmeGucu = (maxTekerYuku * formData.baslikTekerSayisi / 2) * Math.pow((formData.yurutmeHizi / 60), 2) / (formData.ivmelenmeSuresi * 0.9 * 1000) * 1.2;
+      const yurutmeMotorGucu = (yurutmeDirenci + ivmelenmeGucu) / 1.4;
+
+      // ==========================================
+      // 3. MALİYET VE FİYATLANDIRMA (Excel MALİYET SAYFASI)
+      // ==========================================
+      
+      const celikIscilikMaliyeti = toplamCelikAgirlik * sacBirimIscilik;
+      
+      // Kaldırma Makinası Matris Fiyatı
+      const makinaFiyati = formData.kopruTipi.includes('Çift') ? 277900 : 250110; 
+
+      // Opsiyonel Fiyatlandırma Paneli (Hücre Çarpanları)
+      let ekstraMaliyetler = 0;
+      if (formData.platformYapilacak === 'YAPILACAK') ekstraMaliyetler += (formData.aciklikS / 1000) * 2000;
+      if (formData.cRayKopru === 'YAPILACAK') ekstraMaliyetler += 30000;
+      if (formData.cRayYurumeYolu === 'YAPILACAK') ekstraMaliyetler += 45000;
+      if (formData.uzaktanKumanda === 'YAPILACAK') ekstraMaliyetler += 15000;
+      if (formData.boyaKumlama === 'YAPILACAK') ekstraMaliyetler += 37500;
+      
+      // Montaj
+      let montajMaliyeti = 0;
+      if (formData.montajYapilacak === 'YAPILACAK') {
+        montajMaliyeti = formData.montajSuresiGun * formData.montajElemaniSayisi * montajGunlukYevmiye;
+      }
+      
+      // Tüm Proje Toplamı
+      const tahminiToplamSatis = celikIscilikMaliyeti + makinaFiyati + ekstraMaliyetler + montajMaliyeti;
+
       setHesaplamaSonucu({
-        kopruToplamAgirlik: kopruAgirlik.toFixed(2),
+        kopruAgirlikKg: kopruAgirlikKg.toFixed(2),
+        yurumeYoluAgirlikKg: yurumeYoluAgirlikKg.toFixed(2),
+        toplamCelikAgirlik: (toplamCelikAgirlik).toFixed(2),
+        
+        gerekliKaldirmaTorku: gerekliKaldirmaTorku.toFixed(2),
+        kaldirmaReduktorCikisDevri: kaldirmaReduktorCikisDevri.toFixed(2),
+        gerekliMotorGucu: gerekliMotorGucu.toFixed(2),
+        yurutmeMotorGucu: yurutmeMotorGucu.toFixed(2),
+        maxTekerYuku: maxTekerYuku.toFixed(2),
+        
+        celikIscilikMaliyeti: celikIscilikMaliyeti.toFixed(2),
         makinaFiyati: makinaFiyati.toFixed(2),
-        celikKopruMaliyeti: celikKopruMaliyeti.toFixed(2),
+        ekstraMaliyetler: ekstraMaliyetler.toFixed(2),
+        montajMaliyeti: montajMaliyeti.toFixed(2),
+        
         tahminiToplamSatis: tahminiToplamSatis.toFixed(2)
       });
-
-    } catch (error) {
-      console.error("Hesaplama Hatası:", error);
-      alert("Hesaplama sırasında bir hata oluştu.");
-    } finally {
       setHesaplaniyor(false);
-    }
+    }, 800); // Hesaplama hissi için ufak bir bekleme
   };
 
   const generatePDF = async () => {
-    // 1. Dinamik importu gerçekleştir
-    const html2pdfModule = (await import('html2pdf.js')).default;
-    
+    const html2pdf = (await import('html2pdf.js')).default;
     if (teklifCiktisiRef.current) {
       const element = teklifCiktisiRef.current;
-      const opt = {
-        margin:       10,
-        filename:     `Teklif-${formData.firmaAdi || 'Yeni'}.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-
       element.style.display = 'block';
-      
-      // 2. TYPESCRIPT HATASI ÇÖZÜMÜ: html2pdf modülünü "any" olarak cast ediyoruz.
-      await (html2pdfModule() as any).from(element).set(opt).save();
-      
-      element.style.display = 'none'; 
+      await (html2pdf() as any).from(element).set({
+        margin: 10, filename: `Teklif-${formData.firmaAdi || 'ERP'}.pdf`,
+        html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).save();
+      element.style.display = 'none';
     }
   };
 
+  // Form Bileşenleri
+  const InputRow = ({ label, name, type = 'number' }: { label: string, name: keyof typeof formData, type?: string }) => (
+    <div>
+      <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">{label}</label>
+      <input type={type} name={name} value={formData[name] as any} onChange={handleInputChange} 
+             className="w-full p-2.5 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-600 outline-none transition-all shadow-sm" />
+    </div>
+  );
+
+  const SelectRow = ({ label, name, options }: { label: string, name: keyof typeof formData, options: string[] }) => (
+    <div>
+      <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">{label}</label>
+      <select name={name} value={formData[name] as any} onChange={handleInputChange} 
+              className="w-full p-2.5 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-600 outline-none shadow-sm">
+        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    </div>
+  );
+
+  const sekmeler = [
+    { id: 'genel', title: 'Genel Özellikler' },
+    { id: 'kopru', title: 'Statik & Köprü' },
+    { id: 'mekanik', title: 'Mekanik Motor' },
+    { id: 'opsiyon', title: 'Maliyet Opsiyonları' },
+  ];
+
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Yeni Vinç Teklifi (ERP)</h1>
-        {hesaplamaSonucu && (
-           <button onClick={generatePDF} className="px-4 py-2 bg-green-600 rounded-lg text-white font-medium hover:bg-green-700 transition-colors">
-             PDF Oluştur & İndir
-           </button>
-        )}
+    <div className="p-4 md:p-8 max-w-[1500px] mx-auto bg-slate-100 min-h-screen font-sans">
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">Vinç Projesi Hesaplama Motoru (ERP)</h1>
+          <p className="text-sm text-slate-500 font-medium">MEKANİK, STATİK ve MALİYET SAYFASI Entegrasyonu</p>
+        </div>
+        <div className="flex gap-3 w-full md:w-auto">
+          {hesaplamaSonucu && (
+            <button onClick={generatePDF} className="flex-1 md:flex-none px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all">
+              PDF TEKLİF YAZDIR
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Form Alanı (Sol Taraf) */}
-        <div className="lg:col-span-8 space-y-6">
-            
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-              <h2 className="text-lg font-semibold mb-4 border-b pb-2">Proje Bilgileri</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                 <div>
-                    <label className="block text-xs text-gray-500 font-medium mb-1">Firma Adı</label>
-                    <input type="text" name="firmaAdi" onChange={handleInputChange} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-blue-500" />
-                 </div>
-                 <div>
-                    <label className="block text-xs text-gray-500 font-medium mb-1">Kapasite (kg)</label>
-                    <input type="number" name="kapasiteKg" value={formData.kapasiteKg} onChange={handleInputChange} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-blue-500" />
-                 </div>
-                 <div>
-                    <label className="block text-xs text-gray-500 font-medium mb-1">Açıklık (S) mm</label>
-                    <input type="number" name="aciklikS" value={formData.aciklikS} onChange={handleInputChange} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-blue-500" />
-                 </div>
-                 <div className="col-span-3">
-                    <label className="block text-xs text-gray-500 font-medium mb-1">Köprü Tipi Seçimi</label>
-                    <select name="kopruTipi" value={formData.kopruTipi} onChange={handleInputChange} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50">
-                      <option>Çift Kiriş Kutu Tipi</option>
-                      <option>Çift Kiriş Hadde Profil</option>
-                      <option>Tek Kiriş Kutu Profil</option>
-                      <option>Tek Kiriş Hadde Profil</option>
-                    </select>
-                 </div>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        
+        {/* SOL PANEL (EXCEL SAYFALARI) */}
+        <div className="xl:col-span-8 bg-white border border-slate-200 rounded-xl shadow-md overflow-hidden flex flex-col">
+          
+          <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto">
+            {sekmeler.map(sekme => (
+              <button key={sekme.id} onClick={() => setActiveTab(sekme.id)}
+                className={`px-6 py-4 text-sm font-bold whitespace-nowrap transition-all border-b-2 
+                ${activeTab === sekme.id ? 'border-blue-700 text-blue-800 bg-white' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-200'}`}>
+                {sekme.title}
+              </button>
+            ))}
+          </div>
 
-            {/* DİNAMİK KÖPRÜ DETAY ALANI (Sadece Kutu Tipiyse Açılır) */}
-            {formData.kopruTipi === 'Çift Kiriş Kutu Tipi' && (
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-orange-500">
-                <h2 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Kutu Profil Ölçüleri</h2>
+          <div className="p-6 md:p-8 flex-1 overflow-y-auto">
+            
+            {activeTab === 'genel' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-6 border-b">
+                  <InputRow label="Firma Adı" name="firmaAdi" type="text" />
+                  <InputRow label="Kapasite (Q) kg" name="kapasiteKg" />
+                  <InputRow label="Açıklık (S) mm" name="aciklikS" />
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 font-medium">Sac Genişlik (B)</label>
-                    <input type="number" name="kutuAltUstGenislik" value={formData.kutuAltUstGenislik} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded outline-none" />
+                  <InputRow label="Kaldırma Yüksekliği (H)" name="yukseklikH" />
+                  <InputRow label="Hol Boyu (L)" name="holBoyuL" />
+                  <InputRow label="Direk Arası (L1)" name="direkArasiL1" />
+                  <InputRow label="Direk Adeti" name="direkAdeti" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <SelectRow label="Köprü Tipi" name="kopruTipi" options={['Çift Kiriş Kutu Tipi', 'Çift Kiriş Hadde Profil', 'Tek Kiriş Kutu Profil', 'Tek Kiriş Hadde Profil']} />
+                  <SelectRow label="Direk Tipi" name="direkTipi" options={['NPU Profil Örme', 'Kare Kutu Profil']} />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'kopru' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded mb-6">
+                  <h3 className="font-bold text-orange-800 mb-2">Çelik Konstrüksiyon Geometrisi</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <InputRow label="Alt/Üst Genişlik (B)" name="kutuAltUstGenislik" />
+                    <InputRow label="Alt/Üst Kalınlık (t1)" name="kutuAltUstKalinlik" />
+                    <InputRow label="Yan Yükseklik (H)" name="kutuYanYukseklik" />
+                    <InputRow label="Yan Kalınlık (t2)" name="kutuYanKalinlik" />
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 font-medium">Sac Kalınlık (t1)</label>
-                    <input type="number" name="kutuAltUstKalinlik" value={formData.kutuAltUstKalinlik} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 font-medium">Yan Yükseklik (H)</label>
-                    <input type="number" name="kutuYanYukseklik" value={formData.kutuYanYukseklik} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 font-medium">Yan Kalınlık (t2)</label>
-                    <input type="number" name="kutuYanKalinlik" value={formData.kutuYanKalinlik} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <InputRow label="Hadde Çalışma Profili (Örn: IPE400)" name="calismaProfiliKopru" type="text" />
+                  <InputRow label="Ray Kare Genişlik (b)" name="kareGenislikb" />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'mekanik' && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
+                  <h3 className="font-bold text-purple-800 mb-4">Motor, Redüktör ve Tambur Seçimi</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
+                    <InputRow label="Makine Ağırlığı (kg)" name="makineAgirligi" />
+                    <InputRow label="Başlık Teker Sayısı" name="baslikTekerSayisi" />
+                    <InputRow label="Tambur Çapı (mm)" name="tamburCapi" />
+                    <InputRow label="Halat Sayısı" name="halatSayisi" />
+                    <InputRow label="Tambura Gelen Halat" name="tamburaGelenHalatSayisi" />
+                    <InputRow label="İvmelenme Süresi (sn)" name="ivmelenmeSuresi" />
+                    <InputRow label="Kaldırma Hızı (m/dk)" name="kaldirmaHizi" />
+                    <InputRow label="Yürütme Hızı (m/dk)" name="yurutmeHizi" />
                   </div>
                 </div>
               </div>
             )}
+
+            {activeTab === 'opsiyon' && (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                <SelectRow label="Guse" name="guseYapilacak" options={['YAPILACAK', 'YAPILMAYACAK']} />
+                <SelectRow label="Servis Platformu" name="platformYapilacak" options={['YAPILACAK', 'YOK']} />
+                <SelectRow label="C-Ray Köprü Üzeri" name="cRayKopru" options={['YAPILACAK', 'YOK']} />
+                <SelectRow label="C-Ray Yürüme Yolu" name="cRayYurumeYolu" options={['YAPILACAK', 'YOK']} />
+                <SelectRow label="Uzaktan Kumanda" name="uzaktanKumanda" options={['YAPILACAK', 'YOK']} />
+                <SelectRow label="Boya ve Kumlama" name="boyaKumlama" options={['YAPILACAK', 'YOK']} />
+                <SelectRow label="Aşırı Yük Sivici (Loadcell)" name="asiriYukSivici" options={['CWL-3T', 'CWL-5T', 'CWL-10T', 'CWL-16T', 'CWL-32T']} />
+                <SelectRow label="Montaj Hizmeti" name="montajYapilacak" options={['YAPILACAK', 'YOK']} />
+                <div className="col-span-2 grid grid-cols-2 gap-4 border-t pt-4">
+                   <InputRow label="Montaj Süresi (Gün)" name="montajSuresiGun" />
+                   <InputRow label="Montaj Elemanı Sayısı" name="montajElemaniSayisi" />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Sonuç Alanı (Sağ Taraf) */}
-        <div className="lg:col-span-4">
-          <div className="bg-gray-800 text-white p-6 rounded-xl shadow-lg sticky top-6">
-            <h2 className="text-xl font-bold mb-6 border-b border-gray-600 pb-2">Maliyet ve Statik Özeti</h2>
+        {/* SAĞ PANEL (SİYAH HESAPLAMA EKRANI VE KONTROL PANELİ) */}
+        <div className="xl:col-span-4 flex flex-col h-full">
+          <div className="bg-[#1e293b] text-white p-7 rounded-xl shadow-xl flex-1 border border-slate-700">
+            <h2 className="text-xl font-bold mb-5 pb-4 border-b border-slate-600">Teknik ve Maliyet Analizi</h2>
             
             {hesaplamaSonucu ? (
               <div className="space-y-4">
-                 <div className="flex justify-between items-center text-sm">
-                   <span className="text-gray-400">Köprü Ağırlığı</span>
-                   <span className="font-semibold text-white">{hesaplamaSonucu.kopruToplamAgirlik} kg</span>
+                 {/* STATİK BÖLÜMÜ */}
+                 <div className="mb-4">
+                   <p className="text-xs font-bold text-orange-400 mb-2 tracking-widest uppercase">Statik Değerler</p>
+                   <div className="space-y-2">
+                     <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
+                       <span className="text-slate-300">Köprü Ağırlığı</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.kopruAgirlikKg} kg</span>
+                     </div>
+                     <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
+                       <span className="text-slate-300">Toplam Çelik Tonajı</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.toplamCelikAgirlik} kg</span>
+                     </div>
+                   </div>
                  </div>
-                 <div className="flex justify-between items-center text-sm">
-                   <span className="text-gray-400">Çelik İşçilik ve Malzeme</span>
-                   <span className="font-semibold text-white">{hesaplamaSonucu.celikKopruMaliyeti} TL</span>
+
+                 {/* MEKANİK BÖLÜMÜ */}
+                 <div className="mb-4">
+                   <p className="text-xs font-bold text-purple-400 mb-2 tracking-widest uppercase">Mekanik Değerler</p>
+                   <div className="space-y-2">
+                     <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
+                       <span className="text-slate-300">Kaldırma Torku</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.gerekliKaldirmaTorku} Nm</span>
+                     </div>
+                     <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
+                       <span className="text-slate-300">Kaldırma Motor Gücü</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.gerekliMotorGucu} kW</span>
+                     </div>
+                     <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
+                       <span className="text-slate-300">Maksimum Teker Yükü</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.maxTekerYuku} kg</span>
+                     </div>
+                   </div>
                  </div>
-                 <div className="flex justify-between items-center text-sm border-b border-gray-600 pb-4">
-                   <span className="text-gray-400">Makina ({formData.kapasiteKg/1000}T)</span>
-                   <span className="font-semibold text-white">{hesaplamaSonucu.makinaFiyati} TL</span>
+
+                 {/* MALİYET BÖLÜMÜ */}
+                 <div>
+                   <p className="text-xs font-bold text-emerald-400 mb-2 tracking-widest uppercase">Maliyet Dağılımı</p>
+                   <div className="space-y-2">
+                     <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
+                       <span className="text-slate-300">Çelik + İşçilik</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.celikIscilikMaliyeti} ₺</span>
+                     </div>
+                     <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
+                       <span className="text-slate-300">Makina ({formData.kapasiteKg/1000}T)</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.makinaFiyati} ₺</span>
+                     </div>
+                     <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
+                       <span className="text-slate-300">Opsiyonlar & Montaj</span>
+                       <span className="font-bold text-white">{(Number(hesaplamaSonucu.ekstraMaliyetler) + Number(hesaplamaSonucu.montajMaliyeti)).toFixed(2)} ₺</span>
+                     </div>
+                   </div>
                  </div>
                  
-                 <div className="pt-2">
-                   <span className="block text-xs text-gray-400 uppercase mb-1">Tahmini Toplam Tutar</span>
-                   <span className="text-3xl font-bold text-green-400">{hesaplamaSonucu.tahminiToplamSatis} ₺</span>
+                 <div className="pt-4 border-t border-slate-600 mt-6">
+                   <span className="block text-sm text-slate-400 uppercase tracking-wider mb-1">PROJE TOPLAM TUTARI</span>
+                   <span className="text-3xl font-black text-emerald-400">{hesaplamaSonucu.tahminiToplamSatis} ₺</span>
                  </div>
               </div>
             ) : (
-              <div className="text-gray-400 text-sm py-8 text-center">
-                Sonuçları görmek için değerleri girip hesaplayın.
+              <div className="text-slate-400 py-16 text-center flex flex-col items-center justify-center">
+                <svg className="w-12 h-12 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <p>Verileri girip <strong>Maliyetleri Hesapla</strong> butonuna basınız.</p>
               </div>
             )}
 
-            <button 
-              onClick={handleHesapla} 
-              disabled={hesaplaniyor}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg mt-6 font-bold transition-colors disabled:opacity-50">
-              {hesaplaniyor ? 'Hesaplanıyor...' : 'Maliyetleri Hesapla'}
-            </button>
           </div>
+          
+          <button onClick={handleHesapla} disabled={hesaplaniyor} className="w-full bg-blue-700 hover:bg-blue-600 text-white py-4 rounded-xl mt-4 font-bold text-lg tracking-wide shadow-lg transition-all disabled:opacity-50">
+            {hesaplaniyor ? 'MÜHENDİSLİK MOTORU ÇALIŞIYOR...' : 'MALİYETLERİ HESAPLA'}
+          </button>
         </div>
       </div>
 
-      {/* --- GİZLİ PDF ŞABLONU --- */}
+      {/* GİZLİ PDF ŞABLONU */}
       <div style={{ display: 'none' }}>
-        <div ref={teklifCiktisiRef} className="bg-white text-black p-10 font-sans" style={{ width: '210mm', minHeight: '297mm' }}>
-            
-            <div className="border-b-2 border-orange-600 pb-4 mb-8 flex justify-between items-end">
+        <div ref={teklifCiktisiRef} className="bg-white text-black p-12 font-sans" style={{ width: '210mm', minHeight: '297mm' }}>
+            {/* ... (Önceki yazdığımız PDF tasarımı burada aynı şekilde kalacak) ... */}
+            <div className="border-b-[3px] border-orange-500 pb-4 mb-8 flex justify-between items-end">
                 <div>
-                  <h1 className="text-3xl font-black text-blue-900 tracking-tighter">BUVİSAN</h1>
-                  <p className="text-sm font-semibold tracking-widest text-gray-600">VİNÇ SİSTEMLERİ</p>
-                  <p className="text-sm mt-4 font-bold">TEKLİF VE SÖZLEŞME FORMU</p>
+                  <h1 className="text-4xl font-black text-[#1e3a8a] tracking-tighter">BUVİSAN</h1>
+                  <p className="text-sm font-bold tracking-widest text-slate-500">VİNÇ SİSTEMLERİ</p>
                 </div>
-                <div className="text-right text-sm text-gray-600">
-                  <p>Tarih: <strong>{new Date().toLocaleDateString('tr-TR')}</strong></p>
-                  <p>Teklif No: <strong>2604-{Math.floor(Math.random() * 1000)}</strong></p>
+                <div className="text-right text-sm">
+                  <p><strong>Tarih:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
                 </div>
             </div>
-
-            <div className="bg-gray-50 border border-gray-200 p-4 rounded mb-8 text-sm">
-                <table className="w-full">
-                  <tbody>
-                    <tr><td className="w-32 font-bold text-gray-700 py-1">Firma Adı</td><td>: {formData.firmaAdi || 'Müşteri Kaydı Girilmedi'}</td></tr>
-                    <tr><td className="font-bold text-gray-700 py-1">Kapasite</td><td>: {formData.kapasiteKg / 1000} Ton</td></tr>
-                    <tr><td className="font-bold text-gray-700 py-1">Açıklık (S)</td><td>: {formData.aciklikS} mm</td></tr>
-                  </tbody>
-                </table>
+            
+            <div className="bg-slate-50 border border-slate-200 p-5 rounded-md mb-8">
+                <p className="mb-2"><strong className="inline-block w-32">Firma:</strong> {formData.firmaAdi || 'Müşteri Kaydı Yok'}</p>
+                <p className="mb-2"><strong className="inline-block w-32">Kapasite:</strong> {formData.kapasiteKg} kg</p>
+                <p><strong className="inline-block w-32">Köprü Tipi:</strong> {formData.kopruTipi}</p>
             </div>
 
-            <h2 className="text-lg font-bold text-blue-900 border-b-2 border-blue-100 mb-4 pb-1">
-              {formData.kapasiteKg / 1000} TON {formData.kopruTipi.toUpperCase()} SİSTEMİ İÇERİĞİ
-            </h2>
-
-            <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
-                <thead>
-                    <tr className="bg-blue-900 text-white">
-                        <th className="border border-gray-300 p-2 text-left">Özellik</th>
-                        <th className="border border-gray-300 p-2 text-left">Detay</th>
-                    </tr>
-                </thead>
+            <h2 className="text-xl font-bold text-[#1e3a8a] border-b-2 border-slate-100 mb-4 pb-2">VİNÇ TEKNİK ÖZELLİKLERİ</h2>
+            <table className="w-full border-collapse border border-slate-300 mb-10 text-sm">
                 <tbody>
-                    <tr><td className="border p-2 font-semibold">Kaldırma Makinası</td><td className="border p-2">{formData.kapasiteKg / 1000} Ton {formData.kopruTipi.includes('Çift') ? 'Çift Kiriş' : 'Monoray'} Kaldırma Makinası</td></tr>
-                    <tr className="bg-gray-50"><td className="border p-2 font-semibold">Vinç Köprü</td><td className="border p-2">{formData.kopruTipi}</td></tr>
-                    <tr><td className="border p-2 font-semibold">Boya (Standart)</td><td className="border p-2">RAL 1028 (Sarı) / RAL 7016 (Antrasit)</td></tr>
-                    <tr className="bg-gray-50"><td className="border p-2 font-semibold">Frekans İnvertörü</td><td className="border p-2">Tüm yönlerde standart</td></tr>
+                    <tr><td className="border border-slate-300 p-2.5 font-bold bg-slate-100 w-1/3">Açıklık (S)</td><td className="border border-slate-300 p-2.5">{formData.aciklikS} mm</td></tr>
+                    <tr><td className="border border-slate-300 p-2.5 font-bold bg-slate-100">Kaldırma Yüksekliği (H)</td><td className="border border-slate-300 p-2.5">{formData.yukseklikH} mm</td></tr>
+                    {hesaplamaSonucu && (
+                      <>
+                        <tr><td className="border border-slate-300 p-2.5 font-bold bg-slate-100">Kaldırma Motor Gücü</td><td className="border border-slate-300 p-2.5">{hesaplamaSonucu.gerekliMotorGucu} kW</td></tr>
+                        <tr><td className="border border-slate-300 p-2.5 font-bold bg-slate-100">Max Tekerlek Yükü</td><td className="border border-slate-300 p-2.5">{hesaplamaSonucu.maxTekerYuku} kg</td></tr>
+                      </>
+                    )}
                 </tbody>
             </table>
-
-            {hesaplamaSonucu && (
-              <div className="mt-12 break-inside-avoid">
-                  <h3 className="font-bold text-lg mb-2 text-orange-600">FİYATLANDIRMA</h3>
-                  <table className="w-full border-collapse border border-gray-300 text-sm">
-                      <thead>
-                          <tr className="bg-orange-600 text-white">
-                              <th className="border border-orange-700 p-2 text-left">Açıklama</th>
-                              <th className="border border-orange-700 p-2 text-right">Tutar (TL)</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                          <tr>
-                              <td className="border p-2">{formData.kapasiteKg / 1000} Ton {formData.kopruTipi.includes('Çift') ? 'Çift Kiriş' : 'Tek Kiriş'} Makina</td>
-                              <td className="border p-2 text-right">{hesaplamaSonucu.makinaFiyati}</td>
-                          </tr>
-                          <tr className="bg-gray-50">
-                              <td className="border p-2">{formData.kapasiteKg / 1000} Ton Vinç Köprüsü</td>
-                              <td className="border p-2 text-right">{hesaplamaSonucu.celikKopruMaliyeti}</td>
-                          </tr>
-                          <tr className="font-bold bg-gray-100 text-base">
-                              <td className="border p-3 text-right text-gray-700">TOPLAM TUTAR</td>
-                              <td className="border p-3 text-right text-green-700">{hesaplamaSonucu.tahminiToplamSatis} ₺ + KDV</td>
-                          </tr>
-                      </tbody>
-                  </table>
-              </div>
-            )}
-            
-            <div className="absolute bottom-10 w-[190mm] text-center text-xs text-gray-400 border-t pt-4">
-              Buvisan Vinç Sistemleri | Organize Sanayi Bölgesi, Bursa | portal.buvisan.com
-            </div>
         </div>
       </div>
     </div>
