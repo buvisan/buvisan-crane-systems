@@ -4,13 +4,15 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useRouter } from "next/navigation" // Yönlendirme için eklendi
 import { 
   Calculator, Plus, Loader2, Search, 
-  FileText, Trash2, Edit, FileCheck, FileSignature
+  FileText, Trash2, Edit, FileSignature
 } from "lucide-react"
 
 export default function OffersDashboardPage() {
   const supabase = createClient()
+  const router = useRouter() // Router tanımlandı
   const [offers, setOffers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -43,6 +45,11 @@ export default function OffersDashboardPage() {
     o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
+  // Yeni Hesaplama Sayfasına Yönlendirme Fonksiyonu
+  const handleYeniHesaplama = () => {
+    router.push('/dashboard/offers/new')
+  }
+
   return (
     <div className="flex flex-col gap-6 md:gap-8 font-sans max-w-[1600px] mx-auto w-full pb-10 transition-colors duration-300">
       
@@ -68,8 +75,10 @@ export default function OffersDashboardPage() {
                     className="pl-11 h-12 bg-background/80 border-border text-foreground rounded-xl" 
                 />
             </div>
-            {/* 🚀 DEV HESAPLAMA MOTORUNU AÇACAK BUTON */}
-            <Button className="w-full sm:w-auto h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all">
+            {/* 🚀 DEV HESAPLAMA MOTORUNU AÇACAK BUTON: onClick eklendi */}
+            <Button 
+                onClick={handleYeniHesaplama} 
+                className="w-full sm:w-auto h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all">
                 <Plus className="mr-2 h-5 w-5" /> Yeni Hesaplama Yap
             </Button>
         </div>
@@ -108,7 +117,7 @@ export default function OffersDashboardPage() {
                                         {offer.status || 'BEKLIYOR'}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 font-black text-blue-600 dark:text-blue-400">{formatCurrency(offer.total_price_eur, "EUR")}</td>
+                                <td className="px-6 py-4 font-black text-blue-600 dark:text-blue-400">{formatCurrency(offer.total_price_eur, offer.currency || "EUR")}</td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="PDF Oluştur">
@@ -132,7 +141,10 @@ export default function OffersDashboardPage() {
                                         <FileText className="h-10 w-10 text-muted-foreground/50" />
                                     </div>
                                     <h3 className="text-lg font-black text-foreground">Henüz kayıtlı teklif yok.</h3>
-                                    <p className="text-sm font-medium text-blue-600 mt-1 cursor-pointer hover:underline">İlk teklifi oluşturmak için tıklayın.</p>
+                                    {/* Link de tıklandığında aynı yere gitsin */}
+                                    <p onClick={handleYeniHesaplama} className="text-sm font-medium text-blue-600 mt-1 cursor-pointer hover:underline">
+                                        İlk teklifi oluşturmak için tıklayın.
+                                    </p>
                                 </div>
                             </td>
                         </tr>
