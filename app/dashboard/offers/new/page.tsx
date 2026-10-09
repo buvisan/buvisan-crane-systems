@@ -455,36 +455,35 @@ const generatePDF = async () => {
         </div>
       </div>
 
-      {/* GİZLİ PDF ŞABLONU */}
-      <div style={{ display: 'none' }}>
-{/* GİZLİ PDF ŞABLONU (Ekranda görünmez ama PDF motoru okuyabilir) */}
+{/* GİZLİ PDF ŞABLONU (Tailwind Renklerinden Arındırılıp HEX'e Çevrildi) */}
       <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
-        <div ref={teklifCiktisiRef} className="bg-white text-black p-12 font-sans" style={{ width: '210mm', minHeight: '297mm' }}>
-           {/* ... PDF İÇERİĞİ AYNEN KALACAK ... */}
+        <div ref={teklifCiktisiRef} className="p-12 font-sans" style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#ffffff', color: '#000000' }}>
+            
+            <div className="border-b-[3px] pb-4 mb-8 flex justify-between items-end" style={{ borderBottomColor: '#f97316' }}>
                 <div>
-                  <h1 className="text-4xl font-black text-[#1e3a8a] tracking-tighter">BUVİSAN</h1>
-                  <p className="text-sm font-bold tracking-widest text-slate-500">VİNÇ SİSTEMLERİ</p>
+                  <h1 className="text-4xl font-black tracking-tighter" style={{ color: '#1e3a8a' }}>BUVİSAN</h1>
+                  <p className="text-sm font-bold tracking-widest" style={{ color: '#64748b' }}>VİNÇ SİSTEMLERİ</p>
                 </div>
                 <div className="text-right text-sm">
                   <p><strong>Tarih:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
                 </div>
             </div>
             
-            <div className="bg-slate-50 border border-slate-200 p-5 rounded-md mb-8">
+            <div className="border p-5 rounded-md mb-8" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
                 <p className="mb-2"><strong className="inline-block w-32">Firma:</strong> {formData.firmaAdi || 'Müşteri Kaydı Yok'}</p>
                 <p className="mb-2"><strong className="inline-block w-32">Kapasite:</strong> {formData.kapasiteKg} kg</p>
                 <p><strong className="inline-block w-32">Köprü Tipi:</strong> {formData.kopruTipi}</p>
             </div>
 
-            <h2 className="text-xl font-bold text-[#1e3a8a] border-b-2 border-slate-100 mb-4 pb-2">VİNÇ TEKNİK ÖZELLİKLERİ</h2>
-            <table className="w-full border-collapse border border-slate-300 mb-10 text-sm">
+            <h2 className="text-xl font-bold border-b-2 mb-4 pb-2" style={{ color: '#1e3a8a', borderBottomColor: '#f1f5f9' }}>VİNÇ TEKNİK ÖZELLİKLERİ</h2>
+            <table className="w-full border-collapse border mb-10 text-sm" style={{ borderColor: '#cbd5e1' }}>
                 <tbody>
-                    <tr><td className="border border-slate-300 p-2.5 font-bold bg-slate-100 w-1/3">Açıklık (S)</td><td className="border border-slate-300 p-2.5">{formData.aciklikS} mm</td></tr>
-                    <tr><td className="border border-slate-300 p-2.5 font-bold bg-slate-100">Kaldırma Yüksekliği (H)</td><td className="border border-slate-300 p-2.5">{formData.yukseklikH} mm</td></tr>
+                    <tr><td className="border p-2.5 font-bold w-1/3" style={{ borderColor: '#cbd5e1', backgroundColor: '#f1f5f9' }}>Açıklık (S)</td><td className="border p-2.5" style={{ borderColor: '#cbd5e1' }}>{formData.aciklikS} mm</td></tr>
+                    <tr><td className="border p-2.5 font-bold" style={{ borderColor: '#cbd5e1', backgroundColor: '#f1f5f9' }}>Kaldırma Yüksekliği (H)</td><td className="border p-2.5" style={{ borderColor: '#cbd5e1' }}>{formData.yukseklikH} mm</td></tr>
                     {hesaplamaSonucu && (
                       <>
-                        <tr><td className="border border-slate-300 p-2.5 font-bold bg-slate-100">Kaldırma Motor Gücü</td><td className="border border-slate-300 p-2.5">{hesaplamaSonucu.gerekliMotorGucu} kW</td></tr>
-                        <tr><td className="border border-slate-300 p-2.5 font-bold bg-slate-100">Max Tekerlek Yükü</td><td className="border border-slate-300 p-2.5">{hesaplamaSonucu.maxTekerYuku} kg</td></tr>
+                        <tr><td className="border p-2.5 font-bold" style={{ borderColor: '#cbd5e1', backgroundColor: '#f1f5f9' }}>Kaldırma Motor Gücü</td><td className="border p-2.5" style={{ borderColor: '#cbd5e1' }}>{hesaplamaSonucu.gerekliMotorGucu} kW</td></tr>
+                        <tr><td className="border p-2.5 font-bold" style={{ borderColor: '#cbd5e1', backgroundColor: '#f1f5f9' }}>Max Tekerlek Yükü</td><td className="border p-2.5" style={{ borderColor: '#cbd5e1' }}>{hesaplamaSonucu.maxTekerYuku} kg</td></tr>
                       </>
                     )}
                 </tbody>
@@ -492,18 +491,18 @@ const generatePDF = async () => {
 
             {hesaplamaSonucu && (
               <div>
-                  <h3 className="font-bold text-xl mb-3 text-orange-600">FİYATLANDIRMA ({hesaplamaSonucu.paraBirimiSembolu})</h3>
-                  <table className="w-full border-collapse border border-slate-300 text-base">
+                  <h3 className="font-bold text-xl mb-3" style={{ color: '#ea580c' }}>FİYATLANDIRMA ({hesaplamaSonucu.paraBirimiSembolu})</h3>
+                  <table className="w-full border-collapse border text-base" style={{ borderColor: '#cbd5e1' }}>
                       <thead>
-                          <tr className="bg-orange-500 text-white">
-                              <th className="border border-orange-600 p-3 text-left">Açıklama</th>
-                              <th className="border border-orange-600 p-3 text-right">Tutar ({hesaplamaSonucu.paraBirimiSembolu})</th>
+                          <tr style={{ backgroundColor: '#f97316', color: '#ffffff' }}>
+                              <th className="border p-3 text-left" style={{ borderColor: '#ea580c' }}>Açıklama</th>
+                              <th className="border p-3 text-right" style={{ borderColor: '#ea580c' }}>Tutar ({hesaplamaSonucu.paraBirimiSembolu})</th>
                           </tr>
                       </thead>
                       <tbody>
                           <tr>
-                              <td className="border border-slate-300 p-3">Vinç Sistemi Komple İmalat ve Montaj Maliyeti</td>
-                              <td className="border border-slate-300 p-3 text-right font-bold text-emerald-700">{hesaplamaSonucu.tahminiToplamSatis} {hesaplamaSonucu.paraBirimiSembolu}</td>
+                              <td className="border p-3" style={{ borderColor: '#cbd5e1' }}>Vinç Sistemi Komple İmalat ve Montaj Maliyeti</td>
+                              <td className="border p-3 text-right font-bold" style={{ borderColor: '#cbd5e1', color: '#047857' }}>{hesaplamaSonucu.tahminiToplamSatis} {hesaplamaSonucu.paraBirimiSembolu}</td>
                           </tr>
                       </tbody>
                   </table>
