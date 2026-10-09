@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useRouter } from "next/navigation" // Yönlendirme için eklendi
+import { useRouter } from "next/navigation"
 import { 
   Calculator, Plus, Loader2, Search, 
   FileText, Trash2, Edit, FileSignature
@@ -12,10 +12,11 @@ import {
 
 export default function OffersDashboardPage() {
   const supabase = createClient()
-  const router = useRouter() // Router tanımlandı
+  const router = useRouter()
   const [offers, setOffers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchOffers()
@@ -23,13 +24,13 @@ export default function OffersDashboardPage() {
 
   const fetchOffers = async () => {
     setLoading(true)
-    // Supabase tablosu hazır olduğunda verileri çekecek
     const { data, error } = await supabase
       .from('sc_offers')
       .select('*')
       .order('created_at', { ascending: false })
     
     if (data) setOffers(data)
+    if (error) console.error("Teklifler çekilirken hata:", error.message)
     setLoading(false)
   }
 
@@ -45,9 +46,37 @@ export default function OffersDashboardPage() {
     o.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // Yeni Hesaplama Sayfasına Yönlendirme Fonksiyonu
+  // 1. Yeni Hesaplama Sayfasına Yönlendirme
   const handleYeniHesaplama = () => {
     router.push('/dashboard/offers/new')
+  }
+
+  // 2. Düzenleme Sayfasına Yönlendirme
+  const handleEdit = (id: string) => {
+    router.push(`/dashboard/offers/${id}/edit`)
+  }
+
+  // 3. PDF / Yazdırma Sayfasına Yönlendirme
+  const handlePrintPDF = (id: string) => {
+    router.push(`/dashboard/offers/${id}/print`)
+  }
+
+  // 4. Teklif Silme İşlemi
+  const handleDelete = async (id: string, offerNo: string) => {
+    if (!confirm(`"${offerNo}" numaralı teklifi silmek istediğinize emin misiniz?`)) return
+
+    setDeletingId(id)
+    const { error } = await supabase
+      .from('sc_offers')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      alert("Silme işlemi başarısız: " + error.message)
+    } else {
+      setOffers(prev => prev.filter(o => o.id !== id))
+    }
+    setDeletingId(null)
   }
 
   return (
@@ -75,7 +104,6 @@ export default function OffersDashboardPage() {
                     className="pl-11 h-12 bg-background/80 border-border text-foreground rounded-xl" 
                 />
             </div>
-            {/* 🚀 DEV HESAPLAMA MOTORUNU AÇACAK BUTON: onClick eklendi */}
             <Button 
                 onClick={handleYeniHesaplama} 
                 className="w-full sm:w-auto h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all">
@@ -119,15 +147,37 @@ export default function OffersDashboardPage() {
                                 </td>
                                 <td className="px-6 py-4 font-black text-blue-600 dark:text-blue-400">{formatCurrency(offer.total_price_eur, offer.currency || "EUR")}</td>
                                 <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="PDF Oluştur">
+                                    <div className="flex items-center justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                        {/* PDF / Yazdır Butonu */}
+                                        <button 
+                                            onClick={() => handlePrintPDF(offer.id)}
+                                            className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors" 
+                                            title="PDF Oluştur / Yazdır"
+                                        >
                                             <FileSignature className="h-4 w-4" />
                                         </button>
-                                        <button className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors" title="Düzenle">
+
+                                        {/* Düzenle Butonu */}
+                                        <button 
+                                            onClick={() => handleEdit(offer.id)}
+                                            className="p-2 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition-colors" 
+                                            title="Düzenle"
+                                        >
                                             <Edit className="h-4 w-4" />
                                         </button>
-                                        <button className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="Sil">
-                                            <Trash2 className="h-4 w-4" />
+
+                                        {/* Sil Butonu */}
+                                        <button 
+                                            onClick={() => handleDelete(offer.id, offer.offer_no)}
+                                            disabled={deletingId === offer.id}
+                                            className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition-colors disabled:opacity-50" 
+                                            title="Sil"
+                                        >
+                                            {deletingId === offer.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Trash2 className="h-4 w-4" />
+                                            )}
                                         </button>
                                     </div>
                                 </td>
@@ -141,7 +191,6 @@ export default function OffersDashboardPage() {
                                         <FileText className="h-10 w-10 text-muted-foreground/50" />
                                     </div>
                                     <h3 className="text-lg font-black text-foreground">Henüz kayıtlı teklif yok.</h3>
-                                    {/* Link de tıklandığında aynı yere gitsin */}
                                     <p onClick={handleYeniHesaplama} className="text-sm font-medium text-blue-600 mt-1 cursor-pointer hover:underline">
                                         İlk teklifi oluşturmak için tıklayın.
                                     </p>
