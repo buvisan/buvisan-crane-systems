@@ -1,53 +1,86 @@
 'use client';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 export default function YeniTeklifSayfasi() {
   const teklifCiktisiRef = useRef<HTMLDivElement>(null);
   
-  // 1. AŞAMA: EXCELDEKİ BÜTÜN HÜCRELERİN (GİRDİLERİN) EKSİKSİZ STATE TANIMI
+  // 1. CANLI DÖVİZ KURU STATE'İ
+  const [dovizKurlari, setDovizKurlari] = useState<{ [key: string]: number }>({
+    TRY: 1, USD: 0, EUR: 0, GBP: 0
+  });
+
+  // SAYFA AÇILDIĞINDA İNTERNETTEN GÜNLÜK CANLI KURLARI ÇEK
+  useEffect(() => {
+    const kurlariGetir = async () => {
+      try {
+        // Ücretsiz ve anlık güncellenen güvenilir kur API'si
+        const response = await fetch('https://open.er-api.com/v6/latest/TRY');
+        const data = await response.json();
+        if (data && data.rates) {
+          setDovizKurlari({
+            TRY: 1,
+            USD: data.rates.USD,
+            EUR: data.rates.EUR,
+            GBP: data.rates.GBP
+          });
+        }
+      } catch (error) {
+        console.error("Kur çekilemedi, internet bağlantınızı kontrol edin:", error);
+      }
+    };
+    kurlariGetir();
+  }, []);
+
+  // 2. EXCELDEKİ BÜTÜN HÜCRELERİN STATE TANIMI
   const [formData, setFormData] = useState({
-    // --- Müşteri ---
     firmaAdi: 'ZM METAL MAKİNA İMALAT', yetkili: '', telefon: '',
     
-    // --- ÇELİK KONSTRÜKSİYON (VİNÇ GENEL) ---
+    // --- Para Birimi ---
+    paraBirimi: 'TRY', // YENİ EKLENDİ
+
+    // --- Vinç Genel Özellikleri ---
     kapasiteKg: 10000, aciklikS: 15000, yukseklikH: 6000, 
     holBoyuL: 30000, direkArasiL1: 6000, direkAdeti: 12, direkBoyu: 6000,
     kopruTipi: 'Çift Kiriş Kutu Tipi',
     
-    // --- ÇELİK KONSTRÜKSİYON (KUTU VE HADDE ÖLÇÜLERİ) ---
+    // --- Çift/Tek Kiriş Kutu Tipi Geometrisi ---
     kutuAltUstGenislik: 390, kutuAltUstKalinlik: 6, 
     kutuYanYukseklik: 800, kutuYanKalinlik: 6,
+    
+    // --- Çift/Tek Kiriş Hadde Profil Geometrisi ---
     calismaProfiliKopru: 'IPE400', kareGenislikb: 40, kareYukseklikh: 30,
     
-    // --- YÜRÜME YOLU VE DİREK ÖLÇÜLERİ ---
+    // --- Vinç Yürüme Yolu & Direk ---
     yurumeYoluTipi: 'Çelik Yürüme Yolu',
     yurumeYoluProfili: 'IPE300', rayAltiGenislik: 120, rayAltiYukseklik: 10,
     direkTipi: 'NPU Profil Örme', direkProfili: 'NPU 180',
     direKutuGenislik: 200, direKutuKalinlik: 5,
     payandaAraligi: 1000, payandaKalinligi: 5,
     
-    // --- MEKANİK (MOTOR VE REDÜKTÖR GİRDİLERİ) ---
+    // --- Mekanik (Motor ve Redüktör) ---
     makineAgirligi: 960, raydanMakineUstu: 550, 
     makineTekerMerkezi: 1260, baslikTekerMerkezi: 2800, baslikTekerSayisi: 4,
     kaldirmaHizi: 4, yurutmeHizi: 20, ivmelenmeSuresi: 5,
     tamburCapi: 300, halatSayisi: 4, tamburaGelenHalatSayisi: 1,
     
-    // --- OPSİYONLAR VE MALİYET SAYFASI SEÇENEKLERİ ---
-    kolonTipi: 'Kare Kutu Profil', 
-    guseYapilacak: 'YAPILMAYACAK', 
-    platformYapilacak: 'YOK', // HATANIN SEBEBİ BURASIYDI, EKLENDİ!
-    busbarAmper: 50, 
-    cRayKopru: 'YAPILACAK', 
-    cRayYurumeYolu: 'YOK',
-    uzaktanKumanda: 'YAPILACAK', 
-    boyaKumlama: 'YAPILACAK', 
-    asiriYukSivici: 'CWL-10T',
+    // --- Opsiyonlar ve Maliyet Sabitleri ---
+    kolonTipi: 'Kare Kutu Profil', guseYapilacak: 'YAPILMAYACAK', platformYapilacak: 'YOK',
+    busbarAmper: 50, cRayKopru: 'YAPILACAK', cRayYurumeYolu: 'YOK',
+    uzaktanKumanda: 'YAPILACAK', boyaKumlama: 'YAPILACAK', asiriYukSivici: 'CWL-10T',
     montajYapilacak: 'YAPILACAK', montajSuresiGun: 3, montajElemaniSayisi: 3
   });
 
   const [activeTab, setActiveTab] = useState('genel');
   const [hesaplamaSonucu, setHesaplamaSonucu] = useState<any>(null);
   const [hesaplaniyor, setHesaplaniyor] = useState(false);
+
+  // KULLANICI PARA BİRİMİNİ DEĞİŞTİRDİĞİ AN HESAPLAMAYI OTOMATİK TETİKLE
+  useEffect(() => {
+    if (hesaplamaSonucu) {
+      handleHesapla();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.paraBirimi]); 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -57,121 +90,96 @@ export default function YeniTeklifSayfasi() {
     }));
   };
 
-  // 2. AŞAMA: DEVASA MÜHENDİSLİK MOTORU (Excel'in Birebir Dijital İkizi)
+  // 3. MÜHENDİSLİK MOTORU
   const handleHesapla = () => {
     setHesaplaniyor(true);
     
     setTimeout(() => {
-      // SABİTLER VE ÇARPANLAR (Supabase'den gelecek, şimdilik statik)
       const yerCekimi = 9.81;
-      const celikYogunluk = 7.85; // ton/m3
-      const sacBirimIscilik = 75; // TL
-      const montajGunlukYevmiye = 6000; // TL
+      const celikYogunluk = 7.85; 
+      const sacBirimIscilikTL = 75; // Bütün fiyatları önce TL bazlı hesaplayacağız
+      const montajGunlukYevmiyeTL = 6000; 
       
-      // ==========================================
-      // 1. ÇELİK KONSTRÜKSİYON VE STATİK (Ağırlık / Sehim Kontrolleri)
-      // ==========================================
+      // 1. STATİK (Ağırlık)
       let kopruAgirlikKg = 0;
-      let kirisYuku = 0;
-
       if (formData.kopruTipi === 'Çift Kiriş Kutu Tipi') {
         const altUstAgirlik = (formData.kutuAltUstGenislik * formData.kutuAltUstKalinlik * formData.aciklikS * celikYogunluk) / 1000000;
         const yanAgirlik = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * celikYogunluk) / 1000000;
-        const kopruMetreAgirligi = ((altUstAgirlik + yanAgirlik) / (formData.aciklikS / 1000));
-        
-        kopruAgirlikKg = ((altUstAgirlik * 2) + (yanAgirlik * 2)) * 1.15 * 2; // %15 kaynak/örüm payı x Çift Kiriş
-        kirisYuku = kopruAgirlikKg / 2;
-      } 
-      else if (formData.kopruTipi === 'Tek Kiriş Kutu Profil') {
+        kopruAgirlikKg = ((altUstAgirlik * 2) + (yanAgirlik * 2)) * 1.15 * 2; 
+      } else if (formData.kopruTipi === 'Tek Kiriş Kutu Profil') {
         const altUstAgirlik = (formData.kutuAltUstGenislik * formData.kutuAltUstKalinlik * formData.aciklikS * celikYogunluk) / 1000000;
         const yanAgirlik = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * celikYogunluk) / 1000000;
-        kopruAgirlikKg = ((altUstAgirlik * 2) + (yanAgirlik * 2)) * 1.15; // Tek Kiriş
-        kirisYuku = kopruAgirlikKg;
-      }
-      else {
-        // Hadde Profil (IPE, HEA vb.)
-        const profilBirimAgirlik = 66.3; // IPE400
+        kopruAgirlikKg = ((altUstAgirlik * 2) + (yanAgirlik * 2)) * 1.15; 
+      } else {
+        const profilBirimAgirlik = 66.3; 
         const rayKareAgirlik = (formData.kareGenislikb * formData.kareYukseklikh * 8 * formData.aciklikS) / 1000000;
         kopruAgirlikKg = ((profilBirimAgirlik * formData.aciklikS / 1000) + rayKareAgirlik);
         if (formData.kopruTipi.includes('Çift')) kopruAgirlikKg *= 2;
-        kirisYuku = formData.kopruTipi.includes('Çift') ? kopruAgirlikKg / 2 : kopruAgirlikKg;
       }
 
-      // Yürüme Yolu Ağırlık Formülü
       const rayAltiSacAgirlik = (formData.rayAltiGenislik * formData.rayAltiYukseklik * celikYogunluk) / 1000;
-      const yurumeYoluMetreAgirlik = 50.5 + rayAltiSacAgirlik; // Örnek IPE300
-      const yurumeYoluAgirlikKg = yurumeYoluMetreAgirlik * (formData.holBoyuL / 1000) * (formData.kopruTipi.includes('Çift') ? 2 : 1);
-      
+      const yurumeYoluAgirlikKg = (50.5 + rayAltiSacAgirlik) * (formData.holBoyuL / 1000) * (formData.kopruTipi.includes('Çift') ? 2 : 1);
       const toplamCelikAgirlik = kopruAgirlikKg + yurumeYoluAgirlikKg;
 
-      // ==========================================
-      // 2. MEKANİK VE MAKİNA HESAPLAMALARI (Excel MEKANİK Sekmesi)
-      // ==========================================
-      
-      // Tekerlek Yükleri (G9, G10 Hücre Formülleri)
-      const yaklasmaMesafesi = 1000; // Standart yaklaşma payı
+      // 2. MEKANİK
+      const yaklasmaMesafesi = 1000; 
       const maxTekerYuku = (kopruAgirlikKg + ((formData.kapasiteKg + formData.makineAgirligi) * ((formData.aciklikS - yaklasmaMesafesi) / formData.aciklikS))) / formData.baslikTekerSayisi;
-      const minTekerYuku = (kopruAgirlikKg + ((formData.kapasiteKg + formData.makineAgirligi) * (yaklasmaMesafesi / formData.aciklikS))) / formData.baslikTekerSayisi;
-
-      // Kaldırma Torku (B6 Hücre Formülü: B2*9.81*(B3/2000)*B5/(VLOOKUP...))
-      const mekanikVerim = 0.94;
-      const gerekliKaldirmaTorku = (formData.kapasiteKg * yerCekimi * (formData.tamburCapi / 2000) * formData.tamburaGelenHalatSayisi) / (mekanikVerim * formData.halatSayisi);
-      
-      // Kaldırma Motor Gücü (B9 ve B10 Formülleri)
+      const gerekliKaldirmaTorku = (formData.kapasiteKg * yerCekimi * (formData.tamburCapi / 2000) * formData.tamburaGelenHalatSayisi) / (0.94 * formData.halatSayisi);
       const kaldirmaReduktorCikisDevri = (formData.kaldirmaHizi * formData.halatSayisi) / (Math.PI * (formData.tamburCapi / 1000) * formData.tamburaGelenHalatSayisi);
       const gerekliMotorGucu = (gerekliKaldirmaTorku * kaldirmaReduktorCikisDevri) / (9550 * 0.94);
       
-      // Yürütme Gücü (İvmelenme ve Sürtünme - E8 ve E9 Formülleri)
-      const yurutmeDirenci = maxTekerYuku * formData.baslikTekerSayisi * 0.005; // Sürtünme katsayısı
+      const yurutmeDirenci = maxTekerYuku * formData.baslikTekerSayisi * 0.005;
       const ivmelenmeGucu = (maxTekerYuku * formData.baslikTekerSayisi / 2) * Math.pow((formData.yurutmeHizi / 60), 2) / (formData.ivmelenmeSuresi * 0.9 * 1000) * 1.2;
       const yurutmeMotorGucu = (yurutmeDirenci + ivmelenmeGucu) / 1.4;
 
-      // ==========================================
-      // 3. MALİYET VE FİYATLANDIRMA (Excel MALİYET SAYFASI)
-      // ==========================================
-      
-      const celikIscilikMaliyeti = toplamCelikAgirlik * sacBirimIscilik;
-      
-      // Kaldırma Makinası Matris Fiyatı
-      const makinaFiyati = formData.kopruTipi.includes('Çift') ? 277900 : 250110; 
+      // 3. MALİYET (ÖNCE TL OLARAK HESAPLIYORUZ)
+      const celikIscilikMaliyetiTL = toplamCelikAgirlik * sacBirimIscilikTL;
+      const makinaFiyatiTL = formData.kopruTipi.includes('Çift') ? 277900 : 250110; 
 
-      // Opsiyonel Fiyatlandırma Paneli (Hücre Çarpanları)
-      let ekstraMaliyetler = 0;
-      if (formData.platformYapilacak === 'YAPILACAK') ekstraMaliyetler += (formData.aciklikS / 1000) * 2000;
-      if (formData.cRayKopru === 'YAPILACAK') ekstraMaliyetler += 30000;
-      if (formData.cRayYurumeYolu === 'YAPILACAK') ekstraMaliyetler += 45000;
-      if (formData.uzaktanKumanda === 'YAPILACAK') ekstraMaliyetler += 15000;
-      if (formData.boyaKumlama === 'YAPILACAK') ekstraMaliyetler += 37500;
+      let ekstraMaliyetlerTL = 0;
+      if (formData.platformYapilacak === 'YAPILACAK') ekstraMaliyetlerTL += (formData.aciklikS / 1000) * 2000;
+      if (formData.cRayKopru === 'YAPILACAK') ekstraMaliyetlerTL += 30000;
+      if (formData.cRayYurumeYolu === 'YAPILACAK') ekstraMaliyetlerTL += 45000;
+      if (formData.uzaktanKumanda === 'YAPILACAK') ekstraMaliyetlerTL += 15000;
+      if (formData.boyaKumlama === 'YAPILACAK') ekstraMaliyetlerTL += 37500;
       
-      // Montaj
-      let montajMaliyeti = 0;
+      let montajMaliyetiTL = 0;
       if (formData.montajYapilacak === 'YAPILACAK') {
-        montajMaliyeti = formData.montajSuresiGun * formData.montajElemaniSayisi * montajGunlukYevmiye;
+        montajMaliyetiTL = formData.montajSuresiGun * formData.montajElemaniSayisi * montajGunlukYevmiyeTL;
       }
       
-      // Tüm Proje Toplamı
-      const tahminiToplamSatis = celikIscilikMaliyeti + makinaFiyati + ekstraMaliyetler + montajMaliyeti;
+      const tahminiToplamSatisTL = celikIscilikMaliyetiTL + makinaFiyatiTL + ekstraMaliyetlerTL + montajMaliyetiTL;
+
+      // 4. CANLI KURA GÖRE DÖNÜŞÜM İŞLEMİ (SİHRİN OLDUĞU YER)
+      const kurCarpani = dovizKurlari[formData.paraBirimi] || 1; 
+      const semboller: any = { TRY: '₺', USD: '$', EUR: '€', GBP: '£' };
+      const sembol = semboller[formData.paraBirimi];
 
       setHesaplamaSonucu({
+        // Statik
         kopruAgirlikKg: kopruAgirlikKg.toFixed(2),
         yurumeYoluAgirlikKg: yurumeYoluAgirlikKg.toFixed(2),
         toplamCelikAgirlik: (toplamCelikAgirlik).toFixed(2),
         
+        // Mekanik
         gerekliKaldirmaTorku: gerekliKaldirmaTorku.toFixed(2),
         kaldirmaReduktorCikisDevri: kaldirmaReduktorCikisDevri.toFixed(2),
         gerekliMotorGucu: gerekliMotorGucu.toFixed(2),
         yurutmeMotorGucu: yurutmeMotorGucu.toFixed(2),
         maxTekerYuku: maxTekerYuku.toFixed(2),
         
-        celikIscilikMaliyeti: celikIscilikMaliyeti.toFixed(2),
-        makinaFiyati: makinaFiyati.toFixed(2),
-        ekstraMaliyetler: ekstraMaliyetler.toFixed(2),
-        montajMaliyeti: montajMaliyeti.toFixed(2),
-        
-        tahminiToplamSatis: tahminiToplamSatis.toFixed(2)
+        // Kur Çevirili Maliyetler
+        paraBirimi: formData.paraBirimi,
+        paraBirimiSembolu: sembol,
+        celikIscilikMaliyeti: (celikIscilikMaliyetiTL * kurCarpani).toFixed(2),
+        makinaFiyati: (makinaFiyatiTL * kurCarpani).toFixed(2),
+        ekstraMaliyetler: (ekstraMaliyetlerTL * kurCarpani).toFixed(2),
+        montajMaliyeti: (montajMaliyetiTL * kurCarpani).toFixed(2),
+        tahminiToplamSatis: (tahminiToplamSatisTL * kurCarpani).toFixed(2)
       });
+      
       setHesaplaniyor(false);
-    }, 800); // Hesaplama hissi için ufak bir bekleme
+    }, 400); 
   };
 
   const generatePDF = async () => {
@@ -196,12 +204,12 @@ export default function YeniTeklifSayfasi() {
     </div>
   );
 
-  const SelectRow = ({ label, name, options }: { label: string, name: keyof typeof formData, options: string[] }) => (
+  const SelectRow = ({ label, name, options, labels }: { label: string, name: keyof typeof formData, options: string[], labels?: string[] }) => (
     <div>
       <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">{label}</label>
       <select name={name} value={formData[name] as any} onChange={handleInputChange} 
               className="w-full p-2.5 border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-blue-600 outline-none shadow-sm">
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        {options.map((opt, i) => <option key={opt} value={opt}>{labels ? labels[i] : opt}</option>)}
       </select>
     </div>
   );
@@ -219,11 +227,14 @@ export default function YeniTeklifSayfasi() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">Vinç Projesi Hesaplama Motoru (ERP)</h1>
-          <p className="text-sm text-slate-500 font-medium">MEKANİK, STATİK ve MALİYET SAYFASI Entegrasyonu</p>
+          <p className="text-sm text-emerald-600 font-bold mt-1 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Canlı Döviz Kuru Devrede
+          </p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           {hesaplamaSonucu && (
-            <button onClick={generatePDF} className="flex-1 md:flex-none px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all">
+            <button onClick={generatePDF} className="flex-1 md:flex-none px-6 py-2.5 bg-blue-700 text-white font-bold rounded-lg hover:bg-blue-800 shadow-lg shadow-blue-200 transition-all">
               PDF TEKLİF YAZDIR
             </button>
           )}
@@ -232,7 +243,7 @@ export default function YeniTeklifSayfasi() {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         
-        {/* SOL PANEL (EXCEL SAYFALARI) */}
+        {/* SOL PANEL */}
         <div className="xl:col-span-8 bg-white border border-slate-200 rounded-xl shadow-md overflow-hidden flex flex-col">
           
           <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto">
@@ -279,7 +290,7 @@ export default function YeniTeklifSayfasi() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <InputRow label="Hadde Çalışma Profili (Örn: IPE400)" name="calismaProfiliKopru" type="text" />
+                  <InputRow label="Hadde Çalışma Profili" name="calismaProfiliKopru" type="text" />
                   <InputRow label="Ray Kare Genişlik (b)" name="kareGenislikb" />
                 </div>
               </div>
@@ -324,12 +335,25 @@ export default function YeniTeklifSayfasi() {
 
         {/* SAĞ PANEL (SİYAH HESAPLAMA EKRANI VE KONTROL PANELİ) */}
         <div className="xl:col-span-4 flex flex-col h-full">
-          <div className="bg-[#1e293b] text-white p-7 rounded-xl shadow-xl flex-1 border border-slate-700">
-            <h2 className="text-xl font-bold mb-5 pb-4 border-b border-slate-600">Teknik ve Maliyet Analizi</h2>
+          <div className="bg-[#1e293b] text-white p-6 rounded-xl shadow-xl flex-1 border border-slate-700">
+            
+            <div className="flex justify-between items-center mb-5 pb-4 border-b border-slate-600">
+              <h2 className="text-xl font-bold">Teknik ve Maliyet Analizi</h2>
+              {/* SİHİRLİ PARA BİRİMİ SEÇİCİSİ */}
+              <select 
+                name="paraBirimi" 
+                value={formData.paraBirimi} 
+                onChange={handleInputChange}
+                className="bg-slate-700 text-emerald-400 font-bold border border-slate-600 rounded px-3 py-1 outline-none cursor-pointer">
+                <option value="TRY">Türk Lirası (₺)</option>
+                <option value="USD">Dolar ($)</option>
+                <option value="EUR">Euro (€)</option>
+                <option value="GBP">Sterlin (£)</option>
+              </select>
+            </div>
             
             {hesaplamaSonucu ? (
               <div className="space-y-4">
-                 {/* STATİK BÖLÜMÜ */}
                  <div className="mb-4">
                    <p className="text-xs font-bold text-orange-400 mb-2 tracking-widest uppercase">Statik Değerler</p>
                    <div className="space-y-2">
@@ -344,7 +368,6 @@ export default function YeniTeklifSayfasi() {
                    </div>
                  </div>
 
-                 {/* MEKANİK BÖLÜMÜ */}
                  <div className="mb-4">
                    <p className="text-xs font-bold text-purple-400 mb-2 tracking-widest uppercase">Mekanik Değerler</p>
                    <div className="space-y-2">
@@ -363,28 +386,27 @@ export default function YeniTeklifSayfasi() {
                    </div>
                  </div>
 
-                 {/* MALİYET BÖLÜMÜ */}
                  <div>
-                   <p className="text-xs font-bold text-emerald-400 mb-2 tracking-widest uppercase">Maliyet Dağılımı</p>
+                   <p className="text-xs font-bold text-emerald-400 mb-2 tracking-widest uppercase">Maliyet Dağılımı ({hesaplamaSonucu.paraBirimiSembolu})</p>
                    <div className="space-y-2">
                      <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
                        <span className="text-slate-300">Çelik + İşçilik</span>
-                       <span className="font-bold text-white">{hesaplamaSonucu.celikIscilikMaliyeti} ₺</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.celikIscilikMaliyeti} {hesaplamaSonucu.paraBirimiSembolu}</span>
                      </div>
                      <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
                        <span className="text-slate-300">Makina ({formData.kapasiteKg/1000}T)</span>
-                       <span className="font-bold text-white">{hesaplamaSonucu.makinaFiyati} ₺</span>
+                       <span className="font-bold text-white">{hesaplamaSonucu.makinaFiyati} {hesaplamaSonucu.paraBirimiSembolu}</span>
                      </div>
                      <div className="flex justify-between text-sm bg-slate-800/80 p-2.5 rounded border border-slate-700">
                        <span className="text-slate-300">Opsiyonlar & Montaj</span>
-                       <span className="font-bold text-white">{(Number(hesaplamaSonucu.ekstraMaliyetler) + Number(hesaplamaSonucu.montajMaliyeti)).toFixed(2)} ₺</span>
+                       <span className="font-bold text-white">{(Number(hesaplamaSonucu.ekstraMaliyetler) + Number(hesaplamaSonucu.montajMaliyeti)).toFixed(2)} {hesaplamaSonucu.paraBirimiSembolu}</span>
                      </div>
                    </div>
                  </div>
                  
-                 <div className="pt-4 border-t border-slate-600 mt-6">
+                 <div className="pt-4 border-t border-slate-600 mt-6 flex justify-between items-end">
                    <span className="block text-sm text-slate-400 uppercase tracking-wider mb-1">PROJE TOPLAM TUTARI</span>
-                   <span className="text-3xl font-black text-emerald-400">{hesaplamaSonucu.tahminiToplamSatis} ₺</span>
+                   <span className="text-3xl font-black text-emerald-400">{hesaplamaSonucu.tahminiToplamSatis} {hesaplamaSonucu.paraBirimiSembolu}</span>
                  </div>
               </div>
             ) : (
@@ -396,7 +418,7 @@ export default function YeniTeklifSayfasi() {
 
           </div>
           
-          <button onClick={handleHesapla} disabled={hesaplaniyor} className="w-full bg-blue-700 hover:bg-blue-600 text-white py-4 rounded-xl mt-4 font-bold text-lg tracking-wide shadow-lg transition-all disabled:opacity-50">
+          <button onClick={handleHesapla} disabled={hesaplaniyor} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl mt-4 font-bold text-lg tracking-wide shadow-lg transition-all disabled:opacity-50">
             {hesaplaniyor ? 'MÜHENDİSLİK MOTORU ÇALIŞIYOR...' : 'MALİYETLERİ HESAPLA'}
           </button>
         </div>
@@ -405,7 +427,6 @@ export default function YeniTeklifSayfasi() {
       {/* GİZLİ PDF ŞABLONU */}
       <div style={{ display: 'none' }}>
         <div ref={teklifCiktisiRef} className="bg-white text-black p-12 font-sans" style={{ width: '210mm', minHeight: '297mm' }}>
-            {/* ... (Önceki yazdığımız PDF tasarımı burada aynı şekilde kalacak) ... */}
             <div className="border-b-[3px] border-orange-500 pb-4 mb-8 flex justify-between items-end">
                 <div>
                   <h1 className="text-4xl font-black text-[#1e3a8a] tracking-tighter">BUVİSAN</h1>
@@ -435,6 +456,30 @@ export default function YeniTeklifSayfasi() {
                     )}
                 </tbody>
             </table>
+
+            {hesaplamaSonucu && (
+              <div>
+                  <h3 className="font-bold text-xl mb-3 text-orange-600">FİYATLANDIRMA ({hesaplamaSonucu.paraBirimiSembolu})</h3>
+                  <table className="w-full border-collapse border border-slate-300 text-base">
+                      <thead>
+                          <tr className="bg-orange-500 text-white">
+                              <th className="border border-orange-600 p-3 text-left">Açıklama</th>
+                              <th className="border border-orange-600 p-3 text-right">Tutar ({hesaplamaSonucu.paraBirimiSembolu})</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          <tr>
+                              <td className="border border-slate-300 p-3">Vinç Sistemi Komple İmalat ve Montaj Maliyeti</td>
+                              <td className="border border-slate-300 p-3 text-right font-bold text-emerald-700">{hesaplamaSonucu.tahminiToplamSatis} {hesaplamaSonucu.paraBirimiSembolu}</td>
+                          </tr>
+                      </tbody>
+                  </table>
+              </div>
+            )}
+            
+            <div className="absolute bottom-10 w-[190mm] text-center text-xs text-gray-400 border-t pt-4">
+              Buvisan Vinç Sistemleri | Organize Sanayi Bölgesi, Bursa | portal.buvisan.com
+            </div>
         </div>
       </div>
     </div>
