@@ -186,26 +186,39 @@ export default function YeniTeklifSayfasi() {
     }
   };
 
-  const generatePDF = async () => {
+const generatePDF = async () => {
+    const element = teklifCiktisiRef.current;
+    if (!element) return;
+
     try {
-      // Next.js dinamik import uyumluluğu için düzeltilmiş yapı
-      const html2pdfModule = await import('html2pdf.js');
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-      
-      if (teklifCiktisiRef.current) {
-        const element = teklifCiktisiRef.current;
-        
-        await (html2pdf as any)().from(element).set({
-          margin: 10, 
-          filename: `Teklif-${formData.firmaAdi || 'ERP'}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false }, 
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        }).save();
-      }
-    } catch (err) {
-      console.error("PDF Hatası:", err);
-      alert("PDF kütüphanesi yüklenemedi. Terminalde 'npm install html2pdf.js' çalıştırdığınızdan emin olun.");
+      // 1. Şablonu PDF motorunun görebileceği hale getir (ama ekrandan uzak tut)
+      element.style.display = 'block';
+      element.style.position = 'absolute';
+      element.style.top = '-9999px';
+
+      // 2. Next.js ortamında kütüphaneyi en güvenli şekilde dinamik çağır
+      const module = await import('html2pdf.js');
+      const html2pdf = module.default || module;
+
+      const opt = {
+        margin: 10, 
+        filename: `Teklif-${formData.firmaAdi || 'ERP'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false }, 
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // 3. PDF'i oluştur ve indir
+      await (html2pdf as any)().from(element).set(opt).save();
+
+    } catch (err: any) {
+      console.error("PDF Motoru Hatası:", err);
+      alert("PDF oluşturulurken bir hata meydana geldi: " + (err.message || "Bilinmeyen hata"));
+    } finally {
+      // 4. İŞTE KİLİTLENMEYİ ÖNLEYEN KISIM: 
+      // İşlem başarılı olsa da, hata verse de ekranı eski temiz haline döndür!
+      element.style.display = 'none';
+      element.style.position = 'static';
     }
   };
 
