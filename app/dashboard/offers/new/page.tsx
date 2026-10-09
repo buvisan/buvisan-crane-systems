@@ -8,6 +8,7 @@ export default function YeniTeklifSayfasi() {
   const supabase = createClient();
   const teklifCiktisiRef = useRef<HTMLDivElement>(null);
   
+  // 1. CANLI DÖVİZ KURLARI
   const [dovizKurlari, setDovizKurlari] = useState<{ [key: string]: number }>({
     TRY: 1, USD: 0, EUR: 0, GBP: 0
   });
@@ -27,6 +28,7 @@ export default function YeniTeklifSayfasi() {
     kurlariGetir();
   }, []);
 
+  // 2. EXCEL'İN BÜTÜN GİRDİLERİ
   const [formData, setFormData] = useState({
     firmaAdi: 'ZM METAL MAKİNA İMALAT', yetkili: '', telefon: '', paraBirimi: 'TRY',
     
@@ -73,44 +75,61 @@ export default function YeniTeklifSayfasi() {
     setFormData(prev => ({ ...prev, [name]: type === 'number' ? Number(value) : value }));
   };
 
+  // 3. DEVASA MÜHENDİSLİK MOTORU (Excel 1:1 Klonu)
   const handleHesapla = () => {
     setHesaplaniyor(true);
     setTimeout(() => {
-      const yerCekimi = 9.81; 
-      const celikYogunlukKutu = 8.00; 
-      const celikYogunlukRay = 7.85; 
-      
       let kopruAgirlikKg = 0;
+      
+      // EXCEL: KÖPRÜ AĞIRLIĞI HESAPLAMA SİSTEMATİĞİ
       if (formData.kopruTipi === 'Çift Kiriş Kutu Tipi') {
-        const altUstAgirlik = (formData.kutuAltUstGenislik * formData.kutuAltUstKalinlik * formData.aciklikS * celikYogunlukKutu * 4) / 1000000;
-        const yanAgirlik = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * celikYogunlukKutu * 4) / 1000000;
-        const rayAgirlik = (formData.kareGenislikb * formData.kareYukseklikh * formData.aciklikS * celikYogunlukKutu * 2) / 1000000;
+        const altUst = (formData.kutuAltUstKalinlik * formData.kutuAltUstGenislik * formData.aciklikS * 8 * 4) / 1000000;
+        const yan = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * 8 * 4) / 1000000;
+        const kareRay = (formData.kareGenislikb * formData.kareYukseklikh * formData.aciklikS * 8 * 2) / 1000000;
+        
         const payandaAdet = Math.ceil(formData.aciklikS / formData.dikPayandaAraligi);
-        const diyaframAgirlik = ((formData.kutuYanYukseklik - 10) * (formData.kutuAltUstGenislik - 60) * formData.payandaKalinligi * payandaAdet * 2 * celikYogunlukKutu) / 1000000;
-        let kosebentKatsayisi = formData.kosebent !== '30x30x3 mm' ? 2.42 : 1.36; 
-        const kosebentSira = formData.kutuYanYukseklik >= 1000 ? 12 : 8;
-        const kosebentAgirlik = (kosebentKatsayisi * kosebentSira * formData.aciklikS) / 1000;
-        const ekSacAgirlik = (formData.aciklikS * 30) / 1000; 
-        kopruAgirlikKg = altUstAgirlik + yanAgirlik + rayAgirlik + diyaframAgirlik + kosebentAgirlik + ekSacAgirlik;
-      } else if (formData.kopruTipi === 'Çift Kiriş Hadde Profil') {
+        const diyafram = ((formData.kutuYanYukseklik - 10) * (formData.kutuAltUstGenislik - 60) * formData.payandaKalinligi * payandaAdet * 2 * 8) / 1000000;
+        
+        const kosebentCarpan = (formData.kosebent === '30x30x3 mm' && formData.kutuYanYukseklik < 1000) ? (1.36 * 8) : 
+                               (formData.kosebent === '30x30x3 mm' && formData.kutuYanYukseklik >= 1000) ? (1.36 * 12) : (2.42 * 12);
+        const kosebentAgirlik = (kosebentCarpan * formData.aciklikS) / 1000;
+        const ek = (formData.aciklikS * 30) / 1000;
+        
+        kopruAgirlikKg = altUst + yan + kareRay + diyafram + kosebentAgirlik + ek;
+      } 
+      else if (formData.kopruTipi === 'Çift Kiriş Hadde Profil') {
         const rayKareAgirlik = (formData.kareGenislikb * formData.kareYukseklikh * 8 * formData.aciklikS) / 1000000;
-        kopruAgirlikKg = ((66.3 * formData.aciklikS / 1000) + rayKareAgirlik) * 2;
+        kopruAgirlikKg = ((66.3 * formData.aciklikS / 1000) + rayKareAgirlik) * 2; // 66.3 Örnek IPE400
+      }
+      else if (formData.kopruTipi === 'Tek Kiriş Kutu Profil') {
+         const altUst = (formData.kutuAltUstKalinlik * formData.kutuAltUstGenislik * formData.aciklikS * 8 * 2) / 1000000;
+         const yan = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * 8 * 2) / 1000000;
+         kopruAgirlikKg = altUst + yan;
+      }
+      else {
+         kopruAgirlikKg = (66.3 * formData.aciklikS / 1000);
       }
 
-      const rayAltiSacAgirlik = (formData.rayAltiGenislik * formData.rayAltiYukseklik * celikYogunlukRay) / 1000;
+      // EXCEL: YÜRÜME YOLU
+      const rayAltiSacAgirlik = (formData.rayAltiGenislik * formData.rayAltiYukseklik * 7.85) / 1000;
       const yurumeYoluAgirlikKg = (50.5 + rayAltiSacAgirlik) * (formData.holBoyuL / 1000) * (formData.kopruTipi.includes('Çift') ? 2 : 1);
       const toplamCelikAgirlik = kopruAgirlikKg + yurumeYoluAgirlikKg;
 
+      // EXCEL: MEKANİK MOTOR
       const mekanikEmniyetliAgirlik = kopruAgirlikKg * 1.1; 
       const yaklasmaMesafesi = 1000; 
       const maxTekerYuku = (mekanikEmniyetliAgirlik + ((formData.kapasiteKg + formData.makineAgirligi) * ((formData.aciklikS - yaklasmaMesafesi) / formData.aciklikS))) / formData.baslikTekerSayisi * 2;
-      const gerekliKaldirmaTorku = (formData.kapasiteKg * yerCekimi * (formData.tamburCapi / 2000) * formData.tamburaGelenHalatSayisi) / (0.95 * formData.halatSayisi);
+      
+      const gerekliKaldirmaTorku = (formData.kapasiteKg * 9.81 * (formData.tamburCapi / 2000) * formData.tamburaGelenHalatSayisi) / (0.95 * formData.halatSayisi);
       const kaldirmaReduktorCikisDevri = (formData.kaldirmaHizi * formData.halatSayisi) / (Math.PI * (formData.tamburCapi / 1000) * formData.tamburaGelenHalatSayisi);
       const gerekliMotorGucu = (gerekliKaldirmaTorku * kaldirmaReduktorCikisDevri) / (9550 * 0.94);
+      
       const yurutmeDirenci = maxTekerYuku * (formData.baslikTekerSayisi / 2) * 6 * 9.81 / 1000000;
       const ivmelenmeGucu = (maxTekerYuku * (formData.baslikTekerSayisi / 2)) * Math.pow((formData.yurutmeHizi / 60), 2) / (formData.ivmelenmeSuresi * 0.9 * 1000) * 1.2;
-      const yurutmeMotorGucu = (ivmelenmeGucu + ((yurutmeDirenci * formData.yurutmeHizi) / (60 * 0.9))) / 1.4;
+      const yurutmeEylemsizlik = (yurutmeDirenci * formData.yurutmeHizi) / (60 * 0.9);
+      const yurutmeMotorGucu = (ivmelenmeGucu + yurutmeEylemsizlik) / 1.4;
 
+      // EXCEL: MALİYETLER
       const celikIscilikMaliyetiTL = toplamCelikAgirlik * 75; 
       const makinaFiyatiTL = formData.kopruTipi.includes('Çift') ? 277900 : 250110; 
 
@@ -140,9 +159,10 @@ export default function YeniTeklifSayfasi() {
     }, 400); 
   };
 
+  // 4. SUPABASE KAYDETME SİSTEMİ
   const handleKaydet = async () => {
     if (!hesaplamaSonucu) {
-      alert("Lütfen önce Maliyetleri Hesapla butonuna basarak statik analizi tamamlayın.");
+      alert("Lütfen önce Maliyetleri Hesapla butonuna basınız.");
       return;
     }
     setKaydediliyor(true);
@@ -158,7 +178,7 @@ export default function YeniTeklifSayfasi() {
         }
       ]);
       if (error) {
-         alert("SUPABASE HATASI: " + error.message);
+         alert("SUPABASE HATASI: Lütfen SQL Editorden 'currency' ve 'form_data' sütunlarını eklediğinize emin olun.");
          throw error;
       }
       router.push('/dashboard/offers');
@@ -168,11 +188,11 @@ export default function YeniTeklifSayfasi() {
     }
   };
 
-  // 🚀 İŞTE YENİ, ÇÖKMEYEN, KUSURSUZ VEKTÖREL PDF MOTORUMUZ! (Hiçbir kütüphane gerektirmez)
-  const generatePDF = () => {
+  // 🚀 5. NATIVE BROWSER PDF (Asla Çökmez!)
+  const generateNativePDF = () => {
     if (!teklifCiktisiRef.current) return;
-
-    // Gizli bir iframe (Tarayıcı penceresi) açıyoruz
+    
+    // Arkada gizli bir web penceresi (iframe) oluşturuyoruz
     const iframe = document.createElement('iframe');
     iframe.style.position = 'absolute';
     iframe.style.width = '0px';
@@ -183,7 +203,7 @@ export default function YeniTeklifSayfasi() {
     const iframeDoc = iframe.contentWindow?.document;
     if (!iframeDoc) return;
 
-    // İframe'in içine saf HTML ve CSS şablonumuzu basıyoruz (Tailwind sıfır!)
+    // Tailwind'den bağımsız saf CSS şablonumuzu basıyoruz
     iframeDoc.open();
     iframeDoc.write(`
       <!DOCTYPE html>
@@ -192,7 +212,7 @@ export default function YeniTeklifSayfasi() {
           <title>Teklif-${formData.firmaAdi || 'ERP'}</title>
           <style>
             @page { size: A4 portrait; margin: 15mm; }
-            body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #000; margin: 0; padding: 0; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; color: #000; margin: 0; padding: 0; }
             .header { border-bottom: 3px solid #f97316; padding-bottom: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
             .title-box h1 { font-size: 36px; color: #1e3a8a; margin: 0 0 5px 0; font-weight: 900; letter-spacing: -1px; }
             .title-box p { font-size: 14px; color: #64748b; margin: 0; font-weight: bold; letter-spacing: 2px; }
@@ -220,15 +240,15 @@ export default function YeniTeklifSayfasi() {
     `);
     iframeDoc.close();
 
-    // İframe yüklendiğinde yazdırma ekranını (PDF Olarak Kaydet) tetikliyoruz
+    // İframe yüklendiğinde tarayıcının kusursuz PDF motorunu tetikliyoruz
     iframe.onload = () => {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
-      // Yazdırma diyaloğu açıldıktan 2 saniye sonra arkadaki çöpü temizle
       setTimeout(() => document.body.removeChild(iframe), 2000);
     };
   };
 
+  // ARAYÜZ YARDIMCI BİLEŞENLERİ
   const InputRow = ({ label, name, type = 'number' }: { label: string, name: keyof typeof formData, type?: string }) => (
     <div>
       <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 tracking-wider">{label}</label>
@@ -266,7 +286,6 @@ export default function YeniTeklifSayfasi() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* SOL PANEL */}
         <div className="xl:col-span-8 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
           <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto">
             {[{ id: 'genel', title: 'Genel Özellikler' }, { id: 'kopru', title: 'Statik & Köprü' }, { id: 'mekanik', title: 'Mekanik Motor' }, { id: 'opsiyon', title: 'Maliyet Opsiyonları' }].map(sekme => (
@@ -375,7 +394,6 @@ export default function YeniTeklifSayfasi() {
           </div>
         </div>
 
-        {/* SAĞ PANEL */}
         <div className="xl:col-span-4 flex flex-col h-full">
           <div className="bg-[#1e293b] text-white p-6 rounded-xl shadow-xl flex-1 border border-slate-700">
             <div className="flex justify-between items-center mb-5 pb-4 border-b border-slate-600">
@@ -451,7 +469,7 @@ export default function YeniTeklifSayfasi() {
           </div>
 
           {hesaplamaSonucu && (
-            <button onClick={generatePDF} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl mt-4 font-bold tracking-wide shadow-lg transition-all">
+            <button onClick={generateNativePDF} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl mt-4 font-bold tracking-wide shadow-lg transition-all">
               PDF TEKLİF YAZDIR & İNDİR
             </button>
           )}
@@ -462,7 +480,7 @@ export default function YeniTeklifSayfasi() {
         </div>
       </div>
 
-      {/* GİZLİ PDF ŞABLONU (Artık sadece veriyi tutuyor, CSS yukarıdaki fonksiyonda işleniyor) */}
+      {/* SADECE VERİ DEPOSU (Ekranda gözükmez) */}
       <div style={{ display: 'none' }}>
         <div ref={teklifCiktisiRef}>
             <div className="header">
