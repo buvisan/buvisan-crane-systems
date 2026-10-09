@@ -1,314 +1,317 @@
-"use client"
+'use client';
+import React, { useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
+// Kendi Supabase client'ını buraya import et (Yolu kendi projene göre düzelt: örn '@/lib/supabase')
+// import { supabase } from '@/lib/supabase'; 
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/utils/supabase/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { 
-  ArrowLeft, Save, Info, AlertTriangle, 
-  CheckCircle2, Ruler, Weight, HardHat, Layers, Crosshair, Euro, Banknote, BookOpen
-} from "lucide-react"
+export default function YeniTeklifSayfasi() {
+  const teklifCiktisiRef = useRef<HTMLDivElement>(null);
 
-// 🚀 PROFİL KÜTÜPHANESİ (Excel'deki DÜŞEYARA Veritabanı)
-const PROFILE_LIBRARY: Record<string, { h: number, b: number, weight: number, area: number, ixx: number }> = {
-  "IPE 200": { h: 200, b: 100, weight: 22.4, area: 2850, ixx: 1940 },
-  "IPE 240": { h: 240, b: 120, weight: 30.7, area: 3910, ixx: 3890 },
-  "IPE 270": { h: 270, b: 135, weight: 36.1, area: 4590, ixx: 5790 },
-  "IPE 300": { h: 300, b: 150, weight: 42.2, area: 5380, ixx: 8360 },
-  "IPE 360": { h: 360, b: 170, weight: 57.1, area: 7270, ixx: 16270 },
-  "IPE 400": { h: 400, b: 180, weight: 66.3, area: 8450, ixx: 23130 },
-  "IPE 450": { h: 450, b: 190, weight: 77.6, area: 9880, ixx: 33740 },
-  "IPE 500": { h: 500, b: 200, weight: 90.7, area: 11600, ixx: 48200 },
-  "HEA 300": { h: 290, b: 300, weight: 88.3, area: 11250, ixx: 18260 },
-  "HEB 300": { h: 300, b: 300, weight: 117.0, area: 14910, ixx: 25170 },
-};
+  const [formData, setFormData] = useState({
+    firmaAdi: '',
+    yetkili: '',
+    telefon: '',
+    kapasiteKg: 10000,
+    aciklikS: 15000,
+    kopruTipi: 'Çift Kiriş Kutu Tipi',
+    // Kutu Tipi Özel Girdiler (Excel: B, t1, H, t2)
+    kutuAltUstGenislik: 390,
+    kutuAltUstKalinlik: 6,
+    kutuYanYukseklik: 800,
+    kutuYanKalinlik: 6,
+    // Hadde Tipi Özel Girdi
+    calismaProfili: 'IPE400',
+  });
 
-export default function NewOfferEngineeringPage() {
-  const router = useRouter()
-  const supabase = createClient()
-  
-  // 1. GENEL VİNÇ ÖZELLİKLERİ
-  const [generalSpecs, setGeneralSpecs] = useState({
-    capacity: 10000,    // kg
-    span: 15000,        // mm
-    height: 6000,       // mm
-    hoistWeight: 960,   // kg
-    bridgeType: "CIFT_KIRIS_KUTU"
-  })
+  const [hesaplamaSonucu, setHesaplamaSonucu] = useState<any>(null);
+  const [hesaplaniyor, setHesaplaniyor] = useState(false);
 
-  // 2. KUTU PROFİL ÖLÇÜLERİ (Steiner Teoremi İçin)
-  const [boxSpecs, setBoxSpecs] = useState({
-    topPlateW: 390,     
-    topPlateT: 6,       
-    sidePlateH: 800,    
-    sidePlateT: 6       
-  })
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'number' ? Number(value) : value
+    }));
+  };
 
-  // 3. HADDE PROFİL (IPE/HEA) SEÇİMİ
-  const [selectedProfile, setSelectedProfile] = useState("IPE 400")
+  const handleHesapla = async () => {
+    setHesaplaniyor(true);
+    try {
+      /* 
+       * 1. SUPABASE'DEN CANLI VERİLERİ ÇEKME (Gerçek projede buradaki yorumları kaldırıp kullanacaksın)
+       * 
+       // İşçilik ve Kar Marjı Sabitleri
+       const { data: sabitler } = await supabase.from('system_constants').select('*');
+       const sacBirimIscilik = sabitler?.find(s => s.constant_key === 'sac_birim_iscilik')?.constant_value || 75;
+       
+       // Kaldırma Makinası (Hoist) Fiyatı
+       const hoistTipi = formData.kopruTipi.includes('Çift') ? 'Çift Kiriş Kaldırma Makinası' : 'Tek Kiriş Kaldırma Makinası';
+       const { data: makina } = await supabase
+         .from('hoist_prices')
+         .select('price')
+         .eq('capacity_ton', formData.kapasiteKg / 1000)
+         .eq('hoist_type', hoistTipi)
+         .single();
+       const makinaFiyati = makina?.price || 0;
+      */
 
-  // 4. FİNANS VE MALİYET SABİTLERİ
-  const [financeSpecs, setFinanceSpecs] = useState({
-    laborRateTRY: 75,   
-    euroRate: 52.74,    
-    profitMargin: 30    
-  })
+      // Şimdilik Test Değerleri (Supabase bağlanana kadar)
+      const sacBirimIscilik = 75; 
+      const makinaFiyati = formData.kopruTipi.includes('Çift') ? 277900 : 250110; 
 
-  // 5. HESAPLANAN SONUÇLAR
-  const [results, setResults] = useState({
-    totalArea: 0,
-    IXX: 0,
-    beamLoad: 0,
-    totalWeight: 0,
-    maxDeflection: 0,
-    deflectionRatio: 0,
-    deflectionStatus: "BEKLİYOR",
-    bucklingStatus: "-",
-    laborCostEUR: 0,
-    totalPriceEUR: 0
-  })
+      /* 2. STATİK AĞIRLIK HESAPLAMALARI (Excel Çelik Konstrüksiyon Sekmesi Formülleri) */
+      const yogunluk = 7.85; // ton/m3
+      let kopruAgirlik = 0;
 
-  // 🚀 DEV MÜHENDİSLİK MOTORU
-  useEffect(() => {
-    const calculateStatics = () => {
-      const Q = generalSpecs.capacity;
-      const L = generalSpecs.span;
-      const E = 21000; // Çelik Elastisite Modülü (kgf/mm2)
-      
-      let IXX_net = 0;
-      let totalArea_mm2 = 0;
-      let weight_per_meter = 0;
-      let bucklingStatus = "-";
-      let isDoubleGirder = generalSpecs.bridgeType.includes("CIFT_KIRIS");
-
-      // --- A) KUTU PROFİL HESABI (Steiner Teoremi) ---
-      if (generalSpecs.bridgeType.includes("KUTU")) {
-          const B = boxSpecs.topPlateW;
-          const t1 = boxSpecs.topPlateT;
-          const H = boxSpecs.sidePlateH;
-          const t2 = boxSpecs.sidePlateT;
-
-          const A_alt = B * t1; const y_alt = t1 / 2; const Ixx_alt_local = (B * Math.pow(t1, 3)) / 12;
-          const A_ust = B * t1; const y_ust = t1 + H + (t1 / 2); const Ixx_ust_local = (B * Math.pow(t1, 3)) / 12;
-          const A_yan = 2 * (H * t2); const y_yan = t1 + (H / 2); const Ixx_yan_local = 2 * ((t2 * Math.pow(H, 3)) / 12);
-
-          totalArea_mm2 = A_alt + A_ust + A_yan;
-          const centerOfGravityY = ((A_alt * y_alt) + (A_ust * y_ust) + (A_yan * y_yan)) / totalArea_mm2;
-
-          const Ixx_alt_steiner = Ixx_alt_local + (A_alt * Math.pow((centerOfGravityY - y_alt), 2));
-          const Ixx_ust_steiner = Ixx_ust_local + (A_ust * Math.pow((centerOfGravityY - y_ust), 2));
-          const Ixx_yan_steiner = Ixx_yan_local + (A_yan * Math.pow((centerOfGravityY - y_yan), 2));
-
-          IXX_net = Ixx_alt_steiner + Ixx_ust_steiner + Ixx_yan_steiner;
-          weight_per_meter = (totalArea_mm2 / 100) * 0.785; // mm2 -> cm2 -> kg/m
-
-          const SB_ratio = H / t2;
-          bucklingStatus = SB_ratio < 65 ? "S/B < 65 UYGUN" : "S/B > 65 RİSKLİ";
+      if (formData.kopruTipi === 'Çift Kiriş Kutu Tipi') {
+        // Alt-Üst ve Yan Sac Ağırlıkları = Genişlik * Kalınlık * Uzunluk(Açıklık) * Özgül Ağırlık
+        const altUstAgirlik = (formData.kutuAltUstGenislik * formData.kutuAltUstKalinlik * formData.aciklikS * yogunluk) / 1000000;
+        const yanAgirlik = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * yogunluk) / 1000000;
+        
+        // %15 ekstra kaynak ve diyafram payı. Çift kiriş olduğu için x2
+        kopruAgirlik = ((altUstAgirlik * 2) + (yanAgirlik * 2)) * 1.15 * 2; 
       } 
-      // --- B) HADDE PROFİL HESABI (Kütüphaneden Çekim) ---
-      else if (generalSpecs.bridgeType.includes("HADDE")) {
-          const profile = PROFILE_LIBRARY[selectedProfile];
-          totalArea_mm2 = profile.area;
-          weight_per_meter = profile.weight;
-          // Kütüphanedeki IXX değeri cm4 cinsindendir. Statik hesap (mm) için 10^4 ile çarpıyoruz.
-          IXX_net = profile.ixx * 10000;
-          bucklingStatus = "STANDART PROFİL";
+      else if (formData.kopruTipi === 'Çift Kiriş Hadde Profil') {
+        /*
+         * Eğer Hadde Profilse, Supabase'den steel_profiles tablosuna gidip IPE400'ün birim ağırlığını almalı
+         // const { data: profil } = await supabase.from('steel_profiles').select('unit_weight').eq('profile_name', formData.calismaProfili).single();
+         // const profilAgirlik = profil?.unit_weight || 66.3;
+        */
+        const profilBirimAgirlik = 66.3; // IPE400 örnek ağırlık
+        const kareProfilAgirlik = (40 * 30 * 8 * formData.aciklikS) / 1000000; // Ray profili
+        kopruAgirlik = ((profilBirimAgirlik * formData.aciklikS / 1000) + kareProfilAgirlik) * 2;
       }
 
-      // Çift Kiriş ise Atalet ve Ağırlık 2 ile çarpılır
-      if (isDoubleGirder) {
-          IXX_net = IXX_net * 2;
-      }
+      /* 3. FİYAT HESAPLAMA (Excel Maliyet Sayfası Formülleri) */
+      const celikKopruMaliyeti = kopruAgirlik * sacBirimIscilik;
+      const tahminiToplamSatis = celikKopruMaliyeti + makinaFiyati;
 
-      // --- ORTAK KİRİŞ YÜKÜ VE SEHİM HESABI ---
-      const beamLoad = isDoubleGirder ? (Q + generalSpecs.hoistWeight) / 2 : (Q + generalSpecs.hoistWeight);
-      const maxDeflection = (beamLoad * Math.pow(L, 3)) / (48 * E * IXX_net); // f = (F*L^3)/(48*E*I)
-      const deflectionRatio = L / maxDeflection;
-      const deflectionStatus = deflectionRatio >= 1000 ? "UYGUN" : "UYGUN DEĞİL";
-
-      // --- AĞIRLIK VE FİNANS HESABI ---
-      // Çift kiriş ise x2, ve %15 Guse/Kaynak toleransı
-      const girderMultiplier = isDoubleGirder ? 2 : 1;
-      const totalWeight = (weight_per_meter * (L / 1000)) * 1.15 * girderMultiplier; 
-
-      const laborCostTRY = totalWeight * financeSpecs.laborRateTRY;
-      const laborCostEUR = laborCostTRY / financeSpecs.euroRate;
-      
-      const baseCostEUR = laborCostEUR + (totalWeight * 1.2); // Çelik malzeme baz fiyatı
-      const totalPriceEUR = baseCostEUR * (1 + (financeSpecs.profitMargin / 100));
-
-      setResults({
-        totalArea: totalArea_mm2,
-        IXX: IXX_net,
-        beamLoad: beamLoad,
-        totalWeight: totalWeight,
-        maxDeflection: maxDeflection,
-        deflectionRatio: deflectionRatio,
-        deflectionStatus: deflectionStatus,
-        bucklingStatus: bucklingStatus,
-        laborCostEUR: laborCostEUR,
-        totalPriceEUR: totalPriceEUR
+      // Sonuçları State'e Yazdır
+      setHesaplamaSonucu({
+        kopruToplamAgirlik: kopruAgirlik.toFixed(2),
+        makinaFiyati: makinaFiyati.toFixed(2),
+        celikKopruMaliyeti: celikKopruMaliyeti.toFixed(2),
+        tahminiToplamSatis: tahminiToplamSatis.toFixed(2)
       });
+
+    } catch (error) {
+      console.error("Hesaplama Hatası:", error);
+      alert("Hesaplama sırasında bir hata oluştu.");
+    } finally {
+      setHesaplaniyor(false);
     }
+  };
 
-    calculateStatics();
-  }, [generalSpecs, boxSpecs, financeSpecs, selectedProfile])
+  const generatePDF = async () => {
+    // 1. Dinamik importu gerçekleştir
+    const html2pdfModule = (await import('html2pdf.js')).default;
+    
+    if (teklifCiktisiRef.current) {
+      const element = teklifCiktisiRef.current;
+      const opt = {
+        margin:       10,
+        filename:     `Teklif-${formData.firmaAdi || 'Yeni'}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
 
-  const formatCurrency = (val: number, currency: string = "EUR") => {
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: currency }).format(val || 0)
-  }
+      element.style.display = 'block';
+      
+      // 2. TYPESCRIPT HATASI ÇÖZÜMÜ: html2pdf modülünü "any" olarak cast ediyoruz.
+      await (html2pdfModule() as any).from(element).set(opt).save();
+      
+      element.style.display = 'none'; 
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-6 font-sans max-w-[1600px] mx-auto w-full pb-20">
-      
-      {/* ÜST NAVİGASYON */}
-      <div className="flex items-center justify-between bg-card/60 backdrop-blur-xl p-4 border border-border/50 rounded-[2rem] shadow-sm">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => router.back()} className="rounded-xl"><ArrowLeft className="h-5 w-5" /></Button>
-          <div>
-            <h1 className="text-xl font-black text-foreground">Gelişmiş Statik & Maliyet Motoru</h1>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">ZM METAL MAKİNA İMALAT SANAYİ VE TİCARET LİMİTED ŞİRKETİ</p>
-          </div>
-        </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2 rounded-xl px-6 h-12 shadow-lg shadow-blue-600/20">
-          <Save className="h-5 w-5" /> Teklifi Oluştur (PDF)
-        </Button>
+    <div className="p-8 max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Yeni Vinç Teklifi (ERP)</h1>
+        {hesaplamaSonucu && (
+           <button onClick={generatePDF} className="px-4 py-2 bg-green-600 rounded-lg text-white font-medium hover:bg-green-700 transition-colors">
+             PDF Oluştur & İndir
+           </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        
-        {/* SOL PANEL: GİRDİLER VE FİNANS */}
-        <div className="xl:col-span-4 flex flex-col gap-6">
-          
-          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm">
-            <h3 className="flex items-center gap-2 font-black text-sm uppercase mb-5 text-blue-600"><Info className="h-5 w-5" /> Vinç Genel Özellikleri</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Kapasite (Q) kg</Label><Input type="number" value={generalSpecs.capacity} onChange={e=>setGeneralSpecs({...generalSpecs, capacity: Number(e.target.value)})} className="rounded-xl font-black h-12" /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Açıklık (S) mm</Label><Input type="number" value={generalSpecs.span} onChange={e=>setGeneralSpecs({...generalSpecs, span: Number(e.target.value)})} className="rounded-xl font-black h-12" /></div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Köprü Tipi</Label>
-                <select className="w-full h-12 rounded-xl border border-border bg-background px-3 font-bold text-sm outline-none focus:ring-2 focus:ring-blue-600" value={generalSpecs.bridgeType} onChange={e=>setGeneralSpecs({...generalSpecs, bridgeType: e.target.value})}>
-                  <option value="CIFT_KIRIS_KUTU">Çift Kiriş Kutu Tipi Köprü</option>
-                  <option value="TEK_KIRIS_KUTU">Tek Kiriş Kutu Tipi Köprü</option>
-                  <option value="CIFT_KIRIS_HADDE">Çift Kiriş Hadde Profil</option>
-                  <option value="TEK_KIRIS_HADDE">Tek Kiriş Hadde Profil</option>
-                </select>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Form Alanı (Sol Taraf) */}
+        <div className="lg:col-span-8 space-y-6">
+            
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+              <h2 className="text-lg font-semibold mb-4 border-b pb-2">Proje Bilgileri</h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                 <div>
+                    <label className="block text-xs text-gray-500 font-medium mb-1">Firma Adı</label>
+                    <input type="text" name="firmaAdi" onChange={handleInputChange} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-blue-500" />
+                 </div>
+                 <div>
+                    <label className="block text-xs text-gray-500 font-medium mb-1">Kapasite (kg)</label>
+                    <input type="number" name="kapasiteKg" value={formData.kapasiteKg} onChange={handleInputChange} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-blue-500" />
+                 </div>
+                 <div>
+                    <label className="block text-xs text-gray-500 font-medium mb-1">Açıklık (S) mm</label>
+                    <input type="number" name="aciklikS" value={formData.aciklikS} onChange={handleInputChange} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-blue-500" />
+                 </div>
+                 <div className="col-span-3">
+                    <label className="block text-xs text-gray-500 font-medium mb-1">Köprü Tipi Seçimi</label>
+                    <select name="kopruTipi" value={formData.kopruTipi} onChange={handleInputChange} className="w-full p-2 border rounded outline-none focus:ring-1 focus:ring-blue-500 bg-gray-50">
+                      <option>Çift Kiriş Kutu Tipi</option>
+                      <option>Çift Kiriş Hadde Profil</option>
+                      <option>Tek Kiriş Kutu Profil</option>
+                      <option>Tek Kiriş Hadde Profil</option>
+                    </select>
+                 </div>
               </div>
             </div>
-          </div>
 
-          {/* DİNAMİK KESİT PANELİ (KUTU MU, HADDE Mİ?) */}
-          {generalSpecs.bridgeType.includes("KUTU") ? (
-            <div className="bg-card p-6 rounded-[2rem] border border-emerald-500/30 shadow-sm relative overflow-hidden animate-in fade-in zoom-in-95">
-              <h3 className="flex items-center gap-2 font-black text-sm uppercase mb-5 text-emerald-600"><Layers className="h-5 w-5" /> Kutu Kesit Parametreleri</h3>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-5 relative z-10">
-                <div className="space-y-2"><Label className="text-[10px] font-black text-muted-foreground">Alt/Üst Sac Gen. (B) mm</Label><Input type="number" value={boxSpecs.topPlateW} onChange={e=>setBoxSpecs({...boxSpecs, topPlateW: Number(e.target.value)})} className="rounded-xl h-11 font-black text-emerald-700 bg-emerald-500/5 border-emerald-500/30" /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black text-muted-foreground">Sac Kalınlığı (t1) mm</Label><Input type="number" value={boxSpecs.topPlateT} onChange={e=>setBoxSpecs({...boxSpecs, topPlateT: Number(e.target.value)})} className="rounded-xl h-11 font-black text-emerald-700 bg-emerald-500/5 border-emerald-500/30" /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black text-muted-foreground">Yan Sac Yük. (H) mm</Label><Input type="number" value={boxSpecs.sidePlateH} onChange={e=>setBoxSpecs({...boxSpecs, sidePlateH: Number(e.target.value)})} className="rounded-xl h-11 font-black text-emerald-700 bg-emerald-500/5 border-emerald-500/30" /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black text-muted-foreground">Yan Sac Kal. (t2) mm</Label><Input type="number" value={boxSpecs.sidePlateT} onChange={e=>setBoxSpecs({...boxSpecs, sidePlateT: Number(e.target.value)})} className="rounded-xl h-11 font-black text-emerald-700 bg-emerald-500/5 border-emerald-500/30" /></div>
+            {/* DİNAMİK KÖPRÜ DETAY ALANI (Sadece Kutu Tipiyse Açılır) */}
+            {formData.kopruTipi === 'Çift Kiriş Kutu Tipi' && (
+              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-orange-500">
+                <h2 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Kutu Profil Ölçüleri</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 font-medium">Sac Genişlik (B)</label>
+                    <input type="number" name="kutuAltUstGenislik" value={formData.kutuAltUstGenislik} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 font-medium">Sac Kalınlık (t1)</label>
+                    <input type="number" name="kutuAltUstKalinlik" value={formData.kutuAltUstKalinlik} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 font-medium">Yan Yükseklik (H)</label>
+                    <input type="number" name="kutuYanYukseklik" value={formData.kutuYanYukseklik} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 font-medium">Yan Kalınlık (t2)</label>
+                    <input type="number" name="kutuYanKalinlik" value={formData.kutuYanKalinlik} onChange={handleInputChange} className="mt-1 w-full p-2 border rounded outline-none" />
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="bg-card p-6 rounded-[2rem] border border-amber-500/30 shadow-sm relative overflow-hidden animate-in fade-in zoom-in-95">
-              <h3 className="flex items-center gap-2 font-black text-sm uppercase mb-5 text-amber-600"><BookOpen className="h-5 w-5" /> Hadde Profil Kütüphanesi</h3>
-              <div className="space-y-2 relative z-10">
-                <Label className="text-[10px] font-black text-muted-foreground">Profil Tipi Seçiniz</Label>
-                <select className="w-full h-12 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 font-black text-sm text-amber-700 outline-none focus:ring-2 focus:ring-amber-500" value={selectedProfile} onChange={e=>setSelectedProfile(e.target.value)}>
-                  {Object.keys(PROFILE_LIBRARY).map(key => (
-                    <option key={key} value={key}>{key} (G: {PROFILE_LIBRARY[key].weight} kg/m)</option>
-                  ))}
-                </select>
-                <p className="text-[9px] font-bold text-amber-600 mt-2">Seçilen profilin statik değerleri (Ixx, Alan) veritabanından anlık çekilir.</p>
-              </div>
-            </div>
-          )}
-
-          {/* FİNANS SABİTLERİ */}
-          <div className="bg-card p-6 rounded-[2rem] border border-border shadow-sm">
-             <h3 className="flex items-center gap-2 font-black text-sm uppercase mb-5 text-foreground"><Banknote className="h-5 w-5 text-indigo-500" /> Piyasa ve Maliyet Sabitleri</h3>
-             <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label className="text-[10px] font-black text-muted-foreground">İşçilik (TL/kg)</Label><Input type="number" value={financeSpecs.laborRateTRY} onChange={e=>setFinanceSpecs({...financeSpecs, laborRateTRY: Number(e.target.value)})} className="rounded-xl h-11 font-black" /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-black text-muted-foreground">Euro Kuru (€)</Label><Input type="number" value={financeSpecs.euroRate} onChange={e=>setFinanceSpecs({...financeSpecs, euroRate: Number(e.target.value)})} className="rounded-xl h-11 font-black text-indigo-600" /></div>
-                <div className="space-y-2 col-span-2"><Label className="text-[10px] font-black text-muted-foreground">Kar & Komisyon Oranı (%)</Label><Input type="number" value={financeSpecs.profitMargin} onChange={e=>setFinanceSpecs({...financeSpecs, profitMargin: Number(e.target.value)})} className="rounded-xl h-11 font-black" /></div>
-             </div>
-          </div>
+            )}
         </div>
 
-        {/* SAĞ PANEL: CANLI MÜHENDİSLİK & MALİYET SONUÇLARI */}
-        <div className="xl:col-span-8 flex flex-col gap-6">
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-slate-900 text-white p-5 rounded-[1.5rem] shadow-lg relative overflow-hidden group">
-               <Crosshair className="absolute -right-4 -bottom-4 h-24 w-24 text-white/5 group-hover:scale-110 transition-transform" />
-               <span className="text-[9px] font-black uppercase opacity-60 tracking-widest">Net Atalet (Ixx)</span>
-               <p className="text-xl font-black mt-2">{Math.round(results.IXX).toLocaleString()} <span className="text-sm font-medium opacity-50">mm⁴</span></p>
-            </div>
-            <div className="bg-blue-600 text-white p-5 rounded-[1.5rem] shadow-lg shadow-blue-600/20 relative overflow-hidden group">
-               <Weight className="absolute -right-4 -bottom-4 h-24 w-24 text-white/10 group-hover:scale-110 transition-transform" />
-               <span className="text-[9px] font-black uppercase opacity-80 tracking-widest text-blue-200">Çelik Ağırlığı</span>
-               <p className="text-2xl font-black mt-1">{Math.round(results.totalWeight).toLocaleString()} <span className="text-sm font-medium opacity-70">kg</span></p>
-            </div>
-            <div className="bg-card border border-border p-5 rounded-[1.5rem] shadow-sm flex flex-col justify-center relative overflow-hidden">
-               <div className="absolute right-0 top-0 h-full w-2 bg-amber-500"></div>
-               <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Maks. Sehim</span>
-               <p className="text-2xl font-black mt-1 text-foreground">{results.maxDeflection.toFixed(2)} <span className="text-sm font-bold text-muted-foreground">mm</span></p>
-            </div>
-            <div className={`p-5 rounded-[1.5rem] shadow-lg flex flex-col justify-center items-center text-center relative overflow-hidden ${results.deflectionStatus === "UYGUN" ? 'bg-emerald-500 text-white shadow-emerald-500/20' : 'bg-rose-500 text-white animate-pulse'}`}>
-               <span className="text-[10px] font-black uppercase opacity-90 tracking-widest">Durum (1/{Math.round(results.deflectionRatio)})</span>
-               <p className="text-xl font-black mt-1 flex items-center gap-2">
-                   {results.deflectionStatus === "UYGUN" ? <CheckCircle2 className="h-6 w-6" /> : <AlertTriangle className="h-6 w-6" />}
-                   {results.deflectionStatus}
-               </p>
-            </div>
+        {/* Sonuç Alanı (Sağ Taraf) */}
+        <div className="lg:col-span-4">
+          <div className="bg-gray-800 text-white p-6 rounded-xl shadow-lg sticky top-6">
+            <h2 className="text-xl font-bold mb-6 border-b border-gray-600 pb-2">Maliyet ve Statik Özeti</h2>
+            
+            {hesaplamaSonucu ? (
+              <div className="space-y-4">
+                 <div className="flex justify-between items-center text-sm">
+                   <span className="text-gray-400">Köprü Ağırlığı</span>
+                   <span className="font-semibold text-white">{hesaplamaSonucu.kopruToplamAgirlik} kg</span>
+                 </div>
+                 <div className="flex justify-between items-center text-sm">
+                   <span className="text-gray-400">Çelik İşçilik ve Malzeme</span>
+                   <span className="font-semibold text-white">{hesaplamaSonucu.celikKopruMaliyeti} TL</span>
+                 </div>
+                 <div className="flex justify-between items-center text-sm border-b border-gray-600 pb-4">
+                   <span className="text-gray-400">Makina ({formData.kapasiteKg/1000}T)</span>
+                   <span className="font-semibold text-white">{hesaplamaSonucu.makinaFiyati} TL</span>
+                 </div>
+                 
+                 <div className="pt-2">
+                   <span className="block text-xs text-gray-400 uppercase mb-1">Tahmini Toplam Tutar</span>
+                   <span className="text-3xl font-bold text-green-400">{hesaplamaSonucu.tahminiToplamSatis} ₺</span>
+                 </div>
+              </div>
+            ) : (
+              <div className="text-gray-400 text-sm py-8 text-center">
+                Sonuçları görmek için değerleri girip hesaplayın.
+              </div>
+            )}
+
+            <button 
+              onClick={handleHesapla} 
+              disabled={hesaplaniyor}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-lg mt-6 font-bold transition-colors disabled:opacity-50">
+              {hesaplaniyor ? 'Hesaplanıyor...' : 'Maliyetleri Hesapla'}
+            </button>
           </div>
+        </div>
+      </div>
 
-          {/* DİJİTAL MÜHENDİSLİK RAPORU */}
-          <div className="bg-card/40 backdrop-blur-sm border border-border p-6 md:p-8 rounded-[2.5rem] flex-1">
-             <h2 className="text-lg md:text-xl font-black text-foreground mb-6 flex items-center gap-3 border-b border-border pb-4"><HardHat className="text-blue-600" /> Dinamik Statik Raporu</h2>
-             
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-background p-3 rounded-xl border border-border">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Toplam Kesit Alanı</span>
-                        <span className="font-black text-foreground text-sm">{results.totalArea.toLocaleString()} mm²</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-background p-3 rounded-xl border border-border">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Kiriş Yükü (Kapasite Dağılımı)</span>
-                        <span className="font-black text-foreground text-sm">{results.beamLoad.toLocaleString()} kgf</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-background p-3 rounded-xl border border-border">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Gövde Buruşma Kontrolü</span>
-                        <span className={`font-black text-xs px-2 py-1 rounded-md ${results.bucklingStatus.includes("UYGUN") ? 'bg-emerald-500/10 text-emerald-600' : (results.bucklingStatus === "STANDART PROFİL" ? 'bg-blue-500/10 text-blue-600' : 'bg-rose-500/10 text-rose-500')}`}>{results.bucklingStatus}</span>
-                    </div>
+      {/* --- GİZLİ PDF ŞABLONU --- */}
+      <div style={{ display: 'none' }}>
+        <div ref={teklifCiktisiRef} className="bg-white text-black p-10 font-sans" style={{ width: '210mm', minHeight: '297mm' }}>
+            
+            <div className="border-b-2 border-orange-600 pb-4 mb-8 flex justify-between items-end">
+                <div>
+                  <h1 className="text-3xl font-black text-blue-900 tracking-tighter">BUVİSAN</h1>
+                  <p className="text-sm font-semibold tracking-widest text-gray-600">VİNÇ SİSTEMLERİ</p>
+                  <p className="text-sm mt-4 font-bold">TEKLİF VE SÖZLEŞME FORMU</p>
                 </div>
-
-                <div className="bg-muted/40 p-6 rounded-3xl border border-border space-y-4 flex flex-col justify-between relative overflow-hidden">
-                    <Euro className="absolute -right-4 -bottom-4 h-32 w-32 text-indigo-500/5" />
-                    
-                    <div>
-                        <h4 className="font-black text-[10px] uppercase tracking-widest text-muted-foreground mb-4">Otomatik Maliyetlendirme</h4>
-                        <div className="flex justify-between items-center border-b border-border/50 pb-3">
-                            <span className="text-xs font-bold">Hesaplanan İşçilik:</span>
-                            <span className="text-sm font-black text-rose-500">{formatCurrency(results.laborCostEUR, "EUR")}</span>
-                        </div>
-                    </div>
-                    
-                    <div className="pt-4 mt-auto">
-                        <div className="bg-indigo-600 p-4 rounded-2xl text-white shadow-lg shadow-indigo-600/20 flex flex-col relative z-10">
-                            <span className="text-[10px] font-black uppercase opacity-80 tracking-widest mb-1">Hesaplanan Tahmini Teklif Tutarı</span>
-                            <span className="text-3xl font-black">{formatCurrency(results.totalPriceEUR, "EUR")}</span>
-                        </div>
-                    </div>
+                <div className="text-right text-sm text-gray-600">
+                  <p>Tarih: <strong>{new Date().toLocaleDateString('tr-TR')}</strong></p>
+                  <p>Teklif No: <strong>2604-{Math.floor(Math.random() * 1000)}</strong></p>
                 </div>
-             </div>
-          </div>
+            </div>
 
+            <div className="bg-gray-50 border border-gray-200 p-4 rounded mb-8 text-sm">
+                <table className="w-full">
+                  <tbody>
+                    <tr><td className="w-32 font-bold text-gray-700 py-1">Firma Adı</td><td>: {formData.firmaAdi || 'Müşteri Kaydı Girilmedi'}</td></tr>
+                    <tr><td className="font-bold text-gray-700 py-1">Kapasite</td><td>: {formData.kapasiteKg / 1000} Ton</td></tr>
+                    <tr><td className="font-bold text-gray-700 py-1">Açıklık (S)</td><td>: {formData.aciklikS} mm</td></tr>
+                  </tbody>
+                </table>
+            </div>
+
+            <h2 className="text-lg font-bold text-blue-900 border-b-2 border-blue-100 mb-4 pb-1">
+              {formData.kapasiteKg / 1000} TON {formData.kopruTipi.toUpperCase()} SİSTEMİ İÇERİĞİ
+            </h2>
+
+            <table className="w-full border-collapse border border-gray-300 mb-8 text-sm">
+                <thead>
+                    <tr className="bg-blue-900 text-white">
+                        <th className="border border-gray-300 p-2 text-left">Özellik</th>
+                        <th className="border border-gray-300 p-2 text-left">Detay</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td className="border p-2 font-semibold">Kaldırma Makinası</td><td className="border p-2">{formData.kapasiteKg / 1000} Ton {formData.kopruTipi.includes('Çift') ? 'Çift Kiriş' : 'Monoray'} Kaldırma Makinası</td></tr>
+                    <tr className="bg-gray-50"><td className="border p-2 font-semibold">Vinç Köprü</td><td className="border p-2">{formData.kopruTipi}</td></tr>
+                    <tr><td className="border p-2 font-semibold">Boya (Standart)</td><td className="border p-2">RAL 1028 (Sarı) / RAL 7016 (Antrasit)</td></tr>
+                    <tr className="bg-gray-50"><td className="border p-2 font-semibold">Frekans İnvertörü</td><td className="border p-2">Tüm yönlerde standart</td></tr>
+                </tbody>
+            </table>
+
+            {hesaplamaSonucu && (
+              <div className="mt-12 break-inside-avoid">
+                  <h3 className="font-bold text-lg mb-2 text-orange-600">FİYATLANDIRMA</h3>
+                  <table className="w-full border-collapse border border-gray-300 text-sm">
+                      <thead>
+                          <tr className="bg-orange-600 text-white">
+                              <th className="border border-orange-700 p-2 text-left">Açıklama</th>
+                              <th className="border border-orange-700 p-2 text-right">Tutar (TL)</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          <tr>
+                              <td className="border p-2">{formData.kapasiteKg / 1000} Ton {formData.kopruTipi.includes('Çift') ? 'Çift Kiriş' : 'Tek Kiriş'} Makina</td>
+                              <td className="border p-2 text-right">{hesaplamaSonucu.makinaFiyati}</td>
+                          </tr>
+                          <tr className="bg-gray-50">
+                              <td className="border p-2">{formData.kapasiteKg / 1000} Ton Vinç Köprüsü</td>
+                              <td className="border p-2 text-right">{hesaplamaSonucu.celikKopruMaliyeti}</td>
+                          </tr>
+                          <tr className="font-bold bg-gray-100 text-base">
+                              <td className="border p-3 text-right text-gray-700">TOPLAM TUTAR</td>
+                              <td className="border p-3 text-right text-green-700">{hesaplamaSonucu.tahminiToplamSatis} ₺ + KDV</td>
+                          </tr>
+                      </tbody>
+                  </table>
+              </div>
+            )}
+            
+            <div className="absolute bottom-10 w-[190mm] text-center text-xs text-gray-400 border-t pt-4">
+              Buvisan Vinç Sistemleri | Organize Sanayi Bölgesi, Bursa | portal.buvisan.com
+            </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
