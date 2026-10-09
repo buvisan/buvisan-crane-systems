@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
+import { lineTotal, formatMoney, totalsByCurrency } from "@/utils/orderPricing"
 import React, { useState, useEffect } from "react"
 import { createClient } from "@/utils/supabase/client"
 import { Input } from "@/components/ui/input"
@@ -676,53 +677,78 @@ export default function ProjectPanelPage() {
                                                                       </tr>
 
                                                                       {/* 🚀 SİPARİŞİ GEÇİLEN MALZEMELER LİSTESİ */}
-                                                                      {(() => {
-                                                                          const thisProjectOrders = machineOrders.filter(order => order.project_code === item.project_code);
-                                                                          if (thisProjectOrders.length === 0) return null;
-                                                                          
-                                                                          return (
-                                                                              <tr className="bg-muted/10">
-                                                                                  <td colSpan={4} className="p-0 border-b border-border/50">
-                                                                                      <div className="mx-4 my-3 p-4 bg-card rounded-xl border border-indigo-100/50 shadow-inner">
-                                                                                          <h3 className="text-[10px] md:text-xs font-black text-indigo-600 mb-3 flex items-center gap-2 uppercase tracking-widest"><ShoppingCart className="h-4 w-4" /> Siparişi Geçilen Malzemeler</h3>
-                                                                                          <div className="border border-border/50 rounded-lg overflow-hidden bg-background">
-                                                                                              <table className="w-full text-left text-[10px] md:text-xs">
-                                                                                                  <thead className="bg-muted/30 border-b border-border/50">
-                                                                                                      <tr>
-                                                                                                          <th className="py-2 px-3 font-bold text-muted-foreground w-10">No</th>
-                                                                                                          <th className="py-2 px-3 font-bold text-muted-foreground">Malzeme Adı</th>
-                                                                                                          <th className="py-2 px-3 font-bold text-muted-foreground text-center">Miktar</th>
-                                                                                                          <th className="py-2 px-3 font-bold text-muted-foreground text-center">Durum</th>
-                                                                                                      </tr>
-                                                                                                  </thead>
-                                                                                                  <tbody className="divide-y divide-border/30">
-                                                                                                      {thisProjectOrders.map((order, idx) => (
-                                                                                                          <tr key={order.id} className="hover:bg-muted/50 transition-colors">
-                                                                                                              <td className="py-1.5 px-3 font-bold text-slate-400">{idx + 1}</td>
-                                                                                                              <td className="py-1.5 px-3 font-black text-foreground">{order.material_name}</td>
-                                                                                                              <td className="py-1.5 px-3 font-black text-indigo-600 text-center">{order.quantity} {order.unit}</td>
-                                                                                                              <td className="py-1.5 px-3 text-center">
-                                                                                                                  <span className={`px-2 py-0.5 rounded text-[8px] md:text-[9px] font-bold uppercase ${
-                                                                                                                      order.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700' 
-                                                                                                                      : order.status === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
-                                                                                                                      : order.status === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700'
-                                                                                                                      : order.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700'
-                                                                                                                      : order.status === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse'
-                                                                                                                      : 'bg-muted text-muted-foreground'
-                                                                                                                  }`}>
-                                                                                                                      {order.status?.replace('_', ' ')}
-                                                                                                                  </span>
-                                                                                                              </td>
-                                                                                                          </tr>
-                                                                                                      ))}
-                                                                                                  </tbody>
-                                                                                              </table>
-                                                                                          </div>
-                                                                                      </div>
-                                                                                  </td>
-                                                                              </tr>
-                                                                          );
-                                                                      })()}
+                                                                            {(() => {
+                                                                                const thisProjectOrders = machineOrders.filter(order => order.project_code === item.project_code);
+                                                                                if (thisProjectOrders.length === 0) return null;
+
+                                                                                const { totals, unpriced } = totalsByCurrency(thisProjectOrders);
+                                                                                const totalEntries = Object.entries(totals);
+
+                                                                                return (
+                                                                                    <tr className="bg-muted/10">
+                                                                                        <td colSpan={4} className="p-0 border-b border-border/50">
+                                                                                            <div className="mx-4 my-3 p-4 bg-card rounded-xl border border-indigo-100/50 shadow-inner">
+                                                                                                <h3 className="text-[10px] md:text-xs font-black text-indigo-600 mb-3 flex items-center gap-2 uppercase tracking-widest"><ShoppingCart className="h-4 w-4" /> Siparişi Geçilen Malzemeler</h3>
+                                                                                                <div className="border border-border/50 rounded-lg overflow-hidden bg-background">
+                                                                                                    <table className="w-full text-left text-[10px] md:text-xs">
+                                                                                                        <thead className="bg-muted/30 border-b border-border/50">
+                                                                                                            <tr>
+                                                                                                                <th className="py-2 px-3 font-bold text-muted-foreground w-10">No</th>
+                                                                                                                <th className="py-2 px-3 font-bold text-muted-foreground">Malzeme Adı</th>
+                                                                                                                <th className="py-2 px-3 font-bold text-muted-foreground text-center">Miktar</th>
+                                                                                                                <th className="py-2 px-3 font-bold text-muted-foreground text-center">Birim Fiyat</th>
+                                                                                                                <th className="py-2 px-3 font-bold text-muted-foreground text-center">Toplam Fiyat</th>
+                                                                                                                <th className="py-2 px-3 font-bold text-muted-foreground text-center">Durum</th>
+                                                                                                            </tr>
+                                                                                                        </thead>
+                                                                                                        <tbody className="divide-y divide-border/30">
+                                                                                                            {thisProjectOrders.map((order, idx) => {
+                                                                                                                const hasPrice = Number(order.price) > 0;
+                                                                                                                return (
+                                                                                                                    <tr key={order.id} className="hover:bg-muted/50 transition-colors">
+                                                                                                                        <td className="py-1.5 px-3 font-bold text-slate-400">{idx + 1}</td>
+                                                                                                                        <td className="py-1.5 px-3 font-black text-foreground">{order.material_name}</td>
+                                                                                                                        <td className="py-1.5 px-3 font-black text-indigo-600 text-center">{order.quantity} {order.unit}</td>
+                                                                                                                        <td className="py-1.5 px-3 font-black text-emerald-600 text-center">{hasPrice ? formatMoney(Number(order.price), order.currency) : '-'}</td>
+                                                                                                                        <td className="py-1.5 px-3 font-black text-emerald-600 text-center">{hasPrice ? formatMoney(lineTotal(order), order.currency) : '-'}</td>
+                                                                                                                        <td className="py-1.5 px-3 text-center">
+                                                                                                                            <span className={`px-2 py-0.5 rounded text-[8px] md:text-[9px] font-bold uppercase ${
+                                                                                                                                order.status === 'BEKLIYOR' ? 'bg-amber-100 text-amber-700'
+                                                                                                                                : order.status === 'TERMIN_GIRILDI' ? 'bg-blue-100 text-blue-700'
+                                                                                                                                : order.status === 'SIPARIS_VERILDI' ? 'bg-indigo-100 text-indigo-700'
+                                                                                                                                : order.status === 'GELDI' ? 'bg-emerald-100 text-emerald-700'
+                                                                                                                                : order.status === 'GELMEDI_ALARM' ? 'bg-rose-500 text-white animate-pulse'
+                                                                                                                                : 'bg-muted text-muted-foreground'
+                                                                                                                            }`}>
+                                                                                                                                {order.status?.replace('_', ' ')}
+                                                                                                                            </span>
+                                                                                                                        </td>
+                                                                                                                    </tr>
+                                                                                                                );
+                                                                                                            })}
+                                                                                                        </tbody>
+                                                                                                        <tfoot>
+                                                                                                            <tr className="bg-indigo-50/60 border-t-2 border-indigo-100">
+                                                                                                                <td colSpan={4} className="py-2.5 px-3 text-right font-black text-indigo-700 uppercase tracking-widest">
+                                                                                                                    Genel Toplam ({thisProjectOrders.length} Kalem)
+                                                                                                                </td>
+                                                                                                                <td className="py-2.5 px-3 text-center font-black text-emerald-700 text-xs md:text-sm">
+                                                                                                                    {totalEntries.length === 0
+                                                                                                                        ? '-'
+                                                                                                                        : totalEntries.map(([cur, amt]) => <div key={cur}>{formatMoney(amt, cur)}</div>)}
+                                                                                                                </td>
+                                                                                                                <td className="py-2.5 px-3 text-center text-[9px] font-bold text-amber-600">
+                                                                                                                    {unpriced > 0 ? `${unpriced} kalemde fiyat yok` : ''}
+                                                                                                                </td>
+                                                                                                            </tr>
+                                                                                                        </tfoot>
+                                                                                                    </table>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })()}
                                                                   </React.Fragment>
                                                               ))}
                                                           </tbody>
