@@ -28,8 +28,7 @@ export default function YeniTeklifSayfasi() {
   }, []);
 
   const [formData, setFormData] = useState({
-    firmaAdi: 'ZM METAL MAKİNA İMALAT', yetkili: '', telefon: '',
-    paraBirimi: 'TRY',
+    firmaAdi: 'ZM METAL MAKİNA İMALAT', yetkili: '', telefon: '', paraBirimi: 'TRY',
     
     // --- Genel Özellikler ---
     kapasiteKg: 10000, aciklikS: 15000, yukseklikH: 6000, 
@@ -41,8 +40,7 @@ export default function YeniTeklifSayfasi() {
     kutuYanYukseklik: 800, kutuYanKalinlik: 6,
     kareGenislikb: 40, kareYukseklikh: 30, 
     dikPayandaAraligi: 1000, payandaKalinligi: 5, 
-    kosebent: '30x30x3 mm',
-    calismaProfiliKopru: 'IPE400',
+    kosebent: '30x30x3 mm', calismaProfiliKopru: 'IPE400',
     
     // --- Yürüme Yolu ---
     yurumeYoluTipi: 'Çelik Yürüme Yolu', yurumeYoluProfili: 'IPE300', 
@@ -82,9 +80,7 @@ export default function YeniTeklifSayfasi() {
       const celikYogunlukKutu = 8.00; 
       const celikYogunlukRay = 7.85; 
       
-      // 1. KÖPRÜ AĞIRLIĞI
       let kopruAgirlikKg = 0;
-      
       if (formData.kopruTipi === 'Çift Kiriş Kutu Tipi') {
         const altUstAgirlik = (formData.kutuAltUstGenislik * formData.kutuAltUstKalinlik * formData.aciklikS * celikYogunlukKutu * 4) / 1000000;
         const yanAgirlik = (formData.kutuYanYukseklik * formData.kutuYanKalinlik * formData.aciklikS * celikYogunlukKutu * 4) / 1000000;
@@ -95,19 +91,16 @@ export default function YeniTeklifSayfasi() {
         const kosebentSira = formData.kutuYanYukseklik >= 1000 ? 12 : 8;
         const kosebentAgirlik = (kosebentKatsayisi * kosebentSira * formData.aciklikS) / 1000;
         const ekSacAgirlik = (formData.aciklikS * 30) / 1000; 
-
         kopruAgirlikKg = altUstAgirlik + yanAgirlik + rayAgirlik + diyaframAgirlik + kosebentAgirlik + ekSacAgirlik;
       } else if (formData.kopruTipi === 'Çift Kiriş Hadde Profil') {
         const rayKareAgirlik = (formData.kareGenislikb * formData.kareYukseklikh * 8 * formData.aciklikS) / 1000000;
         kopruAgirlikKg = ((66.3 * formData.aciklikS / 1000) + rayKareAgirlik) * 2;
       }
 
-      // 2. YÜRÜME YOLU
       const rayAltiSacAgirlik = (formData.rayAltiGenislik * formData.rayAltiYukseklik * celikYogunlukRay) / 1000;
       const yurumeYoluAgirlikKg = (50.5 + rayAltiSacAgirlik) * (formData.holBoyuL / 1000) * (formData.kopruTipi.includes('Çift') ? 2 : 1);
       const toplamCelikAgirlik = kopruAgirlikKg + yurumeYoluAgirlikKg;
 
-      // 3. MEKANİK MOTOR
       const mekanikEmniyetliAgirlik = kopruAgirlikKg * 1.1; 
       const yaklasmaMesafesi = 1000; 
       const maxTekerYuku = (mekanikEmniyetliAgirlik + ((formData.kapasiteKg + formData.makineAgirligi) * ((formData.aciklikS - yaklasmaMesafesi) / formData.aciklikS))) / formData.baslikTekerSayisi * 2;
@@ -118,7 +111,6 @@ export default function YeniTeklifSayfasi() {
       const ivmelenmeGucu = (maxTekerYuku * (formData.baslikTekerSayisi / 2)) * Math.pow((formData.yurutmeHizi / 60), 2) / (formData.ivmelenmeSuresi * 0.9 * 1000) * 1.2;
       const yurutmeMotorGucu = (ivmelenmeGucu + ((yurutmeDirenci * formData.yurutmeHizi) / (60 * 0.9))) / 1.4;
 
-      // 4. MALİYET 
       const celikIscilikMaliyetiTL = toplamCelikAgirlik * 75; 
       const makinaFiyatiTL = formData.kopruTipi.includes('Çift') ? 277900 : 250110; 
 
@@ -128,10 +120,9 @@ export default function YeniTeklifSayfasi() {
       if (formData.cRayYurumeYolu === 'YAPILACAK') ekstraMaliyetlerTL += 45000;
       if (formData.uzaktanKumanda === 'YAPILACAK') ekstraMaliyetlerTL += 15000;
       if (formData.boyaKumlama === 'YAPILACAK') ekstraMaliyetlerTL += 37500;
-      
       let montajMaliyetiTL = formData.montajYapilacak === 'YAPILACAK' ? (formData.montajSuresiGun * formData.montajElemaniSayisi * 6000) : 0;
+      
       const tahminiToplamSatisTL = celikIscilikMaliyetiTL + makinaFiyatiTL + ekstraMaliyetlerTL + montajMaliyetiTL;
-
       const kurCarpani = dovizKurlari[formData.paraBirimi] || 1; 
       const semboller: any = { TRY: '₺', USD: '$', EUR: '€', GBP: '£' };
 
@@ -160,25 +151,16 @@ export default function YeniTeklifSayfasi() {
     try {
       const { error } = await supabase.from('sc_offers').insert([
         {
-          offer_no: yeniTeklifNo, 
-          customer_name: formData.firmaAdi || 'İsimsiz Müşteri',
-          capacity_ton: formData.kapasiteKg / 1000, 
-          span_m: formData.aciklikS,
-          status: 'TASLAK', 
-          total_price_eur: parseFloat(hesaplamaSonucu.tahminiToplamSatis),
-          currency: formData.paraBirimi, 
-          // NOT: Supabase'de 'form_data' adında bir JSON sütunu yoksa, aşağıdaki satır hata verebilir. 
-          // Hata verirse o sütunu açman gerekecek (Aşağıdaki nota bak).
-          form_data: { inputs: formData, results: hesaplamaSonucu }
+          offer_no: yeniTeklifNo, customer_name: formData.firmaAdi || 'İsimsiz Müşteri',
+          capacity_ton: formData.kapasiteKg / 1000, span_m: formData.aciklikS,
+          status: 'TASLAK', total_price_eur: parseFloat(hesaplamaSonucu.tahminiToplamSatis),
+          currency: formData.paraBirimi, form_data: { inputs: formData, results: hesaplamaSonucu }
         }
       ]);
-      
       if (error) {
-         // SUPABASE'İN HATASINI EKRANA YAZDIRIYORUZ!
          alert("SUPABASE HATASI: " + error.message);
          throw error;
       }
-      
       router.push('/dashboard/offers');
     } catch (error) {
       console.error("Kaydetme hatası:", error);
@@ -186,40 +168,65 @@ export default function YeniTeklifSayfasi() {
     }
   };
 
-const generatePDF = async () => {
-    const element = teklifCiktisiRef.current;
-    if (!element) return;
+  // 🚀 İŞTE YENİ, ÇÖKMEYEN, KUSURSUZ VEKTÖREL PDF MOTORUMUZ! (Hiçbir kütüphane gerektirmez)
+  const generatePDF = () => {
+    if (!teklifCiktisiRef.current) return;
 
-    try {
-      // 1. Şablonu PDF motorunun görebileceği hale getir (ama ekrandan uzak tut)
-      element.style.display = 'block';
-      element.style.position = 'absolute';
-      element.style.top = '-9999px';
+    // Gizli bir iframe (Tarayıcı penceresi) açıyoruz
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
 
-      // 2. Next.js ortamında kütüphaneyi en güvenli şekilde dinamik çağır
-      const module = await import('html2pdf.js');
-      const html2pdf = module.default || module;
+    const iframeDoc = iframe.contentWindow?.document;
+    if (!iframeDoc) return;
 
-      const opt = {
-        margin: 10, 
-        filename: `Teklif-${formData.firmaAdi || 'ERP'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false }, 
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
+    // İframe'in içine saf HTML ve CSS şablonumuzu basıyoruz (Tailwind sıfır!)
+    iframeDoc.open();
+    iframeDoc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Teklif-${formData.firmaAdi || 'ERP'}</title>
+          <style>
+            @page { size: A4 portrait; margin: 15mm; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #000; margin: 0; padding: 0; }
+            .header { border-bottom: 3px solid #f97316; padding-bottom: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .title-box h1 { font-size: 36px; color: #1e3a8a; margin: 0 0 5px 0; font-weight: 900; letter-spacing: -1px; }
+            .title-box p { font-size: 14px; color: #64748b; margin: 0; font-weight: bold; letter-spacing: 2px; }
+            .info-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 6px; margin-bottom: 30px; font-size: 14px; }
+            .info-box p { margin: 0 0 10px 0; }
+            .info-box p strong { display: inline-block; width: 120px; color: #334155; }
+            h2 { font-size: 20px; color: #1e3a8a; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px; }
+            h3 { font-size: 20px; color: #ea580c; margin-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px; }
+            td, th { border: 1px solid #cbd5e1; padding: 12px; }
+            .bg-gray { background-color: #f1f5f9; font-weight: bold; width: 35%; color: #334155; }
+            .th-orange { background-color: #f97316; color: white; text-align: left; border-color: #ea580c; }
+            .text-right { text-align: right; }
+            .text-green { color: #047857; font-weight: bold; font-size: 16px; }
+            .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+          </style>
+        </head>
+        <body>
+          ${teklifCiktisiRef.current.innerHTML}
+          <div class="footer">
+            Buvisan Vinç Sistemleri | Organize Sanayi Bölgesi, Bursa, Türkiye | portal.buvisan.com
+          </div>
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
 
-      // 3. PDF'i oluştur ve indir
-      await (html2pdf as any)().from(element).set(opt).save();
-
-    } catch (err: any) {
-      console.error("PDF Motoru Hatası:", err);
-      alert("PDF oluşturulurken bir hata meydana geldi: " + (err.message || "Bilinmeyen hata"));
-    } finally {
-      // 4. İŞTE KİLİTLENMEYİ ÖNLEYEN KISIM: 
-      // İşlem başarılı olsa da, hata verse de ekranı eski temiz haline döndür!
-      element.style.display = 'none';
-      element.style.position = 'static';
-    }
+    // İframe yüklendiğinde yazdırma ekranını (PDF Olarak Kaydet) tetikliyoruz
+    iframe.onload = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      // Yazdırma diyaloğu açıldıktan 2 saniye sonra arkadaki çöpü temizle
+      setTimeout(() => document.body.removeChild(iframe), 2000);
+    };
   };
 
   const InputRow = ({ label, name, type = 'number' }: { label: string, name: keyof typeof formData, type?: string }) => (
@@ -455,47 +462,34 @@ const generatePDF = async () => {
         </div>
       </div>
 
-{/* GİZLİ PDF ŞABLONU (SIFIR TAILWIND CLASS - %100 INLINE CSS) */}
-      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-        <div ref={teklifCiktisiRef} style={{ width: '210mm', minHeight: '297mm', backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, sans-serif', padding: '40px', boxSizing: 'border-box' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '3px solid #f97316', paddingBottom: '15px', marginBottom: '30px' }}>
-                <div>
-                  <h1 style={{ fontSize: '36px', fontWeight: '900', color: '#1e3a8a', margin: '0 0 5px 0' }}>BUVİSAN</h1>
-                  <p style={{ fontSize: '14px', fontWeight: 'bold', color: '#64748b', letterSpacing: '2px', margin: 0 }}>VİNÇ SİSTEMLERİ</p>
+      {/* GİZLİ PDF ŞABLONU (Artık sadece veriyi tutuyor, CSS yukarıdaki fonksiyonda işleniyor) */}
+      <div style={{ display: 'none' }}>
+        <div ref={teklifCiktisiRef}>
+            <div className="header">
+                <div className="title-box">
+                  <h1>BUVİSAN</h1>
+                  <p>VİNÇ SİSTEMLERİ</p>
                 </div>
-                <div style={{ textAlign: 'right', fontSize: '14px' }}>
-                  <p style={{ margin: 0 }}><strong>Tarih:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
+                <div className="text-right">
+                  <p><strong>Tarih:</strong> {new Date().toLocaleDateString('tr-TR')}</p>
                 </div>
             </div>
             
-            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', padding: '20px', borderRadius: '6px', marginBottom: '30px', fontSize: '14px' }}>
-                <p style={{ margin: '0 0 10px 0' }}><strong style={{ display: 'inline-block', width: '120px' }}>Firma:</strong> {formData.firmaAdi || 'Müşteri Kaydı Yok'}</p>
-                <p style={{ margin: '0 0 10px 0' }}><strong style={{ display: 'inline-block', width: '120px' }}>Kapasite:</strong> {formData.kapasiteKg} kg</p>
-                <p style={{ margin: 0 }}><strong style={{ display: 'inline-block', width: '120px' }}>Köprü Tipi:</strong> {formData.kopruTipi}</p>
+            <div className="info-box">
+                <p><strong>Firma:</strong> {formData.firmaAdi || 'Müşteri Kaydı Yok'}</p>
+                <p><strong>Kapasite:</strong> {formData.kapasiteKg} kg</p>
+                <p style={{ margin: 0 }}><strong>Köprü Tipi:</strong> {formData.kopruTipi}</p>
             </div>
 
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e3a8a', borderBottom: '2px solid #f1f5f9', paddingBottom: '10px', marginBottom: '15px', marginTop: 0 }}>VİNÇ TEKNİK ÖZELLİKLERİ</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px', fontSize: '14px' }}>
+            <h2>VİNÇ TEKNİK ÖZELLİKLERİ</h2>
+            <table>
                 <tbody>
-                    <tr>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '10px', fontWeight: 'bold', backgroundColor: '#f1f5f9', width: '35%' }}>Açıklık (S)</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '10px' }}>{formData.aciklikS} mm</td>
-                    </tr>
-                    <tr>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '10px', fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>Kaldırma Yüksekliği (H)</td>
-                        <td style={{ border: '1px solid #cbd5e1', padding: '10px' }}>{formData.yukseklikH} mm</td>
-                    </tr>
+                    <tr><td className="bg-gray">Açıklık (S)</td><td>{formData.aciklikS} mm</td></tr>
+                    <tr><td className="bg-gray">Kaldırma Yüksekliği (H)</td><td>{formData.yukseklikH} mm</td></tr>
                     {hesaplamaSonucu && (
                       <>
-                        <tr>
-                            <td style={{ border: '1px solid #cbd5e1', padding: '10px', fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>Kaldırma Motor Gücü</td>
-                            <td style={{ border: '1px solid #cbd5e1', padding: '10px' }}>{hesaplamaSonucu.gerekliMotorGucu} kW</td>
-                        </tr>
-                        <tr>
-                            <td style={{ border: '1px solid #cbd5e1', padding: '10px', fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>Max Tekerlek Yükü</td>
-                            <td style={{ border: '1px solid #cbd5e1', padding: '10px' }}>{hesaplamaSonucu.maxTekerYuku} kg</td>
-                        </tr>
+                        <tr><td className="bg-gray">Kaldırma Motor Gücü</td><td>{hesaplamaSonucu.gerekliMotorGucu} kW</td></tr>
+                        <tr><td className="bg-gray">Max Tekerlek Yükü</td><td>{hesaplamaSonucu.maxTekerYuku} kg</td></tr>
                       </>
                     )}
                 </tbody>
@@ -503,18 +497,18 @@ const generatePDF = async () => {
 
             {hesaplamaSonucu && (
               <div>
-                  <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: '#ea580c', marginBottom: '15px', marginTop: 0 }}>FİYATLANDIRMA ({hesaplamaSonucu.paraBirimiSembolu})</h3>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '16px' }}>
+                  <h3>FİYATLANDIRMA ({hesaplamaSonucu.paraBirimiSembolu})</h3>
+                  <table>
                       <thead>
                           <tr>
-                              <th style={{ backgroundColor: '#f97316', color: '#ffffff', border: '1px solid #ea580c', padding: '12px', textAlign: 'left' }}>Açıklama</th>
-                              <th style={{ backgroundColor: '#f97316', color: '#ffffff', border: '1px solid #ea580c', padding: '12px', textAlign: 'right' }}>Tutar ({hesaplamaSonucu.paraBirimiSembolu})</th>
+                              <th className="th-orange">Açıklama</th>
+                              <th className="th-orange text-right">Tutar ({hesaplamaSonucu.paraBirimiSembolu})</th>
                           </tr>
                       </thead>
                       <tbody>
                           <tr>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '12px' }}>Vinç Sistemi Komple İmalat ve Montaj Maliyeti</td>
-                              <td style={{ border: '1px solid #cbd5e1', padding: '12px', textAlign: 'right', fontWeight: 'bold', color: '#047857' }}>{hesaplamaSonucu.tahminiToplamSatis} {hesaplamaSonucu.paraBirimiSembolu}</td>
+                              <td>Vinç Sistemi Komple İmalat ve Montaj Maliyeti</td>
+                              <td className="text-right text-green">{hesaplamaSonucu.tahminiToplamSatis} {hesaplamaSonucu.paraBirimiSembolu}</td>
                           </tr>
                       </tbody>
                   </table>
