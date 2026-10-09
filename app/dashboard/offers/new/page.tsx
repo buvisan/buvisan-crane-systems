@@ -188,30 +188,24 @@ export default function YeniTeklifSayfasi() {
 
   const generatePDF = async () => {
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
+      // Next.js dinamik import uyumluluğu için düzeltilmiş yapı
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = html2pdfModule.default || html2pdfModule;
+      
       if (teklifCiktisiRef.current) {
         const element = teklifCiktisiRef.current;
         
-        // DÜZELTME BURASI: Öğeyi görünür yap ama ekranın dışına at, böylece PDF kütüphanesi rahatça okur
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        element.style.top = '-9999px';
-        element.style.display = 'block';
-        
-        await html2pdf().from(element).set({
+        await (html2pdf as any)().from(element).set({
           margin: 10, 
           filename: `Teklif-${formData.firmaAdi || 'ERP'}.pdf`,
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true }, 
+          html2canvas: { scale: 2, useCORS: true, logging: false }, 
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         }).save();
-        
-        element.style.display = 'none';
-        element.style.position = 'static';
       }
     } catch (err) {
-      console.error("PDF oluşturulamadı: Lütfen 'npm install html2pdf.js' kurduğunuzdan emin olun", err);
-      alert("PDF motoru başlatılamadı. Konsolu kontrol edin.");
+      console.error("PDF Hatası:", err);
+      alert("PDF kütüphanesi yüklenemedi. Terminalde 'npm install html2pdf.js' çalıştırdığınızdan emin olun.");
     }
   };
 
@@ -450,8 +444,10 @@ export default function YeniTeklifSayfasi() {
 
       {/* GİZLİ PDF ŞABLONU */}
       <div style={{ display: 'none' }}>
+{/* GİZLİ PDF ŞABLONU (Ekranda görünmez ama PDF motoru okuyabilir) */}
+      <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
         <div ref={teklifCiktisiRef} className="bg-white text-black p-12 font-sans" style={{ width: '210mm', minHeight: '297mm' }}>
-            <div className="border-b-[3px] border-orange-500 pb-4 mb-8 flex justify-between items-end">
+           {/* ... PDF İÇERİĞİ AYNEN KALACAK ... */}
                 <div>
                   <h1 className="text-4xl font-black text-[#1e3a8a] tracking-tighter">BUVİSAN</h1>
                   <p className="text-sm font-bold tracking-widest text-slate-500">VİNÇ SİSTEMLERİ</p>
